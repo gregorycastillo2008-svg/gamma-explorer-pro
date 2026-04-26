@@ -876,185 +876,201 @@ export function VolatilityView({ ticker, contracts, exposures }: Ctx) {
         </div>
       </div>
 
-      {/* ───── IV 3D SURFACE (central piece) ───── */}
-      <Panel title="IV Surface" subtitle="Strike × DTE × Implied Volatility · drag to rotate">
-        <IvSurface3D cells={data.cells} spot={ticker.spot} />
-      </Panel>
-
-      {/* ───── PUT/CALL SKEW Fear/Greed + Realized Vol ───── */}
-      <div className="grid lg:grid-cols-2 gap-3">
-        <Panel
-          title="Put/Call Skew"
-          subtitle="Risk Reversal · 1d → 9d · Greed (−10) → Fear (+10)"
-          right={
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: skewColor, boxShadow: `0 0 8px ${skewColor}` }} />
-              <span className="text-[10px] font-bold tracking-widest font-jetbrains" style={{ color: skewColor }}>
-                {data.skewLabel} — {data.skewMood}
-              </span>
-            </div>
-          }
-        >
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.riskReversal} margin={{ top: 16, right: 12, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-                <XAxis dataKey="dte" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
-                <YAxis domain={[-10, 10]} tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} ticks={[-10, -5, 0, 5, 10]} />
-                <RTooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,229,255,0.05)" }} formatter={(v: number) => [`${v.toFixed(2)} RR`, "Risk Reversal"]} />
-                <ReferenceLine y={0} stroke="#333" />
-                <ReferenceLine y={5} stroke={RED} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "FEAR", fill: RED, fontSize: 9, position: "right" }} />
-                <ReferenceLine y={-5} stroke={CYAN} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "GREED", fill: CYAN, fontSize: 9, position: "right" }} />
-                <Bar dataKey="rr" radius={[2, 2, 0, 0]} shape={(props: any) => {
-                  const v = props.payload.rr;
-                  const color = v > 5 ? RED : v > 1.5 ? "#ff7a3d" : v < -5 ? CYAN : v < -1.5 ? "#7dd3fc" : PURPLE;
-                  return <rect {...props} fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }} />;
-                }} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-jetbrains">
-            <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
-              <div className="text-[#666] uppercase tracking-widest">Avg RR</div>
-              <div style={{ color: skewColor }} className="text-sm font-bold">{data.avgRR >= 0 ? "+" : ""}{data.avgRR.toFixed(2)}</div>
-            </div>
-            <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
-              <div className="text-[#666] uppercase tracking-widest">Skew Bias</div>
-              <div style={{ color: data.skewBias > 0 ? RED : CYAN }} className="text-sm font-bold">{data.skewBias >= 0 ? "+" : ""}{data.skewBias.toFixed(2)}pp</div>
-            </div>
-            <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
-              <div className="text-[#666] uppercase tracking-widest">Sentiment</div>
-              <div style={{ color: data.skewMood === "FEAR" ? RED : data.skewMood === "GREED" ? CYAN : PURPLE }} className="text-sm font-bold">{data.skewMood}</div>
-            </div>
-          </div>
-        </Panel>
-
-        <Panel
-          title="Realized Volatility"
-          subtitle="HV10 / HV20 / HV30 vs IV · last 30 sessions"
-          right={
-            <span className="text-[10px] font-jetbrains tracking-widest" style={{ color: data.ivPremium > 0 ? RED : CYAN }}>
-              IV {data.ivPremium > 0 ? "PREMIUM" : "DISCOUNT"} {data.ivPremium >= 0 ? "+" : ""}{data.ivPremium.toFixed(2)}pp
-            </span>
-          }
-        >
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={data.hvSeries}
-                margin={{ top: 12, right: 16, left: 0, bottom: 4 }}
-                onMouseMove={(s: any) => { if (s?.activeTooltipIndex != null) setCrosshairIdx(s.activeTooltipIndex); }}
-                onMouseLeave={() => setCrosshairIdx(null)}
+      {/* Each visualization is its own tab — full width, no sibling panels */}
+      <TerminalTabs
+        layoutId="volatility-master-tab-bg"
+        tabs={[
+          {
+            key: "iv3d",
+            label: "IV SURFACE",
+            content: (
+              <Panel title="IV Surface" subtitle="Strike × DTE × Implied Volatility · drag to rotate">
+                <IvSurface3D cells={data.cells} spot={ticker.spot} />
+              </Panel>
+            ),
+          },
+          {
+            key: "skew",
+            label: "P/C SKEW",
+            content: (
+              <Panel
+                title="Put/Call Skew"
+                subtitle="Risk Reversal · 1d → 9d · Greed (−10) → Fear (+10)"
+                right={
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: skewColor, boxShadow: `0 0 8px ${skewColor}` }} />
+                    <span className="text-[10px] font-bold tracking-widest font-jetbrains" style={{ color: skewColor }}>
+                      {data.skewLabel} — {data.skewMood}
+                    </span>
+                  </div>
+                }
               >
-                <defs>
-                  <filter id="glowCyan" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="2" result="b" />
-                    <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-                  </filter>
-                </defs>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-                <XAxis dataKey="day" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} tickFormatter={(d) => `−${d}d`} reversed />
-                <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-                <RTooltip
-                  contentStyle={tooltipStyle}
-                  cursor={{ stroke: CYAN, strokeWidth: 1, strokeDasharray: "3 3" }}
-                  labelFormatter={(d) => `T −${d} sessions`}
-                  formatter={(v: number, name: string) => [`${v.toFixed(2)}%`, name.toUpperCase()]}
-                />
-                {crosshairIdx != null && data.hvSeries[crosshairIdx] && (
-                  <ReferenceLine x={data.hvSeries[crosshairIdx].day} stroke={CYAN} strokeDasharray="3 3" strokeOpacity={0.6} />
-                )}
-                <Line type="monotone" dataKey="hv10" stroke={CYAN} strokeWidth={2} dot={false} name="HV10" style={{ filter: `drop-shadow(0 0 2px ${CYAN})` }} />
-                <Line type="monotone" dataKey="hv20" stroke={YELLOW} strokeWidth={1.8} dot={false} name="HV20" style={{ filter: `drop-shadow(0 0 2px ${YELLOW})` }} />
-                <Line type="monotone" dataKey="hv30" stroke={PURPLE} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="HV30" />
-                <Line type="monotone" dataKey="iv" stroke={WHITE} strokeWidth={2.2} dot={false} name="IV" style={{ filter: `drop-shadow(0 0 3px ${WHITE})` }} />
-                <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-      </div>
-
-      {/* ───── IV TERM STRUCTURE & VOLATILITY CONE ───── */}
-      <div className="grid lg:grid-cols-2 gap-3">
-        <Panel
-          title="IV Term Structure"
-          subtitle={data.structure === "Contango" ? "Forward IV > spot IV · normal regime" : "Inverted · stress regime"}
-          right={
-            <span className="text-[10px] font-jetbrains tracking-widest font-bold" style={{ color: data.structure === "Contango" ? CYAN : RED }}>
-              {data.structure.toUpperCase()} {data.structureSpread >= 0 ? "+" : ""}{data.structureSpread.toFixed(2)}pp
-            </span>
-          }
-        >
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.term} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-                <XAxis dataKey="label" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
-                <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-                <RTooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(2)}%`, "ATM IV"]} cursor={{ stroke: CYAN, strokeDasharray: "3 3" }} />
-                <ReferenceLine y={data.atmIv} stroke={WHITE} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "Spot IV", fill: WHITE, fontSize: 9, position: "right" }} />
-                <Line
-                  type="monotone"
-                  dataKey="iv"
-                  stroke={data.structure === "Contango" ? CYAN : RED}
-                  strokeWidth={2.5}
-                  dot={{ fill: data.structure === "Contango" ? CYAN : RED, r: 4, strokeWidth: 0 }}
-                  activeDot={{ r: 6 }}
-                  style={{ filter: `drop-shadow(0 0 3px ${data.structure === "Contango" ? CYAN : RED})` }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-
-        <Panel
-          title="Volatility Cone"
-          subtitle="Historical percentiles per window · current vs envelope"
-        >
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.cone} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-                <XAxis dataKey="window" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
-                <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-                <RTooltip contentStyle={tooltipStyle} cursor={{ stroke: CYAN, strokeDasharray: "3 3" }} formatter={(v: number, n: string) => [`${v.toFixed(2)}%`, n.toUpperCase()]} />
-                <Line type="monotone" dataKey="p90" stroke={RED} strokeWidth={1} strokeDasharray="3 3" dot={false} name="90th" />
-                <Line type="monotone" dataKey="p75" stroke="#ff7a3d" strokeWidth={1.2} dot={false} name="75th" />
-                <Line type="monotone" dataKey="median" stroke={WHITE} strokeWidth={2} dot={{ fill: WHITE, r: 3 }} name="Median" style={{ filter: `drop-shadow(0 0 2px ${WHITE})` }} />
-                <Line type="monotone" dataKey="p25" stroke="#7dd3fc" strokeWidth={1.2} dot={false} name="25th" />
-                <Line type="monotone" dataKey="p10" stroke={CYAN} strokeWidth={1} strokeDasharray="3 3" dot={false} name="10th" />
-                <Line type="monotone" dataKey="current" stroke={YELLOW} strokeWidth={2.5} dot={{ fill: YELLOW, r: 4 }} name="Current IV" style={{ filter: `drop-shadow(0 0 4px ${YELLOW})` }} />
-                <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-      </div>
-
-      {/* ───── Volatility Smile (preserved) ───── */}
-      <Panel title="Volatility Smile" subtitle={`Calls vs Puts · ${data.nearExp}DTE`}>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data.skew} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-              <XAxis dataKey="moneyness" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-              <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-              <RTooltip contentStyle={tooltipStyle} labelFormatter={(v) => `Moneyness ${v}%`} formatter={(v: number, n: string) => [`${v.toFixed(2)}%`, n]} />
-              <ReferenceLine x={0} stroke={WHITE} strokeDasharray="3 3" label={{ value: "ATM", fill: WHITE, fontSize: 10, position: "top" }} />
-              <Line type="monotone" dataKey="putIv" stroke={RED} strokeWidth={2} dot={false} name="Puts IV" style={{ filter: `drop-shadow(0 0 2px ${RED})` }} />
-              <Line type="monotone" dataKey="callIv" stroke={CYAN} strokeWidth={2} dot={false} name="Calls IV" style={{ filter: `drop-shadow(0 0 2px ${CYAN})` }} />
-              <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </Panel>
-
-      {/* Hill 3D surface (red/yellow terrain) */}
-      <GexHillSurfaceForVolatility ticker={ticker} contracts={contracts} />
-
-      {/* GEX Heatmap */}
-      <GexHeatmapForVolatility ticker={ticker} contracts={contracts} />
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.riskReversal} margin={{ top: 16, right: 12, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="dte" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                      <YAxis domain={[-10, 10]} tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} ticks={[-10, -5, 0, 5, 10]} />
+                      <RTooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,229,255,0.05)" }} formatter={(v: number) => [`${v.toFixed(2)} RR`, "Risk Reversal"]} />
+                      <ReferenceLine y={0} stroke="#333" />
+                      <ReferenceLine y={5} stroke={RED} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "FEAR", fill: RED, fontSize: 9, position: "right" }} />
+                      <ReferenceLine y={-5} stroke={CYAN} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "GREED", fill: CYAN, fontSize: 9, position: "right" }} />
+                      <Bar dataKey="rr" radius={[2, 2, 0, 0]} shape={(props: any) => {
+                        const v = props.payload.rr;
+                        const color = v > 5 ? RED : v > 1.5 ? "#ff7a3d" : v < -5 ? CYAN : v < -1.5 ? "#7dd3fc" : PURPLE;
+                        return <rect {...props} fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }} />;
+                      }} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-jetbrains">
+                  <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
+                    <div className="text-[#666] uppercase tracking-widest">Avg RR</div>
+                    <div style={{ color: skewColor }} className="text-sm font-bold">{data.avgRR >= 0 ? "+" : ""}{data.avgRR.toFixed(2)}</div>
+                  </div>
+                  <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
+                    <div className="text-[#666] uppercase tracking-widest">Skew Bias</div>
+                    <div style={{ color: data.skewBias > 0 ? RED : CYAN }} className="text-sm font-bold">{data.skewBias >= 0 ? "+" : ""}{data.skewBias.toFixed(2)}pp</div>
+                  </div>
+                  <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
+                    <div className="text-[#666] uppercase tracking-widest">Sentiment</div>
+                    <div style={{ color: data.skewMood === "FEAR" ? RED : data.skewMood === "GREED" ? CYAN : PURPLE }} className="text-sm font-bold">{data.skewMood}</div>
+                  </div>
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "realized",
+            label: "REALIZED VOL",
+            content: (
+              <Panel
+                title="Realized Volatility"
+                subtitle="HV10 / HV20 / HV30 vs IV · last 30 sessions"
+                right={
+                  <span className="text-[10px] font-jetbrains tracking-widest" style={{ color: data.ivPremium > 0 ? RED : CYAN }}>
+                    IV {data.ivPremium > 0 ? "PREMIUM" : "DISCOUNT"} {data.ivPremium >= 0 ? "+" : ""}{data.ivPremium.toFixed(2)}pp
+                  </span>
+                }
+              >
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={data.hvSeries}
+                      margin={{ top: 12, right: 16, left: 0, bottom: 4 }}
+                      onMouseMove={(s: any) => { if (s?.activeTooltipIndex != null) setCrosshairIdx(s.activeTooltipIndex); }}
+                      onMouseLeave={() => setCrosshairIdx(null)}
+                    >
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="day" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} tickFormatter={(d) => `−${d}d`} reversed />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <RTooltip
+                        contentStyle={tooltipStyle}
+                        cursor={{ stroke: CYAN, strokeWidth: 1, strokeDasharray: "3 3" }}
+                        labelFormatter={(d) => `T −${d} sessions`}
+                        formatter={(v: number, name: string) => [`${v.toFixed(2)}%`, name.toUpperCase()]}
+                      />
+                      {crosshairIdx != null && data.hvSeries[crosshairIdx] && (
+                        <ReferenceLine x={data.hvSeries[crosshairIdx].day} stroke={CYAN} strokeDasharray="3 3" strokeOpacity={0.6} />
+                      )}
+                      <Line type="monotone" dataKey="hv10" stroke={CYAN} strokeWidth={2} dot={false} name="HV10" style={{ filter: `drop-shadow(0 0 2px ${CYAN})` }} />
+                      <Line type="monotone" dataKey="hv20" stroke={YELLOW} strokeWidth={1.8} dot={false} name="HV20" style={{ filter: `drop-shadow(0 0 2px ${YELLOW})` }} />
+                      <Line type="monotone" dataKey="hv30" stroke={PURPLE} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="HV30" />
+                      <Line type="monotone" dataKey="iv" stroke={WHITE} strokeWidth={2.2} dot={false} name="IV" style={{ filter: `drop-shadow(0 0 3px ${WHITE})` }} />
+                      <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "term",
+            label: "TERM STRUCTURE",
+            content: (
+              <Panel
+                title="IV Term Structure"
+                subtitle={data.structure === "Contango" ? "Forward IV > spot IV · normal regime" : "Inverted · stress regime"}
+                right={
+                  <span className="text-[10px] font-jetbrains tracking-widest font-bold" style={{ color: data.structure === "Contango" ? CYAN : RED }}>
+                    {data.structure.toUpperCase()} {data.structureSpread >= 0 ? "+" : ""}{data.structureSpread.toFixed(2)}pp
+                  </span>
+                }
+              >
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.term} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="label" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <RTooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(2)}%`, "ATM IV"]} cursor={{ stroke: CYAN, strokeDasharray: "3 3" }} />
+                      <ReferenceLine y={data.atmIv} stroke={WHITE} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "Spot IV", fill: WHITE, fontSize: 9, position: "right" }} />
+                      <Line
+                        type="monotone"
+                        dataKey="iv"
+                        stroke={data.structure === "Contango" ? CYAN : RED}
+                        strokeWidth={2.5}
+                        dot={{ fill: data.structure === "Contango" ? CYAN : RED, r: 4, strokeWidth: 0 }}
+                        activeDot={{ r: 6 }}
+                        style={{ filter: `drop-shadow(0 0 3px ${data.structure === "Contango" ? CYAN : RED})` }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "cone",
+            label: "VOL CONE",
+            content: (
+              <Panel title="Volatility Cone" subtitle="Historical percentiles per window · current vs envelope">
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.cone} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="window" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <RTooltip contentStyle={tooltipStyle} cursor={{ stroke: CYAN, strokeDasharray: "3 3" }} formatter={(v: number, n: string) => [`${v.toFixed(2)}%`, n.toUpperCase()]} />
+                      <Line type="monotone" dataKey="p90" stroke={RED} strokeWidth={1} strokeDasharray="3 3" dot={false} name="90th" />
+                      <Line type="monotone" dataKey="p75" stroke="#ff7a3d" strokeWidth={1.2} dot={false} name="75th" />
+                      <Line type="monotone" dataKey="median" stroke={WHITE} strokeWidth={2} dot={{ fill: WHITE, r: 3 }} name="Median" style={{ filter: `drop-shadow(0 0 2px ${WHITE})` }} />
+                      <Line type="monotone" dataKey="p25" stroke="#7dd3fc" strokeWidth={1.2} dot={false} name="25th" />
+                      <Line type="monotone" dataKey="p10" stroke={CYAN} strokeWidth={1} strokeDasharray="3 3" dot={false} name="10th" />
+                      <Line type="monotone" dataKey="current" stroke={YELLOW} strokeWidth={2.5} dot={{ fill: YELLOW, r: 4 }} name="Current IV" style={{ filter: `drop-shadow(0 0 4px ${YELLOW})` }} />
+                      <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "smile",
+            label: "VOL SMILE",
+            content: (
+              <Panel title="Volatility Smile" subtitle={`Calls vs Puts · ${data.nearExp}DTE`}>
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.skew} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="moneyness" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <RTooltip contentStyle={tooltipStyle} labelFormatter={(v) => `Moneyness ${v}%`} formatter={(v: number, n: string) => [`${v.toFixed(2)}%`, n]} />
+                      <ReferenceLine x={0} stroke={WHITE} strokeDasharray="3 3" label={{ value: "ATM", fill: WHITE, fontSize: 10, position: "top" }} />
+                      <Line type="monotone" dataKey="putIv" stroke={RED} strokeWidth={2} dot={false} name="Puts IV" style={{ filter: `drop-shadow(0 0 2px ${RED})` }} />
+                      <Line type="monotone" dataKey="callIv" stroke={CYAN} strokeWidth={2} dot={false} name="Calls IV" style={{ filter: `drop-shadow(0 0 2px ${CYAN})` }} />
+                      <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+            ),
+          },
+          { key: "hill", label: "HILL 3D", content: <GexHillSurfaceForVolatility ticker={ticker} contracts={contracts} /> },
+          { key: "gexheat", label: "GEX HEATMAP", content: <GexHeatmapForVolatility ticker={ticker} contracts={contracts} /> },
+        ]}
+      />
     </div>
   );
 }
