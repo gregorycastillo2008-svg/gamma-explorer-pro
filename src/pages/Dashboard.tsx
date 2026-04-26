@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Activity, LogOut, Plus, X, TrendingUp, TrendingDown, Zap, Target, BarChart3 } from "lucide-react";
+import { Activity, LogOut, Plus, X, TrendingUp, TrendingDown, Zap, Target, BarChart3, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   DEMO_TICKERS, getDemoTicker, generateDemoChain,
   computeExposures, computeKeyLevels, formatNumber,
@@ -20,6 +21,7 @@ type Metric = "netGex" | "dex" | "vex" | "vanna" | "charm";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const nav = useNavigate();
   const { toast } = useToast();
 
@@ -104,6 +106,9 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
+            {isAdmin && (
+              <Link to="/admin"><Button variant="outline" size="sm"><Shield className="h-4 w-4 mr-1.5" />Admin</Button></Link>
+            )}
             <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="h-4 w-4 mr-1.5" />Salir</Button>
           </div>
         </div>
