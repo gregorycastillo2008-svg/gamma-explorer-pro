@@ -198,26 +198,27 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
 
   return (
     <div
-      className="relative bg-black rounded border border-border p-3 max-h-[400px] overflow-auto"
+      className="relative bg-black rounded border border-border p-2"
       onMouseLeave={() => setHover(null)}
     >
-      <div className="font-jetbrains text-[10px] text-muted-foreground uppercase tracking-wider mb-2 grid grid-cols-[1fr_80px_1fr] gap-2">
-        <div className="text-right">Negative ★ peak in red</div>
-        <div className="text-center">Strike</div>
-        <div>Positive ★ peak in green</div>
+      <div className="font-jetbrains text-[9px] text-muted-foreground uppercase tracking-wider mb-1.5 grid grid-cols-2 gap-2">
+        <div className="text-right pr-2">Negative ★</div>
+        <div className="pl-2">Positive ★</div>
       </div>
       <div className="space-y-0 relative">
-        {/* SPOT horizontal cyan line through chart */}
+        {/* SPOT horizontal cyan line through chart (no price label, just the line) */}
         {spotIdx >= 0 && (
           <div
-            className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
-            style={{ top: `calc(${spotIdx} * 16px + 8px)` }}
+            className="pointer-events-none absolute left-0 right-0 z-20"
+            style={{ top: `calc(${spotIdx} * 12px + 6px)` }}
           >
-            <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, transparent, #00ffff 20%, #00ffff 80%, transparent)", boxShadow: "0 0 6px #00ffff" }} />
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-jetbrains font-bold text-black mx-1" style={{ background: "#00ffff" }}>
-              ▶ SPOT ${ticker.spot}
-            </span>
-            <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, transparent, #00ffff 20%, #00ffff 80%, transparent)", boxShadow: "0 0 6px #00ffff" }} />
+            <div
+              className="h-px"
+              style={{
+                background: "linear-gradient(90deg, transparent, #00ffff 10%, #00ffff 90%, transparent)",
+                boxShadow: "0 0 6px #00ffff, 0 0 12px #00ffff66",
+              }}
+            />
           </div>
         )}
         {data.map((p) => {
@@ -234,55 +235,49 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
                 const rect = (e.currentTarget.parentElement?.parentElement as HTMLElement).getBoundingClientRect();
                 setHover({ strike: p.strike, value: v, x: e.clientX - rect.left, y: e.clientY - rect.top });
               }}
-              className={`grid grid-cols-[1fr_80px_1fr] items-center gap-2 font-jetbrains text-[11px] cursor-crosshair transition-colors ${
-                isSpot ? "bg-primary/10" : ""
-              } ${isHover ? "bg-white/5" : ""}`}
-              style={{ height: 16 }}
+              className={`grid grid-cols-2 items-center gap-1 cursor-crosshair transition-colors ${
+                isHover ? "bg-white/5" : ""
+              }`}
+              style={{ height: 12, borderLeft: isSpot ? "2px solid #00ffff" : "2px solid transparent" }}
             >
-              <div className="flex justify-end items-center h-5 relative">
+              <div className="flex justify-end items-center h-full relative pr-1">
                 {isMaxNeg && (
-                  <span className="absolute -left-1 text-[#ff4d4d] text-[13px] font-bold drop-shadow-[0_0_4px_#ff4d4d]">★</span>
+                  <span className="absolute left-0 text-[#ff4d4d] text-[11px] font-bold drop-shadow-[0_0_4px_#ff4d4d] leading-none">★</span>
                 )}
                 {v < 0 && (
                   <div
-                    className="h-3 rounded-l transition-all"
+                    className="h-2 rounded-l transition-all"
                     style={{
                       width: `${w}%`,
                       background: isMaxNeg ? "linear-gradient(90deg, #ff0033, #ff6677)" : "#ff4d4d",
                       boxShadow: isMaxNeg
-                        ? "0 0 16px #ff0033, inset 0 0 6px #fff3"
+                        ? "0 0 14px #ff0033, inset 0 0 6px #fff3"
                         : isHover
-                          ? "0 0 14px rgba(255,77,77,0.7)"
-                          : "0 0 8px rgba(255,77,77,0.4)",
+                          ? "0 0 10px rgba(255,77,77,0.7)"
+                          : "0 0 5px rgba(255,77,77,0.35)",
                       outline: isMaxNeg ? "1px solid #fff" : undefined,
                     }}
                   />
                 )}
               </div>
-              <div
-                className={`text-center ${isSpot ? "text-[#00ffff] font-bold" : "text-foreground"} ${isHover ? "text-white" : ""}`}
-                style={{ borderLeft: "1px solid hsl(var(--border))", borderRight: "1px solid hsl(var(--border))" }}
-              >
-                ${p.strike}
-              </div>
-              <div className="flex items-center h-5 relative">
+              <div className="flex items-center h-full relative pl-1" style={{ borderLeft: "1px solid #1a1a1a" }}>
                 {v >= 0 && (
                   <div
-                    className="h-3 rounded-r transition-all"
+                    className="h-2 rounded-r transition-all"
                     style={{
                       width: `${w}%`,
                       background: isMaxPos ? "linear-gradient(90deg, #00ff88, #aaffcc)" : "#00ff88",
                       boxShadow: isMaxPos
-                        ? "0 0 16px #00ff88, inset 0 0 6px #fff3"
+                        ? "0 0 14px #00ff88, inset 0 0 6px #fff3"
                         : isHover
-                          ? "0 0 14px rgba(0,255,136,0.7)"
-                          : "0 0 8px rgba(0,255,136,0.4)",
+                          ? "0 0 10px rgba(0,255,136,0.7)"
+                          : "0 0 5px rgba(0,255,136,0.35)",
                       outline: isMaxPos ? "1px solid #fff" : undefined,
                     }}
                   />
                 )}
                 {isMaxPos && (
-                  <span className="ml-1 text-[#00ff88] text-[13px] font-bold drop-shadow-[0_0_4px_#00ff88]">★</span>
+                  <span className="ml-1 text-[#00ff88] text-[11px] font-bold drop-shadow-[0_0_4px_#00ff88] leading-none">★</span>
                 )}
               </div>
             </div>
@@ -290,11 +285,11 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
         })}
       </div>
 
-      {/* Footer legend with peak values */}
-      <div className="mt-3 pt-2 border-t border-[#1a1a1a] flex items-center justify-between font-jetbrains text-[10px]">
-        <span className="text-[#ff4d4d]">★ MAX −{sym} @ ${maxNegStrike ?? "—"}</span>
-        <span className="text-[#00ffff]">▶ SPOT ${ticker.spot}</span>
-        <span className="text-[#00ff88]">★ MAX +{sym} @ ${maxPosStrike ?? "—"}</span>
+      {/* Footer legend — only labels, no individual strike prices visible */}
+      <div className="mt-2 pt-1.5 border-t border-[#1a1a1a] flex items-center justify-between font-jetbrains text-[9px]">
+        <span className="text-[#ff4d4d]">★ MAX −{sym}</span>
+        <span className="text-[#00ffff]">▶ SPOT</span>
+        <span className="text-[#00ff88]">★ MAX +{sym}</span>
       </div>
 
       <AnimatePresence>
