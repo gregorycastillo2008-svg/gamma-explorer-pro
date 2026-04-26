@@ -15,6 +15,7 @@ import {
   HedgeView, VannaCharmView, VegaThetaView, VolatilityView, RegimeView,
   OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
 } from "@/components/terminal/views";
+import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -103,6 +104,7 @@ export default function Dashboard() {
       case "regime": return <RegimeView {...ctx} />;
       case "risk": return <RiskView {...ctx} />;
       case "anomaly": return <AnomalyView {...ctx} />;
+      case "ai-bias": return <AiBiasView {...ctx} />;
       default: return null;
     }
   };

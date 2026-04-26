@@ -3,7 +3,7 @@ import { Panel, StatBlock } from "./Panel";
 import { Button } from "@/components/ui/button";
 import { Brain, Loader2, Sparkles, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { DemoTicker, ExposurePoint, KeyLevels, OptionContract, formatNumber, bsGreeks } from "@/lib/gex";
+import { DemoTicker, ExposurePoint, KeyLevels, OptionContract, formatNumber } from "@/lib/gex";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
