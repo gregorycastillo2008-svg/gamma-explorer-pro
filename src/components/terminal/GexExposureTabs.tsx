@@ -142,20 +142,31 @@ function HeatmapView({ ticker, contracts, metric }: Props) {
                   const v = grid.get(e)?.get(s) ?? 0;
                   const bg = heatBg(v, max);
                   const fg = heatFg(v, max);
+                  const isPeakPos = s === peakPos.strike && e === peakPos.expiry && v > 0;
+                  const isPeakNeg = s === peakNeg.strike && e === peakNeg.expiry && v < 0;
+                  const isPeak = isPeakPos || isPeakNeg;
                   return (
                     <td
                       key={e}
-                      className="px-3 py-1.5 text-right transition-colors duration-200 cursor-default"
+                      className="px-3 py-1.5 text-right transition-colors duration-200 cursor-default relative"
                       style={{
                         background: bg,
-                        color: fg,
+                        color: isPeak ? "#ffffff" : fg,
                         borderRight: "1px solid rgba(255,255,255,0.02)",
                         borderBottom: "1px solid rgba(255,255,255,0.02)",
                         textShadow: v !== 0 && Math.abs(v) / max > 0.55 ? "none" : "0 0 6px rgba(0,0,0,0.6)",
-                        fontWeight: Math.abs(v) / max > 0.6 ? 600 : 400,
+                        fontWeight: isPeak ? 800 : Math.abs(v) / max > 0.6 ? 600 : 400,
+                        outline: isPeak ? "2px solid #ffffff" : undefined,
+                        outlineOffset: isPeak ? "-2px" : undefined,
+                        boxShadow: isPeakPos
+                          ? "inset 0 0 12px rgba(0,255,136,0.6), 0 0 8px rgba(0,255,136,0.4)"
+                          : isPeakNeg
+                            ? "inset 0 0 12px rgba(255,77,77,0.6), 0 0 8px rgba(255,77,77,0.4)"
+                            : undefined,
                       }}
-                      title={`Strike $${s} · ${e}DTE · ${formatNumber(v)}`}
+                      title={`Strike $${s} · ${e}DTE · ${formatNumber(v)}${isPeakPos ? " · ★ MAX +Γ" : isPeakNeg ? " · ★ MAX −Γ" : ""}`}
                     >
+                      {isPeak && <span className="absolute top-0.5 left-1 text-[9px]">★</span>}
                       {v === 0 ? <span className="text-[#222]">·</span> : formatNumber(v, 1)}
                     </td>
                   );
