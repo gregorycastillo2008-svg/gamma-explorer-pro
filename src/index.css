@@ -120,4 +120,18 @@ All colors MUST be HSL.
     font-feature-settings: "calt" 1, "ss01" 1, "zero" 1;
     font-variant-numeric: tabular-nums;
   }
+
+  /* Gold theme override — apply on a wrapper to recolor "primary" tokens to gold */
+  .gold-theme {
+    --primary: 45 100% 55%;
+    --primary-foreground: 0 0% 5%;
+    --primary-glow: 50 100% 70%;
+    --ring: 45 100% 55%;
+    --accent: 45 60% 12%;
+    --accent-foreground: 45 100% 70%;
+    --gradient-primary: linear-gradient(90deg, hsl(40 70% 40%), hsl(48 100% 60%), hsl(50 100% 85%), hsl(48 100% 60%), hsl(40 70% 40%));
+    --shadow-elegant: 0 10px 40px -12px hsl(45 100% 55% / 0.35);
+    --shadow-glow: 0 0 30px hsl(45 100% 55% / 0.25);
+  }
 }
+

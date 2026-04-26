@@ -77,7 +77,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden" style={{ background: "#000" }}>
+    <div className="gold-theme relative min-h-screen overflow-hidden" style={{ background: "#000" }}>
       {/* Animated gamma chart background — taller bars, vivid */}
       <div className="fixed inset-0 opacity-55 pointer-events-none">
         <GammaBackgroundDark />
@@ -191,78 +191,7 @@ export default function Landing() {
           <a href="#planes"><Button size="lg" variant="outline">Ver planes</Button></a>
         </div>
 
-        {/* Discount codes */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1 }}
-          className="mt-10 flex flex-wrap items-center justify-center gap-3"
-        >
-          {[
-            { code: "GAMMA30", off: "-30%", note: "primer mes" },
-            { code: "ELITE50", off: "-50%", note: "plan Elite anual" },
-            { code: "FLIP15",  off: "-15%", note: "para todos" },
-          ].map((d, i) => (
-            <motion.div
-              key={d.code}
-              animate={{ y: [0, -6, 0, 6, 0] }}
-              transition={{ duration: 3.5 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
-              className="relative group"
-            >
-              {/* Pulsing gold halo */}
-              <motion.div
-                className="absolute -inset-1 rounded-full pointer-events-none"
-                style={{ background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)", filter: "blur(10px)", opacity: 0.5 }}
-                animate={{ opacity: [0.35, 0.7, 0.35] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
-              />
-              <div
-                className="relative flex items-center rounded-full overflow-hidden"
-                style={{
-                  background: "linear-gradient(135deg, rgba(20,15,5,0.95), rgba(40,30,8,0.95))",
-                  border: "1px solid rgba(255,215,0,0.5)",
-                  boxShadow: "0 8px 24px rgba(255,215,0,0.25), inset 0 1px 0 rgba(255,215,0,0.25)",
-                }}
-              >
-                {/* Sweeping shine */}
-                <motion.div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(115deg, transparent 40%, rgba(255,215,0,0.4) 50%, transparent 60%)" }}
-                  animate={{ x: ["-120%", "120%"] }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.6, repeatDelay: 0.4 }}
-                />
-                {/* Code text */}
-                <div className="pl-4 pr-3 py-2.5 flex items-center gap-2 relative">
-                  <Sparkles className="h-3.5 w-3.5" style={{ color: "#ffd700" }} />
-                  <span className="font-mono font-black tracking-widest text-sm bg-clip-text text-transparent"
-                    style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
-                  >
-                    {d.code}
-                  </span>
-                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                    style={{ background: "rgba(0,255,120,0.15)", color: "#00ff78", border: "1px solid rgba(0,255,120,0.4)" }}
-                  >
-                    {d.off}
-                  </span>
-                  <span className="text-[10px] hidden md:inline" style={{ color: "rgba(255,215,0,0.6)" }}>· {d.note}</span>
-                </div>
-                {/* Integrated copy button */}
-                <button
-                  onClick={() => copyCode(d.code)}
-                  className="relative h-full px-4 py-2.5 flex items-center gap-1.5 font-bold text-xs text-black hover:brightness-110 active:scale-95 transition-all"
-                  style={{
-                    background: "linear-gradient(90deg, #ffd700, #fff5cc, #ffd700)",
-                    backgroundSize: "200% 100%",
-                    borderLeft: "1px solid rgba(255,215,0,0.5)",
-                  }}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  COPIAR
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+        {/* Discount codes are fixed at bottom of viewport */}
 
         <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
           {[
@@ -463,12 +392,88 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="relative z-10 border-t py-8 text-center text-sm text-muted-foreground bg-card/60 backdrop-blur-sm">
+      <footer className="relative z-10 border-t py-8 pb-28 text-center text-sm text-muted-foreground bg-card/60 backdrop-blur-sm">
         <div className="flex items-center justify-center gap-2">
           <BadgeCheck className="h-4 w-4 text-primary" />
           AllGamma · Plataforma verificada · Solo con fines educativos. Datos simulados.
         </div>
       </footer>
+
+      {/* Fixed bottom discount-codes bar */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 px-3 py-3 backdrop-blur-xl"
+        style={{
+          background: "linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.92))",
+          borderTop: "1px solid rgba(255,215,0,0.35)",
+          boxShadow: "0 -10px 30px -5px rgba(255,215,0,0.18)",
+        }}
+      >
+        <div className="container flex items-center gap-3 overflow-x-auto justify-center flex-wrap">
+          <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase shrink-0"
+            style={{ color: "#ffd700" }}
+          >
+            <Sparkles className="h-3 w-3 animate-pulse" /> Códigos activos
+          </div>
+          {[
+            { code: "GAMMA30", off: "-30%", note: "primer mes" },
+            { code: "ELITE50", off: "-50%", note: "Elite anual" },
+            { code: "FLIP15",  off: "-15%", note: "para todos" },
+          ].map((d, i) => (
+            <motion.div
+              key={d.code}
+              animate={{ y: [0, -3, 0, 3, 0] }}
+              transition={{ duration: 3 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.25 }}
+              className="relative shrink-0"
+            >
+              <motion.div
+                className="absolute -inset-0.5 rounded-full pointer-events-none"
+                style={{ background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)", filter: "blur(8px)", opacity: 0.4 }}
+                animate={{ opacity: [0.25, 0.6, 0.25] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
+              />
+              <div
+                className="relative flex items-center rounded-full overflow-hidden"
+                style={{
+                  background: "linear-gradient(135deg, rgba(20,15,5,0.95), rgba(40,30,8,0.95))",
+                  border: "1px solid rgba(255,215,0,0.5)",
+                  boxShadow: "inset 0 1px 0 rgba(255,215,0,0.25)",
+                }}
+              >
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(115deg, transparent 40%, rgba(255,215,0,0.4) 50%, transparent 60%)" }}
+                  animate={{ x: ["-120%", "120%"] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.6, repeatDelay: 0.4 }}
+                />
+                <div className="pl-3 pr-2 py-1.5 flex items-center gap-1.5 relative">
+                  <span className="font-mono font-black tracking-widest text-xs bg-clip-text text-transparent"
+                    style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
+                  >
+                    {d.code}
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 rounded-full"
+                    style={{ background: "rgba(0,255,120,0.15)", color: "#00ff78", border: "1px solid rgba(0,255,120,0.4)" }}
+                  >
+                    {d.off}
+                  </span>
+                  <span className="text-[10px] hidden md:inline" style={{ color: "rgba(255,215,0,0.55)" }}>· {d.note}</span>
+                </div>
+                <button
+                  onClick={() => copyCode(d.code)}
+                  className="relative px-3 py-1.5 flex items-center gap-1 font-bold text-[10px] text-black hover:brightness-110 active:scale-95 transition-all"
+                  style={{
+                    background: "linear-gradient(90deg, #ffd700, #fff5cc, #ffd700)",
+                    borderLeft: "1px solid rgba(255,215,0,0.5)",
+                  }}
+                >
+                  <Copy className="h-3 w-3" />
+                  COPIAR
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
