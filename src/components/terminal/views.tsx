@@ -3,6 +3,7 @@ import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
 import { GexDexBars } from "./GexDexBars";
 import { GexExposureTabs, GexHeatmapPanel, GexSurfacePanel } from "./GexExposureTabs";
+import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState, useEffect } from "react";
@@ -493,6 +494,12 @@ export function VolatilityView({ ticker, contracts }: Ctx) {
           </div>
         </Panel>
       </div>
+
+      {/* Hill 3D surface (red/yellow terrain, flat → ridge → cliff) */}
+      <GexHillSurfaceForVolatility ticker={ticker} contracts={contracts} />
+
+      {/* GEX Heatmap (red/green) below the 3D surface */}
+      <GexHeatmapForVolatility ticker={ticker} contracts={contracts} />
     </div>
   );
 }
