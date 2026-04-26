@@ -168,15 +168,8 @@ export function GexDexView({ ticker, contracts }: Ctx) {
         </Tabs>
       </div>
 
-      {/* ── Each visualization in its own dedicated panel for clarity ── */}
-      {/* 1. Heatmap Matrix — full width for dense numeric inspection */}
-      <GexHeatmapPanel ticker={ticker} contracts={filtered} metric={m} />
-
-      {/* 2. Strike Distribution + 3D Surface side-by-side on wide screens */}
-      <div className="grid xl:grid-cols-2 gap-3">
-        <GexStrikeChartPanel ticker={ticker} contracts={filtered} metric={m} />
-        <GexSurfacePanel ticker={ticker} contracts={filtered} metric={m} />
-      </div>
+      {/* Unified tab switcher: HEATMAP / STRIKE CHART / 3D SURFACE */}
+      <GexExposureTabs ticker={ticker} contracts={filtered} metric={m} />
 
       {/* Live tape + bias breakdown */}
       <div className="grid lg:grid-cols-3 gap-3">
@@ -370,14 +363,25 @@ export function HedgeView({ ticker, exposures }: Ctx) {
 // ─────── VANNA / CHARM ───────
 export function VannaCharmView({ ticker, exposures }: Ctx) {
   return (
-    <div className="space-y-3">
-      <Panel title="Vanna Exposure" subtitle="Delta change per IV move">
-        <ExposureChart data={exposures} spot={ticker.spot} metric="vanna" />
-      </Panel>
-      <Panel title="Charm Exposure" subtitle="Delta decay per day">
-        <ExposureChart data={exposures} spot={ticker.spot} metric="charm" />
-      </Panel>
-    </div>
+    <Panel title="Vanna / Charm Exposure" subtitle={`${ticker.symbol} · second-order greeks`} noPad>
+      <div className="p-3">
+        <TerminalTabs
+          layoutId="vanna-charm-tab-bg"
+          tabs={[
+            {
+              key: "vanna",
+              label: "VANNA",
+              content: <ExposureChart data={exposures} spot={ticker.spot} metric="vanna" />,
+            },
+            {
+              key: "charm",
+              label: "CHARM",
+              content: <ExposureChart data={exposures} spot={ticker.spot} metric="charm" />,
+            },
+          ]}
+        />
+      </div>
+    </Panel>
   );
 }
 
