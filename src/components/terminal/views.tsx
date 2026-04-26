@@ -264,20 +264,36 @@ const Td = ({ children, r, bold, tone }: any) => {
 export function DepthView({ ticker, exposures }: Ctx) {
   const max = Math.max(...exposures.map((p) => Math.max(p.callOI, p.putOI)));
   return (
-    <Panel title="Order Book Depth" subtitle="Open Interest per strike (calls vs puts)">
-      <div className="space-y-1">
+    <Panel title="Order Book Depth" subtitle="Hover bars to inspect strike & OI">
+      <div className="space-y-[3px]">
         {exposures.slice().reverse().map((p) => {
           const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
+          const tip = `Strike $${p.strike} · Put ${formatNumber(p.putOI, 0)} · Call ${formatNumber(p.callOI, 0)}`;
           return (
-            <div key={p.strike} className={`grid grid-cols-[1fr_60px_1fr] items-center gap-2 text-xs font-mono ${isSpot ? "bg-primary/10 rounded" : ""}`}>
-              <div className="flex justify-end items-center h-5">
-                <span className="text-put mr-2 w-16 text-right">{formatNumber(p.putOI, 0)}</span>
-                <div className="bg-put/30 h-3 rounded-l" style={{ width: `${(p.putOI / max) * 100}%` }} />
+            <div
+              key={p.strike}
+              title={tip}
+              className={`grid grid-cols-2 items-center gap-1 group cursor-default ${isSpot ? "ring-1 ring-primary/40 rounded-sm" : ""}`}
+            >
+              <div className="flex justify-end h-3.5">
+                <div
+                  className="h-full rounded-l-sm transition-all duration-150 group-hover:brightness-125"
+                  style={{
+                    width: `${(p.putOI / max) * 100}%`,
+                    background: "linear-gradient(90deg, hsl(0 95% 35%), hsl(0 100% 58%))",
+                    boxShadow: "0 0 6px hsl(0 100% 55% / 0.45)",
+                  }}
+                />
               </div>
-              <div className={`text-center font-semibold ${isSpot ? "text-primary" : ""}`}>{p.strike}</div>
-              <div className="flex items-center h-5">
-                <div className="bg-call/30 h-3 rounded-r" style={{ width: `${(p.callOI / max) * 100}%` }} />
-                <span className="text-call ml-2 w-16">{formatNumber(p.callOI, 0)}</span>
+              <div className="flex h-3.5">
+                <div
+                  className="h-full rounded-r-sm transition-all duration-150 group-hover:brightness-125"
+                  style={{
+                    width: `${(p.callOI / max) * 100}%`,
+                    background: "linear-gradient(90deg, hsl(140 100% 50%), hsl(140 95% 35%))",
+                    boxShadow: "0 0 6px hsl(140 100% 50% / 0.45)",
+                  }}
+                />
               </div>
             </div>
           );
