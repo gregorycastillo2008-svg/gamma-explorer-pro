@@ -4,6 +4,8 @@ import { ExposureChart } from "@/components/ExposureChart";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMemo, useState } from "react";
 import { AlertTriangle, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend } from "recharts";
+import { IvSurface3D } from "./IvSurface3D";
 
 interface Ctx {
   ticker: DemoTicker;
@@ -262,73 +264,112 @@ export function VegaThetaView({ ticker, exposures }: Ctx) {
 
 // ─────── VOLATILITY ───────
 export function VolatilityView({ ticker, contracts }: Ctx) {
-  // Build IV smile
-  const byStrike = new Map<number, number[]>();
-  for (const c of contracts) {
-    if (!byStrike.has(c.strike)) byStrike.set(c.strike, []);
-    byStrike.get(c.strike)!.push(c.iv);
-  }
-  const smile = Array.from(byStrike.entries())
-    .map(([k, ivs]) => ({ k, iv: (ivs.reduce((a, b) => a + b, 0) / ivs.length) * 100 }))
-    .sort((a, b) => a.k - b.k);
-  const max = Math.max(...smile.map((s) => s.iv));
-  const min = Math.min(...smile.map((s) => s.iv));
-  const range = max - min || 1;
-  const atmIv = smile.find((s) => Math.abs(s.k - ticker.spot) < ticker.strikeStep)?.iv ?? ticker.baseIV * 100;
+  const data = useMemo(() => {
+    // Skew per side (calls vs puts) at the nearest expiry
+    const expiries = Array.from(new Set(contracts.map((c) => c.expiry))).sort((a, b) => a - b);
+    const nearExp = expiries[0] ?? 7;
+    const nearContracts = contracts.filter((c) => c.expiry === nearExp);
+    const strikes = Array.from(new Set(nearContracts.map((c) => c.strike))).sort((a, b) => a - b);
+
+    const skew = strikes.map((k) => {
+      const calls = nearContracts.filter((c) => c.strike === k && c.type === "call");
+      const puts = nearContracts.filter((c) => c.strike === k && c.type === "put");
+      const callIv = calls.length ? (calls.reduce((s, c) => s + c.iv, 0) / calls.length) * 100 : null;
+      const putIv = puts.length ? (puts.reduce((s, c) => s + c.iv, 0) / puts.length) * 100 : null;
+      const moneyness = ((k - ticker.spot) / ticker.spot) * 100;
+      return { strike: k, moneyness: Number(moneyness.toFixed(1)), callIv, putIv };
+    });
+
+    // ATM IV
+    const atmCells = nearContracts.filter((c) => Math.abs(c.strike - ticker.spot) < ticker.strikeStep * 1.5);
+    const atmIv = (atmCells.reduce((s, c) => s + c.iv, 0) / Math.max(1, atmCells.length)) * 100;
+
+    // Term structure: avg ATM IV per expiry
+    const term = expiries.map((e) => {
+      const slice = contracts.filter((c) => c.expiry === e && Math.abs(c.strike - ticker.spot) < ticker.strikeStep * 2);
+      const iv = (slice.reduce((s, c) => s + c.iv, 0) / Math.max(1, slice.length)) * 100;
+      return { dte: e, label: e === 1 ? "0DTE" : `${e}d`, iv: Number(iv.toFixed(2)) };
+    });
+
+    // IV Rank / Percentile (simulated 52w range from baseIV)
+    const lo = ticker.baseIV * 0.55 * 100;
+    const hi = ticker.baseIV * 1.55 * 100;
+    const rank = Math.max(0, Math.min(100, ((atmIv - lo) / (hi - lo)) * 100));
+    const percentile = Math.max(0, Math.min(100, rank * 0.92 + 5));
+
+    // Term structure shape
+    const shortTerm = term[0]?.iv ?? atmIv;
+    const longTerm = term[term.length - 1]?.iv ?? atmIv;
+    const structure = longTerm > shortTerm ? "Contango" : "Backwardation";
+    const structureSpread = longTerm - shortTerm;
+
+    // 3D Surface cells
+    const cells = buildIvGrid(contracts);
+
+    // Put/Call skew bias
+    const otmPuts = skew.filter((s) => s.moneyness < -3 && s.putIv).map((s) => s.putIv!);
+    const otmCalls = skew.filter((s) => s.moneyness > 3 && s.callIv).map((s) => s.callIv!);
+    const putAvg = otmPuts.reduce((a, b) => a + b, 0) / Math.max(1, otmPuts.length);
+    const callAvg = otmCalls.reduce((a, b) => a + b, 0) / Math.max(1, otmCalls.length);
+    const skewBias = putAvg - callAvg;
+    const sentiment = skewBias > 1.5 ? "Fear" : skewBias < -1.5 ? "Greed" : "Neutral";
+
+    return { skew, atmIv, rank, percentile, term, structure, structureSpread, cells, sentiment, skewBias, nearExp };
+  }, [contracts, ticker]);
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatBlock label="ATM IV" value={`${atmIv.toFixed(2)}%`} tone="primary" />
-        <StatBlock label="Max IV" value={`${max.toFixed(2)}%`} tone="put" />
-        <StatBlock label="Min IV" value={`${min.toFixed(2)}%`} tone="call" />
-        <StatBlock label="Skew range" value={`${range.toFixed(2)}pp`} tone="warning" />
+      {/* Top metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        <StatBlock label="ATM IV" value={`${data.atmIv.toFixed(2)}%`} tone="primary" sub={`${data.nearExp}DTE`} />
+        <StatBlock label="IV Rank" value={`${data.rank.toFixed(0)}`} tone={data.rank > 50 ? "warning" : "call"} sub="52w range" />
+        <StatBlock label="IV Percentile" value={`${data.percentile.toFixed(0)}%`} tone={data.percentile > 70 ? "put" : "call"} />
+        <StatBlock label="Term Structure" value={data.structure} tone={data.structure === "Contango" ? "call" : "put"} sub={`${data.structureSpread >= 0 ? "+" : ""}${data.structureSpread.toFixed(2)}pp`} />
+        <StatBlock label="Skew Bias" value={`${data.skewBias >= 0 ? "+" : ""}${data.skewBias.toFixed(2)}pp`} tone={data.skewBias > 0 ? "put" : "call"} sub="put − call" />
+        <StatBlock label="Sentiment" value={data.sentiment} tone={data.sentiment === "Fear" ? "put" : data.sentiment === "Greed" ? "call" : "warning"} />
       </div>
-      <Panel title="Volatility Smile" subtitle={`IV by strike · ${ticker.symbol}`}>
-        <div className="h-64 w-full relative">
-          <svg viewBox="0 0 600 240" preserveAspectRatio="none" className="w-full h-full">
-            <defs>
-              <linearGradient id="smileGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(180 100% 50%)" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="hsl(180 100% 50%)" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {/* grid */}
-            {[0, 1, 2, 3, 4].map((i) => (
-              <line key={i} x1="0" y1={i * 60} x2="600" y2={i * 60} stroke="hsl(222 25% 16%)" strokeWidth="1" />
-            ))}
-            {/* spot line */}
-            {(() => {
-              const spotX = ((ticker.spot - smile[0].k) / (smile[smile.length - 1].k - smile[0].k)) * 600;
-              return <line x1={spotX} y1="0" x2={spotX} y2="240" stroke="hsl(180 100% 50%)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />;
-            })()}
-            {/* area */}
-            <path
-              d={
-                "M 0 240 " +
-                smile.map((s, i) => {
-                  const x = (i / (smile.length - 1)) * 600;
-                  const y = 240 - ((s.iv - min) / range) * 220 - 10;
-                  return `L ${x} ${y}`;
-                }).join(" ") +
-                " L 600 240 Z"
-              }
-              fill="url(#smileGrad)"
-            />
-            {/* line */}
-            <path
-              d={smile.map((s, i) => {
-                const x = (i / (smile.length - 1)) * 600;
-                const y = 240 - ((s.iv - min) / range) * 220 - 10;
-                return `${i === 0 ? "M" : "L"} ${x} ${y}`;
-              }).join(" ")}
-              fill="none"
-              stroke="hsl(180 100% 50%)"
-              strokeWidth="2"
-            />
-          </svg>
-        </div>
+
+      {/* 3D Surface */}
+      <Panel title="IV 3D Surface" subtitle="Strike × DTE × Implied Volatility · arrastra para rotar">
+        <IvSurface3D cells={data.cells} spot={ticker.spot} />
       </Panel>
+
+      {/* Skew + Term Structure */}
+      <div className="grid lg:grid-cols-2 gap-3">
+        <Panel title="Volatility Smile" subtitle={`Calls vs Puts · ${data.nearExp}DTE`}>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.skew} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                <XAxis dataKey="moneyness" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} unit="%" />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} unit="%" />
+                <RTooltip
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                  labelFormatter={(v) => `Moneyness ${v}%`}
+                />
+                <ReferenceLine x={0} stroke="hsl(var(--primary))" strokeDasharray="3 3" label={{ value: "ATM", fill: "hsl(var(--primary))", fontSize: 10, position: "top" }} />
+                <Line type="monotone" dataKey="putIv" stroke="hsl(var(--put))" strokeWidth={2} dot={false} name="Puts IV" />
+                <Line type="monotone" dataKey="callIv" stroke="hsl(var(--call))" strokeWidth={2} dot={false} name="Calls IV" />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+
+        <Panel title="Term Structure" subtitle={data.structure === "Contango" ? "Largo > corto · normal" : "Corto > largo · estrés"}>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.term} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} unit="%" />
+                <RTooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }} />
+                <Line type="monotone" dataKey="iv" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ fill: "hsl(var(--primary))", r: 4 }} name="ATM IV" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }
