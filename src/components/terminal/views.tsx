@@ -2,7 +2,7 @@ import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, com
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
 import { GexDexBars } from "./GexDexBars";
-import { GexExposureTabs } from "./GexExposureTabs";
+import { GexExposureTabs, HeatmapGridView, StrikeChartView, SurfaceView } from "./GexExposureTabs";
 import { TerminalTabs } from "./TerminalTabs";
 import { FloatingStatBar } from "./FloatingStatBar";
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
