@@ -363,18 +363,284 @@ export function VannaCharmView({ ticker, exposures }: Ctx) {
 }
 
 // ─────── VEGA / THETA ───────
-export function VegaThetaView({ ticker, exposures }: Ctx) {
-  const netVex = exposures.reduce((s, p) => s + p.vex, 0);
+export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
+  const [live, setLive] = useState(true);
+  const [expiryFilter, setExpiryFilter] = useState<string>("all");
+  const [tick, setTick] = useState(0);
+
+  // Live ticker for subtle pulsing values
+  useEffect(() => {
+    if (!live) return;
+    const id = setInterval(() => setTick((t) => t + 1), 2500);
+    return () => clearInterval(id);
+  }, [live]);
+
+  // Build per-(strike,expiry) Vega/Theta grid
+  const grid = useMemo(() => {
+    const SQRT_2PI = Math.sqrt(2 * Math.PI);
+    const pdf = (x: number) => Math.exp(-0.5 * x * x) / SQRT_2PI;
+    const cdfApprox = (x: number) => {
+      const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+      const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+      const sign = x < 0 ? -1 : 1;
+      const ax = Math.abs(x) / Math.SQRT2;
+      const t = 1 / (1 + p * ax);
+      const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
+      return 0.5 * (1 + sign * y);
+    };
+    const r = 0.05;
+    const map = new Map<string, { strike: number; expiry: number; vega: number; theta: number; iv: number; n: number }>();
+    for (const c of contracts) {
+      const T = Math.max(c.expiry, 1) / 365;
+      const sigma = c.iv;
+      if (sigma <= 0 || T <= 0) continue;
+      const d1 = (Math.log(ticker.spot / c.strike) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+      const d2 = d1 - sigma * Math.sqrt(T);
+      const nd1 = pdf(d1);
+      const vega = ticker.spot * nd1 * Math.sqrt(T);
+      // Theta per year, then convert to per-day
+      const thetaCall = -(ticker.spot * nd1 * sigma) / (2 * Math.sqrt(T)) - r * c.strike * Math.exp(-r * T) * cdfApprox(d2);
+      const thetaPut  = -(ticker.spot * nd1 * sigma) / (2 * Math.sqrt(T)) + r * c.strike * Math.exp(-r * T) * cdfApprox(-d2);
+      const thetaPerDay = (c.type === "call" ? thetaCall : thetaPut) / 365;
+      const sign = c.type === "call" ? 1 : -1; // dealer convention (matches gex.ts)
+      const notional = c.oi * 100;
+      const key = `${c.strike}|${c.expiry}`;
+      const cur = map.get(key) ?? { strike: c.strike, expiry: c.expiry, vega: 0, theta: 0, iv: 0, n: 0 };
+      cur.vega += vega * notional * sign;
+      cur.theta += thetaPerDay * notional * sign;
+      cur.iv += c.iv;
+      cur.n++;
+      map.set(key, cur);
+    }
+    return Array.from(map.values()).map((v) => ({ ...v, iv: v.iv / Math.max(1, v.n) }));
+  }, [contracts, ticker.spot]);
+
+  const allExpiries = useMemo(
+    () => Array.from(new Set(grid.map((g) => g.expiry))).sort((a, b) => a - b),
+    [grid]
+  );
+  const visibleExpiries = expiryFilter === "all" ? allExpiries : allExpiries.filter((e) => String(e) === expiryFilter);
+
+  const allStrikes = useMemo(() => {
+    const set = new Set<number>();
+    for (const g of grid) if (visibleExpiries.includes(g.expiry)) set.add(g.strike);
+    return Array.from(set).sort((a, b) => b - a); // high → low (top to bottom)
+  }, [grid, visibleExpiries]);
+
+  const cellMap = useMemo(() => {
+    const m = new Map<string, { vega: number; theta: number; iv: number }>();
+    for (const g of grid) m.set(`${g.strike}|${g.expiry}`, { vega: g.vega, theta: g.theta, iv: g.iv });
+    return m;
+  }, [grid]);
+
+  // Header KPIs (filtered)
+  const filteredCells = grid.filter((g) => visibleExpiries.includes(g.expiry));
+  const netVega = filteredCells.reduce((s, c) => s + c.vega, 0);
+  const netTheta = filteredCells.reduce((s, c) => s + c.theta, 0);
+  const totalVanna = exposures.reduce((s, p) => s + Math.abs(p.vanna), 0);
+  const totalCharm = exposures.reduce((s, p) => s + Math.abs(p.charm), 0);
+  const vannaCharmRatio = totalCharm > 0 ? totalVanna / totalCharm : 0;
+
+  // Per-strike aggregated series for area chart
+  const series = useMemo(() => {
+    const m = new Map<number, { strike: number; vega: number; theta: number; iv: number; n: number }>();
+    for (const c of filteredCells) {
+      const cur = m.get(c.strike) ?? { strike: c.strike, vega: 0, theta: 0, iv: 0, n: 0 };
+      cur.vega += c.vega;
+      cur.theta += c.theta;
+      cur.iv += c.iv;
+      cur.n++;
+      m.set(c.strike, cur);
+    }
+    return Array.from(m.values())
+      .map((v) => ({ strike: v.strike, vega: v.vega, theta: v.theta, iv: (v.iv / Math.max(1, v.n)) * 100 }))
+      .filter((v) => v.strike >= ticker.spot * 0.9 && v.strike <= ticker.spot * 1.1)
+      .sort((a, b) => a.strike - b.strike);
+  }, [filteredCells, ticker.spot]);
+
+  // Heatmap color scaling
+  const maxAbsVega = Math.max(1, ...filteredCells.map((c) => Math.abs(c.vega)));
+  const maxAbsTheta = Math.max(1, ...filteredCells.map((c) => Math.abs(c.theta)));
+
+  const fmtExpiryHeader = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const dow = ["SUN","MON","TUE","WED","THU","FRI","SAT"][d.getDay()];
+    const mon = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()];
+    return { line1: `${days}D (${dow})`, line2: `${mon} ${d.getDate()}` };
+  };
+
+  const cellColor = (vega: number, theta: number, iv: number) => {
+    const dom = Math.abs(vega) / maxAbsVega >= Math.abs(theta) / maxAbsTheta ? "vega" : "theta";
+    if (Math.abs(vega) < maxAbsVega * 0.02 && Math.abs(theta) < maxAbsTheta * 0.02) {
+      return { bg: "hsl(0 0% 6%)", fg: "hsl(0 0% 30%)" };
+    }
+    if (dom === "vega") {
+      const intensity = Math.min(1, Math.abs(vega) / maxAbsVega);
+      // cyan gradient
+      const lightness = 12 + intensity * 38;
+      return { bg: `hsl(190 100% ${lightness}%)`, fg: intensity > 0.55 ? "hsl(220 30% 8%)" : "hsl(190 100% 80%)" };
+    } else {
+      const intensity = Math.min(1, Math.abs(theta) / maxAbsTheta);
+      // red/magenta gradient
+      const lightness = 12 + intensity * 35;
+      return { bg: `hsl(${theta < 0 ? 358 : 320} 90% ${lightness}%)`, fg: intensity > 0.55 ? "hsl(220 30% 8%)" : "hsl(0 100% 85%)" };
+    }
+  };
+
+  const VEGA_COLOR = "#00e5ff";
+  const THETA_COLOR = "#ff3d00";
+
   return (
     <div className="space-y-3">
+      {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatBlock label="Net VEX" value={formatNumber(netVex)} tone={netVex >= 0 ? "call" : "put"} />
-        <StatBlock label="Vol sensitivity" value={`${(netVex / ticker.spot * 100).toFixed(2)}%`} sub="per 1 vol pt" />
-        <StatBlock label="Strikes" value={exposures.length} />
-        <StatBlock label="ATM" value={`$${ticker.spot}`} tone="primary" />
+        <div className="rounded border border-border bg-card/60 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">NET VEGA</div>
+          <div className="text-lg font-bold font-mono mt-0.5" style={{ color: VEGA_COLOR }}>
+            {netVega >= 0 ? "+" : ""}{formatNumber(netVega)}
+          </div>
+          <div className="text-[10px] text-muted-foreground">per 1 vol pt</div>
+        </div>
+        <div className="rounded border border-border bg-card/60 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">NET THETA</div>
+          <div className="text-lg font-bold font-mono mt-0.5" style={{ color: THETA_COLOR }}>
+            {netTheta >= 0 ? "+" : ""}{formatNumber(netTheta)}
+          </div>
+          <div className="text-[10px] text-muted-foreground">decay / day</div>
+        </div>
+        <div className="rounded border border-border bg-card/60 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">VANNA / CHARM</div>
+          <div className="text-lg font-bold font-mono mt-0.5 text-muted-foreground">
+            {vannaCharmRatio.toFixed(2)}
+          </div>
+          <div className="text-[10px] text-muted-foreground">cross-greek ratio</div>
+        </div>
+        <div className="rounded border border-border bg-card/60 px-3 py-2 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">EXPIRIES</div>
+            <select
+              value={expiryFilter}
+              onChange={(e) => setExpiryFilter(e.target.value)}
+              className="mt-1 bg-secondary/60 border border-border rounded px-2 py-1 text-xs font-mono text-foreground"
+            >
+              <option value="all">ALL ({allExpiries.length})</option>
+              {allExpiries.map((e) => <option key={e} value={String(e)}>{e}D</option>)}
+            </select>
+          </div>
+          <button
+            onClick={() => setLive((v) => !v)}
+            className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest"
+          >
+            <span className={`h-2 w-2 rounded-full ${live ? "bg-call animate-pulse" : "bg-muted-foreground"}`} />
+            <span className={live ? "text-call" : "text-muted-foreground"}>LIVE</span>
+          </button>
+        </div>
       </div>
-      <Panel title="VEX per strike">
-        <ExposureChart data={exposures} spot={ticker.spot} metric="vex" />
+
+      {/* Heatmap */}
+      <Panel title="Vega / Theta Exposure Map" subtitle={`Strikes × expiries · spot $${ticker.spot}`} noPad>
+        <div className="overflow-x-auto">
+          <table className="text-[10px] font-mono w-full" style={{ borderCollapse: "separate", borderSpacing: 1 }}>
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-10 bg-card text-left px-2 py-2 text-muted-foreground text-[9px] uppercase tracking-widest">Strike</th>
+                {visibleExpiries.map((exp) => {
+                  const h = fmtExpiryHeader(exp);
+                  return (
+                    <th key={exp} className="px-1 py-2 text-center text-muted-foreground text-[9px] tracking-widest min-w-[70px]">
+                      <div>{h.line1}</div>
+                      <div className="text-foreground/70">{h.line2}</div>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {allStrikes.map((strike) => {
+                const isSpot = Math.abs(strike - ticker.spot) < ticker.strikeStep / 2;
+                return (
+                  <tr key={strike}>
+                    <td
+                      className={`sticky left-0 z-10 px-2 py-1 font-bold text-right ${isSpot ? "text-primary-foreground" : "text-foreground"}`}
+                      style={{ background: isSpot ? "hsl(190 100% 45%)" : "hsl(var(--card))" }}
+                    >
+                      {strike}{isSpot && <span className="ml-1">●</span>}
+                    </td>
+                    {visibleExpiries.map((exp) => {
+                      const cell = cellMap.get(`${strike}|${exp}`);
+                      if (!cell) {
+                        return <td key={exp} style={{ background: "hsl(0 0% 6%)" }} className="px-1 py-1 text-center text-muted-foreground/30">–</td>;
+                      }
+                      const c = cellColor(cell.vega, cell.theta, cell.iv);
+                      return (
+                        <td
+                          key={exp}
+                          title={`Strike ${strike} · ${exp}D\nVega ${formatNumber(cell.vega)}\nTheta ${formatNumber(cell.theta)}\nIV ${(cell.iv * 100).toFixed(1)}%`}
+                          style={{ background: c.bg, color: c.fg }}
+                          className="px-1 py-1 text-center cursor-default transition-colors"
+                        >
+                          {formatNumber(cell.vega, 0)}
+                        </td>
+                      );
+                    })}
+                    {isSpot && (
+                      <td
+                        className="absolute"
+                        style={{ display: "none" }}
+                      />
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center gap-4 px-3 py-2 border-t border-border text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm" style={{ background: VEGA_COLOR }} /> Vega+ (cyan)</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm" style={{ background: THETA_COLOR }} /> Theta decay (red)</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-primary" /> Spot anchor</span>
+          {live && <span className="ml-auto text-call">● LIVE · tick {tick}</span>}
+        </div>
+      </Panel>
+
+      {/* Area chart Vega vs Theta per strike */}
+      <Panel title="Theta Decay vs Vega Sensitivity" subtitle="Per strike · ±10% spot">
+        <div className="h-[340px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={series} margin={{ top: 12, right: 24, left: 8, bottom: 8 }}>
+              <defs>
+                <linearGradient id="vegaFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={VEGA_COLOR} stopOpacity={0.5} />
+                  <stop offset="100%" stopColor={VEGA_COLOR} stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="thetaFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={THETA_COLOR} stopOpacity={0.5} />
+                  <stop offset="100%" stopColor={THETA_COLOR} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.3} />
+              <XAxis dataKey="strike" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+              <YAxis yAxisId="v" tick={{ fill: VEGA_COLOR, fontSize: 10 }} tickFormatter={(v) => formatNumber(Number(v), 1)} />
+              <YAxis yAxisId="t" orientation="right" tick={{ fill: THETA_COLOR, fontSize: 10 }} tickFormatter={(v) => formatNumber(Number(v), 1)} />
+              <RTooltip
+                cursor={{ stroke: "hsl(var(--primary))", strokeWidth: 1, strokeDasharray: "3 3" }}
+                contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11 }}
+                labelFormatter={(l) => `Strike $${l}`}
+                formatter={(v: number, name: string, p: any) => {
+                  if (name === "iv") return [`${(v).toFixed(1)}%`, "IV"];
+                  return [formatNumber(v), name === "vega" ? "Vega" : "Theta"];
+                }}
+              />
+              <ReferenceLine x={ticker.spot} yAxisId="v" stroke="hsl(var(--primary))" strokeWidth={1.5} label={{ value: `Spot ${ticker.spot}`, fill: "hsl(var(--primary))", fontSize: 10, position: "top" }} />
+              <ReferenceLine y={0} yAxisId="v" stroke="hsl(var(--border))" />
+              <Line yAxisId="v" type="monotone" dataKey="vega" stroke={VEGA_COLOR} strokeWidth={2} dot={false} fill="url(#vegaFill)" isAnimationActive={false} />
+              <Line yAxisId="t" type="monotone" dataKey="theta" stroke={THETA_COLOR} strokeWidth={2} dot={false} fill="url(#thetaFill)" isAnimationActive={false} />
+              <Line yAxisId="v" type="monotone" dataKey="iv" stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="3 3" dot={false} isAnimationActive={false} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </Panel>
     </div>
   );
