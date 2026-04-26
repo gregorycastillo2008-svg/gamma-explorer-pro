@@ -1,9 +1,11 @@
-import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, computeMaxPain, buildIvGrid } from "@/lib/gex";
+import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, computeMaxPain, buildIvGrid, computeExposures, computeKeyLevels } from "@/lib/gex";
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
+import { GexDexBars } from "./GexDexBars";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useMemo, useState } from "react";
-import { AlertTriangle, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useMemo, useState, useEffect } from "react";
+import { AlertTriangle, TrendingUp, TrendingDown, Activity, Zap, Shield, Target } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend } from "recharts";
 import { IvSurface3D } from "./IvSurface3D";
 
