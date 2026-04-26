@@ -49,7 +49,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0" style={{ background: "var(--gradient-primary)" }}>
           <Activity className="h-4 w-4 text-primary-foreground" />
         </div>
-        {!collapsed && <span className="ml-2 font-bold tracking-wider text-sm">GAMMASCOPE</span>}
+        {!collapsed && <span className="ml-2 font-bold tracking-wider text-sm">ALLGEX</span>}
         <button onClick={onToggle} className="ml-auto p-1 rounded hover:bg-sidebar-accent text-sidebar-foreground">
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
