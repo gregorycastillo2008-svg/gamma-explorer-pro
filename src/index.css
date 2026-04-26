@@ -133,5 +133,44 @@ All colors MUST be HSL.
     --shadow-elegant: 0 10px 40px -12px hsl(45 100% 55% / 0.35);
     --shadow-glow: 0 0 30px hsl(45 100% 55% / 0.25);
   }
+
+  /* ───── Subtle live KPI animations (no number changes) ───── */
+  .kpi-card { position: relative; overflow: hidden; isolation: isolate; }
+  .kpi-card::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.05) 50%, transparent 65%);
+    background-size: 220% 100%;
+    animation: kpi-sweep 7s linear infinite;
+    pointer-events: none; z-index: 0;
+  }
+  .kpi-card > * { position: relative; z-index: 1; }
+
+  .kpi-pulse { animation: kpi-glow 3.4s ease-in-out infinite; }
+
+  .kpi-bar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 1.5px;
+    background: linear-gradient(90deg, transparent, currentColor, transparent);
+    opacity: 0.55;
+    animation: kpi-bar-slide 5s ease-in-out infinite;
+  }
+
+  @keyframes kpi-sweep {
+    0%   { background-position: 220% 0; }
+    100% { background-position: -120% 0; }
+  }
+  @keyframes kpi-glow {
+    0%, 100% { text-shadow: 0 0 4px currentColor; }
+    50%      { text-shadow: 0 0 14px currentColor, 0 0 22px currentColor; }
+  }
+  @keyframes kpi-bar-slide {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .kpi-card::before, .kpi-pulse, .kpi-bar { animation: none; }
+  }
 }
 
