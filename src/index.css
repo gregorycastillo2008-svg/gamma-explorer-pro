@@ -113,3 +113,11 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .font-jetbrains {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-feature-settings: "calt" 1, "ss01" 1, "zero" 1;
+    font-variant-numeric: tabular-nums;
+  }
+}
