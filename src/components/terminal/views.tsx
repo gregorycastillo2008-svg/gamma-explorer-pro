@@ -849,80 +849,251 @@ export function RiskView({ ticker, exposures, levels, contracts }: Ctx) {
 }
 
 // ─────── ANOMALY DETECTION ───────
+// ─────── ANOMALY DETECTION (Bloomberg-style) ───────
+interface AlertItem {
+  id: string;
+  ts: number;
+  kind: "Gamma Spike" | "Delta Flip" | "IV Explosion" | "Volume Surge" | "OI Cluster";
+  z: number;
+  symbol: string;
+  strike: number;
+  detail: string;
+}
+
+function fmtTime(ts: number) {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+}
+
 export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
+  // ── Static stats from exposures (rolling-mu/sigma proxy) ──
   const gexes = exposures.map((p) => p.netGex);
   const meanG = gexes.reduce((s, x) => s + x, 0) / gexes.length;
   const sdG = Math.sqrt(gexes.reduce((s, x) => s + (x - meanG) ** 2, 0) / gexes.length) || 1;
-
   const ois = exposures.map((p) => p.callOI + p.putOI);
   const meanO = ois.reduce((s, x) => s + x, 0) / ois.length;
   const sdO = Math.sqrt(ois.reduce((s, x) => s + (x - meanO) ** 2, 0) / ois.length) || 1;
-
-  const anomalies = exposures
-    .map((p) => {
-      const zG = (p.netGex - meanG) / sdG;
-      const zO = (p.callOI + p.putOI - meanO) / sdO;
-      return { ...p, zG, zO, score: Math.max(Math.abs(zG), Math.abs(zO)) };
-    })
-    .filter((a) => a.score > 1.8)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 12);
-
   const ivs = contracts.map((c) => c.iv);
   const meanIv = ivs.reduce((s, x) => s + x, 0) / ivs.length;
   const sdIv = Math.sqrt(ivs.reduce((s, x) => s + (x - meanIv) ** 2, 0) / ivs.length) || 1;
-  const ivOutliers = contracts
-    .map((c) => ({ ...c, z: (c.iv - meanIv) / sdIv }))
-    .filter((c) => Math.abs(c.z) > 2)
-    .sort((a, b) => Math.abs(b.z) - Math.abs(a.z))
-    .slice(0, 8);
+
+  // Pre-compute candidate anomalies (>2σ in any dimension)
+  const candidates = useMemo(() => {
+    const out: { kind: AlertItem["kind"]; z: number; strike: number; detail: string }[] = [];
+    exposures.forEach((p) => {
+      const zG = (p.netGex - meanG) / sdG;
+      const zO = (p.callOI + p.putOI - meanO) / sdO;
+      if (Math.abs(zG) > 2.09) out.push({ kind: "Gamma Spike", z: zG, strike: p.strike, detail: `Net GEX ${formatNumber(p.netGex)}` });
+      if (Math.abs(zO) > 2.09) out.push({ kind: "OI Cluster", z: zO, strike: p.strike, detail: `OI ${formatNumber(p.callOI + p.putOI, 0)}` });
+      if (Math.sign(p.dex) !== Math.sign(meanG) && Math.abs(p.dex) > sdG * 1.5) {
+        out.push({ kind: "Delta Flip", z: p.dex / sdG, strike: p.strike, detail: `Δ ${formatNumber(p.dex)}` });
+      }
+    });
+    contracts.forEach((c) => {
+      const z = (c.iv - meanIv) / sdIv;
+      if (Math.abs(z) > 2.5) out.push({ kind: "IV Explosion", z, strike: c.strike, detail: `${c.type.toUpperCase()} ${c.expiry}d · IV ${(c.iv * 100).toFixed(1)}%` });
+    });
+    return out;
+  }, [exposures, contracts, meanG, sdG, meanO, sdO, meanIv, sdIv]);
+
+  // ── Live alert feed (animated) ──
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  useEffect(() => {
+    setAlerts([]);
+    if (candidates.length === 0) return;
+    // Seed with top 4 immediately
+    const seed = [...candidates]
+      .sort((a, b) => Math.abs(b.z) - Math.abs(a.z))
+      .slice(0, 4)
+      .map((c, i) => ({
+        id: `${Date.now()}-${i}`,
+        ts: Date.now() - i * 12000,
+        kind: c.kind, z: c.z, symbol: ticker.symbol, strike: c.strike, detail: c.detail,
+      }));
+    setAlerts(seed);
+    const id = setInterval(() => {
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      const jitter = (Math.random() - 0.5) * 0.6;
+      const newAlert: AlertItem = {
+        id: `${Date.now()}-${Math.random()}`,
+        ts: Date.now(),
+        kind: pick.kind, z: pick.z + jitter, symbol: ticker.symbol, strike: pick.strike, detail: pick.detail,
+      };
+      setAlerts((prev) => [newAlert, ...prev].slice(0, 18));
+    }, 4500);
+    return () => clearInterval(id);
+  }, [candidates, ticker.symbol]);
+
+  // ── Z-Distance from VWAP (synthetic intraday walk) ──
+  const vwapSeries = useMemo(() => {
+    const n = 60;
+    let p = ticker.spot;
+    let sumPV = 0, sumV = 0;
+    const data: { i: number; price: number; vwap: number; z: number }[] = [];
+    const prices: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const v = 1 + Math.random();
+      p += (Math.random() - 0.5) * ticker.spot * 0.0015 + Math.sin(i / 7) * ticker.spot * 0.0008;
+      sumPV += p * v; sumV += v;
+      const vwap = sumPV / sumV;
+      prices.push(p);
+      const recent = prices.slice(-20);
+      const m = recent.reduce((s, x) => s + x, 0) / recent.length;
+      const sd = Math.sqrt(recent.reduce((s, x) => s + (x - m) ** 2, 0) / recent.length) || 1;
+      const z = (p - vwap) / sd;
+      data.push({ i, price: p, vwap, z });
+    }
+    return data;
+  }, [ticker.spot, ticker.symbol]);
+  const lastZ = vwapSeries[vwapSeries.length - 1]?.z ?? 0;
+
+  // ── Entropy (flow stability) ──
+  const entropy = useMemo(() => {
+    if (vwapSeries.length < 2) return 0;
+    let changes = 0;
+    for (let i = 1; i < vwapSeries.length; i++) {
+      changes += Math.abs(vwapSeries[i].z - vwapSeries[i - 1].z);
+    }
+    return Math.min(1, changes / vwapSeries.length / 1.2);
+  }, [vwapSeries]);
+  const entropyPct = Math.round(entropy * 100);
+  const systemStatus = entropy < 0.35 ? "STABLE FLOW" : entropy < 0.65 ? "ELEVATED" : "CHAOS";
+  const entropyColor = entropy < 0.35 ? "hsl(180 100% 50%)" : entropy < 0.65 ? "hsl(35 100% 55%)" : "hsl(0 90% 60%)";
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatBlock label="Anomalies" value={anomalies.length} tone="warning" sub=">1.8σ" />
-        <StatBlock label="IV outliers" value={ivOutliers.length} tone="put" sub=">2σ" />
-        <StatBlock label="Mean GEX" value={formatNumber(meanG)} />
-        <StatBlock label="GEX σ" value={formatNumber(sdG)} />
+      {/* Header strip */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <StatBlock label="Sigma Threshold" value="2.09σ" tone="warning" sub="5m candle" />
+        <StatBlock label="Live Alerts" value={alerts.length} tone="primary" sub="last 18" />
+        <StatBlock label="Z (Spot/VWAP)" value={`${lastZ >= 0 ? "+" : ""}${lastZ.toFixed(2)}σ`} tone={Math.abs(lastZ) > 2 ? "warning" : "default"} />
+        <StatBlock label="Entropy" value={`${entropyPct}%`} tone={entropy < 0.35 ? "call" : entropy < 0.65 ? "warning" : "put"} sub={systemStatus} />
+        <StatBlock label="Symbol" value={ticker.symbol} tone="primary" sub={`spot $${ticker.spot}`} />
       </div>
-      <Panel title="Strike Anomalies" subtitle="Strikes with abnormal positioning">
-        {anomalies.length === 0 ? (
-          <div className="text-xs text-muted-foreground py-6 text-center">No significant anomalies detected.</div>
-        ) : (
-          <div className="space-y-1.5">
-            {anomalies.map((a) => (
-              <div key={a.strike} className="grid grid-cols-[80px_1fr_80px_80px] gap-2 text-xs font-mono items-center py-1.5 border-b border-border/30">
-                <span className="font-semibold flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3 text-warning" />
-                  ${a.strike}
-                </span>
-                <span className="text-muted-foreground">
-                  {Math.abs(a.zG) > Math.abs(a.zO) ? "GEX spike" : "OI cluster"} · {(((a.strike - ticker.spot) / ticker.spot) * 100).toFixed(2)}%
-                </span>
-                <span className={a.netGex >= 0 ? "text-call text-right" : "text-put text-right"}>{formatNumber(a.netGex)}</span>
-                <span className="text-warning text-right">{a.score.toFixed(2)}σ</span>
+
+      <div className="grid lg:grid-cols-3 gap-3">
+        {/* Live alert feed */}
+        <Panel
+          title="Anomaly Feed"
+          subtitle="Z-Score > 2.09 | 5m"
+          className="lg:col-span-2"
+          right={<span className="text-[10px] font-mono text-muted-foreground flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" /> LIVE</span>}
+        >
+          {alerts.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-8 text-center font-mono">[ awaiting signal · no anomalies above 2.09σ ]</div>
+          ) : (
+            <div className="space-y-1 max-h-[420px] overflow-y-auto pr-1">
+              <AnimatePresence initial={false}>
+                {alerts.map((a) => {
+                  const sev = Math.abs(a.z);
+                  const color = sev > 3 ? "text-[#ff00ff]" : sev > 2.5 ? "text-warning" : "text-[#facc15]";
+                  return (
+                    <motion.div
+                      key={a.id}
+                      layout
+                      initial={{ opacity: 0, x: -16, backgroundColor: "hsl(var(--warning) / 0.18)" }}
+                      animate={{ opacity: 1, x: 0, backgroundColor: "hsl(var(--card) / 0)" }}
+                      exit={{ opacity: 0, x: 16 }}
+                      transition={{ duration: 0.4 }}
+                      className="grid grid-cols-[68px_98px_60px_1fr_70px] gap-2 items-center text-[11px] font-mono py-1.5 px-2 border-b border-border/30 rounded"
+                    >
+                      <span className="text-muted-foreground">{fmtTime(a.ts)}</span>
+                      <span className={`font-semibold flex items-center gap-1 ${color}`}>
+                        <Zap className="h-3 w-3" />{a.kind}
+                      </span>
+                      <span className="text-foreground">{a.symbol}</span>
+                      <span className="text-muted-foreground truncate">${a.strike} · {a.detail}</span>
+                      <span className={`text-right font-bold ${color}`}>{a.z >= 0 ? "+" : ""}{a.z.toFixed(2)}σ</span>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          )}
+        </Panel>
+
+        {/* Entropy + System Status */}
+        <Panel title="Entropy Manifold" subtitle="Flow stability index">
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-baseline justify-between mb-2 font-mono">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">σ-velocity</span>
+                <span className="text-2xl font-bold" style={{ color: entropyColor }}>{entropyPct}%</span>
               </div>
-            ))}
-          </div>
-        )}
-      </Panel>
-      <Panel title="IV Outliers" subtitle="Contracts with unusual implied volatility">
-        {ivOutliers.length === 0 ? (
-          <div className="text-xs text-muted-foreground py-6 text-center">No IV outliers detected.</div>
-        ) : (
-          <div className="space-y-1">
-            {ivOutliers.map((c, i) => (
-              <div key={i} className="grid grid-cols-[60px_50px_50px_1fr_60px_60px] gap-2 text-xs font-mono items-center py-1 border-b border-border/30">
-                <span className="font-semibold">${c.strike}</span>
-                <span className={`uppercase text-[10px] ${c.type === "call" ? "text-call" : "text-put"}`}>{c.type}</span>
-                <span className="text-muted-foreground">{c.expiry}d</span>
-                <span className="text-muted-foreground">OI {formatNumber(c.oi, 0)}</span>
-                <span className="text-foreground text-right">{(c.iv * 100).toFixed(1)}%</span>
-                <span className={`text-right ${c.z > 0 ? "text-put" : "text-call"}`}>{c.z > 0 ? "+" : ""}{c.z.toFixed(1)}σ</span>
+              <div className="h-3 rounded-full bg-secondary/60 overflow-hidden border border-border">
+                <motion.div
+                  className="h-full rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${entropyPct}%`, backgroundColor: entropyColor }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  style={{ boxShadow: `0 0 12px ${entropyColor}` }}
+                />
               </div>
-            ))}
+              <div className="flex justify-between text-[9px] font-mono text-muted-foreground mt-1">
+                <span>STABLE</span><span>NEUTRAL</span><span>CHAOS</span>
+              </div>
+            </div>
+
+            <div className="rounded border border-border bg-secondary/30 p-3 font-mono text-[11px] space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">SYSTEM STATUS</span>
+                <span className="font-bold" style={{ color: entropyColor }}>{systemStatus}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">SIGNAL/NOISE</span>
+                <span className="text-foreground">{(1 / Math.max(0.05, entropy)).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">DETECTOR</span>
+                <span className="text-call">ONLINE</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">CANDIDATES</span>
+                <span className="text-foreground">{candidates.length}</span>
+              </div>
+            </div>
           </div>
-        )}
+        </Panel>
+      </div>
+
+      {/* Z-Distance from VWAP */}
+      <Panel title="Z-Distance from VWAP" subtitle="Statistical stretch · ±1σ ±2σ ±3σ bands">
+        <div className="h-56">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={vwapSeries} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.35} />
+              <XAxis dataKey="i" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} />
+              <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} domain={[-3.5, 3.5]} tickFormatter={(v) => `${v}σ`} />
+              <RTooltip
+                contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11, fontFamily: "monospace" }}
+                formatter={(v: number) => [`${v.toFixed(2)}σ`, "Z"]}
+                labelFormatter={(l) => `t-${60 - Number(l)}`}
+              />
+              <ReferenceLine y={3} stroke="hsl(0 90% 60%)" strokeDasharray="3 3" label={{ value: "+3σ", fill: "hsl(0 90% 60%)", fontSize: 9, position: "right" }} />
+              <ReferenceLine y={2} stroke="hsl(35 100% 55%)" strokeDasharray="3 3" label={{ value: "+2σ", fill: "hsl(35 100% 55%)", fontSize: 9, position: "right" }} />
+              <ReferenceLine y={1} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 4" opacity={0.5} />
+              <ReferenceLine y={0} stroke="hsl(var(--foreground))" />
+              <ReferenceLine y={-1} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 4" opacity={0.5} />
+              <ReferenceLine y={-2} stroke="hsl(35 100% 55%)" strokeDasharray="3 3" label={{ value: "-2σ", fill: "hsl(35 100% 55%)", fontSize: 9, position: "right" }} />
+              <ReferenceLine y={-3} stroke="hsl(0 90% 60%)" strokeDasharray="3 3" label={{ value: "-3σ", fill: "hsl(0 90% 60%)", fontSize: 9, position: "right" }} />
+              <Line type="monotone" dataKey="z" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mt-3 text-[10px] font-mono">
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1.5">
+            <span className="text-muted-foreground">OVERSOLD ZONE</span>
+            <div className="text-call font-bold">z &lt; -2σ → mean reversion long</div>
+          </div>
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1.5">
+            <span className="text-muted-foreground">NEUTRAL</span>
+            <div className="text-foreground font-bold">|z| &lt; 1σ → fair value</div>
+          </div>
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1.5">
+            <span className="text-muted-foreground">OVERBOUGHT ZONE</span>
+            <div className="text-put font-bold">z &gt; +2σ → mean reversion short</div>
+          </div>
+        </div>
       </Panel>
     </div>
   );
