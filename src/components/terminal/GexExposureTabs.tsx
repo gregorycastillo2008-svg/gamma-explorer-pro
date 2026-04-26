@@ -211,7 +211,7 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
         {spotIdx >= 0 && (
           <div
             className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
-            style={{ top: `calc(${spotIdx} * 22px + 11px)` }}
+            style={{ top: `calc(${spotIdx} * 16px + 8px)` }}
           >
             <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, transparent, #00ffff 20%, #00ffff 80%, transparent)", boxShadow: "0 0 6px #00ffff" }} />
             <span className="px-1.5 py-0.5 rounded text-[9px] font-jetbrains font-bold text-black mx-1" style={{ background: "#00ffff" }}>
