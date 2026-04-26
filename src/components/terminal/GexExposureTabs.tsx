@@ -492,7 +492,7 @@ export function GexHeatmapPanel(props: Props) {
       noPad
     >
       <div className="p-2 bg-black">
-        <HeatmapView {...props} />
+        <HeatmapGridView {...props} />
       </div>
     </Panel>
   );
@@ -573,7 +573,7 @@ export function GexExposureTabs(props: Props) {
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.18 }}
         >
-          {view === "heatmap" && <HeatmapView {...props} />}
+          {view === "heatmap" && <HeatmapGridView {...props} />}
           {view === "strike" && <StrikeChartView {...props} />}
           {view === "surface" && <SurfaceView {...props} />}
         </motion.div>
