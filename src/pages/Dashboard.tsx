@@ -16,6 +16,7 @@ import {
 } from "@/lib/gex";
 import { ExposureChart } from "@/components/ExposureChart";
 import { StatCard } from "@/components/StatCard";
+import { GammaBackground } from "@/components/GammaBackground";
 
 type Metric = "netGex" | "dex" | "vex" | "vanna" | "charm";
 
@@ -92,8 +93,11 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
+    <div className="relative min-h-screen bg-background">
+      <div className="fixed inset-0 opacity-20 pointer-events-none">
+        <GammaBackground />
+      </div>
+      <header className="relative z-10 border-b bg-card/80 backdrop-blur-sm">
         <div className="container flex items-center justify-between py-4">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
@@ -114,7 +118,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="container py-6 space-y-6">
+      <main className="relative z-10 container py-6 space-y-6">
         {/* Watchlist */}
         <Card className="p-4" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex flex-wrap items-center gap-2">
