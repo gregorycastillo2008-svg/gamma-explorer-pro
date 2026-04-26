@@ -37,34 +37,52 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 
   return (
     <div className="space-y-3">
-      {/* Global stats now persist in Dashboard topbar across sections */}
-
-      <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot}`}>
-        <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric="netGex" />
-      </Panel>
-
-      <div className="grid lg:grid-cols-2 gap-3">
-        <Panel title="Key Levels">
-          <div className="space-y-2 text-sm font-mono">
-            <KV k="Call Wall" v={`$${levels.callWall}`} tone="call" />
-            <KV k="Put Wall" v={`$${levels.putWall}`} tone="put" />
-            <KV k="Gamma Flip" v={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-            <KV k="Spot vs Flip" v={levels.gammaFlip ? `${(((ticker.spot - levels.gammaFlip) / levels.gammaFlip) * 100).toFixed(2)}%` : "—"} />
-            <KV k="Distance to Call Wall" v={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-            <KV k="Distance to Put Wall" v={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-          </div>
-        </Panel>
-        <Panel title="Open Interest">
-          <div className="space-y-2 text-sm font-mono">
-            <KV k="Call OI" v={formatNumber(totalCallOI, 0)} tone="call" />
-            <KV k="Put OI" v={formatNumber(totalPutOI, 0)} tone="put" />
-            <KV k="P/C OI Ratio" v={pcr.toFixed(2)} />
-            <KV k="Strikes" v={String(exposures.length)} />
-            <KV k="Contracts" v={formatNumber(contracts.length, 0)} />
-            <KV k="Expiries loaded" v={String(ticker.expiries.length)} />
-          </div>
-        </Panel>
-      </div>
+      <TerminalTabs
+        layoutId="overview-master-tab-bg"
+        tabs={[
+          {
+            key: "gex",
+            label: "GEX SURFACE",
+            content: (
+              <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot}`}>
+                <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric="netGex" />
+              </Panel>
+            ),
+          },
+          {
+            key: "levels",
+            label: "KEY LEVELS",
+            content: (
+              <Panel title="Key Levels">
+                <div className="space-y-2 text-sm font-mono">
+                  <KV k="Call Wall" v={`$${levels.callWall}`} tone="call" />
+                  <KV k="Put Wall" v={`$${levels.putWall}`} tone="put" />
+                  <KV k="Gamma Flip" v={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
+                  <KV k="Spot vs Flip" v={levels.gammaFlip ? `${(((ticker.spot - levels.gammaFlip) / levels.gammaFlip) * 100).toFixed(2)}%` : "—"} />
+                  <KV k="Distance to Call Wall" v={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                  <KV k="Distance to Put Wall" v={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "oi",
+            label: "OPEN INTEREST",
+            content: (
+              <Panel title="Open Interest">
+                <div className="space-y-2 text-sm font-mono">
+                  <KV k="Call OI" v={formatNumber(totalCallOI, 0)} tone="call" />
+                  <KV k="Put OI" v={formatNumber(totalPutOI, 0)} tone="put" />
+                  <KV k="P/C OI Ratio" v={pcr.toFixed(2)} />
+                  <KV k="Strikes" v={String(exposures.length)} />
+                  <KV k="Contracts" v={formatNumber(contracts.length, 0)} />
+                  <KV k="Expiries loaded" v={String(ticker.expiries.length)} />
+                </div>
+              </Panel>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }
