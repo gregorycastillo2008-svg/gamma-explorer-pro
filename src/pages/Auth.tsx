@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
-import { Sparkles, Mail, Lock, ArrowRight } from "lucide-react";
+import { Sparkles, Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 
 export default function Auth() {
   const { user, loading } = useAuth();
@@ -44,6 +44,26 @@ export default function Auth() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden" style={{ background: "#000" }}>
+      {/* Back to landing arrow */}
+      <Link to="/" className="absolute top-5 right-5 z-30 group">
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          whileHover={{ scale: 1.08, x: -3 }}
+          whileTap={{ scale: 0.95 }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-full backdrop-blur-md cursor-pointer"
+          style={{
+            background: "rgba(20,15,5,0.7)",
+            border: "1px solid rgba(255,215,0,0.4)",
+            boxShadow: "0 8px 24px rgba(255,215,0,0.2)",
+            color: "#ffd700",
+          }}
+        >
+          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-xs font-bold tracking-wide">Volver a planes e info</span>
+        </motion.div>
+      </Link>
+
       {/* Animated gold orbs */}
       <motion.div
         className="absolute rounded-full pointer-events-none"
