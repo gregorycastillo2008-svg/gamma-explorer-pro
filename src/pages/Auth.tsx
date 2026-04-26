@@ -172,16 +172,20 @@ export default function Auth() {
 
               <TabsContent value="signin">
                 <form onSubmit={signIn} className="space-y-4">
-                  <FieldGold id="e1" label="Email" type="email" value={email} onChange={setEmail} icon={Mail} />
-                  <FieldGold id="p1" label="Contraseña" type="password" value={password} onChange={setPassword} icon={Lock} />
+                  <FieldGold id="e1" label="Email" type="email" value={email} onChange={setEmail} icon={Mail}
+                    placeholderWords={["trader@allgamma.com", "pro@allgamma.com", "elite@allgamma.com", "demo@allgamma.com"]} />
+                  <FieldGold id="p1" label="Contraseña" type="password" value={password} onChange={setPassword} icon={Lock}
+                    placeholderWords={["••••••••••", "GammaFlip2025!", "CallWall$420", "PutWall#108"]} />
                   <GoldButton busy={busy}>Entrar al panel</GoldButton>
                 </form>
               </TabsContent>
 
               <TabsContent value="signup">
                 <form onSubmit={signUp} className="space-y-4">
-                  <FieldGold id="e2" label="Email" type="email" value={email} onChange={setEmail} icon={Mail} />
-                  <FieldGold id="p2" label="Contraseña" type="password" value={password} onChange={setPassword} icon={Lock} minLength={6} />
+                  <FieldGold id="e2" label="Email" type="email" value={email} onChange={setEmail} icon={Mail}
+                    placeholderWords={["nuevo@allgamma.com", "trader@allgamma.com", "vip@allgamma.com"]} />
+                  <FieldGold id="p2" label="Contraseña" type="password" value={password} onChange={setPassword} icon={Lock} minLength={6}
+                    placeholderWords={["GammaFlip2025!", "CallWall$420", "PutWall#108", "DealerEdge*99"]} />
                   <GoldButton busy={busy}>Crear mi cuenta</GoldButton>
                 </form>
               </TabsContent>
@@ -199,12 +203,13 @@ export default function Auth() {
   );
 }
 
-function FieldGold({ id, label, type, value, onChange, icon: Icon, minLength }: any) {
+function FieldGold({ id, label, type, value, onChange, icon: Icon, minLength, placeholderWords }: any) {
+  const demo = useTypewriter(placeholderWords ?? [""], { typeMs: 85, deleteMs: 40, pauseMs: 1300 });
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id} className="text-xs font-semibold tracking-wide" style={{ color: "#d4af37" }}>{label}</Label>
       <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#d4af37" }} />
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 z-10" style={{ color: "#d4af37" }} />
         <Input
           id={id}
           type={type}
@@ -212,9 +217,18 @@ function FieldGold({ id, label, type, value, onChange, icon: Icon, minLength }: 
           minLength={minLength}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="pl-10 rounded-full h-11 bg-black/40 focus:bg-black/60 transition-colors"
+          className="pl-10 rounded-full h-11 bg-black/40 focus:bg-black/60 transition-colors relative"
           style={{ border: "1px solid rgba(255,215,0,0.3)", color: "#fff5cc" }}
         />
+        {/* Animated demo placeholder — only when empty */}
+        {!value && (
+          <div className="absolute left-10 top-1/2 -translate-y-1/2 pointer-events-none flex items-center text-sm font-mono"
+            style={{ color: "rgba(255,215,0,0.55)" }}
+          >
+            <span>{demo}</span>
+            <span className="ml-0.5 inline-block w-[2px] h-4 bg-[#ffd700] animate-pulse" />
+          </div>
+        )}
       </div>
     </div>
   );
