@@ -1175,7 +1175,7 @@ function HorizontalBars({ exposures, metric, max, spot, maxPain }: {
   return (
     <div
       ref={containerRef}
-      className="relative space-y-0.5 max-h-[600px] overflow-y-auto pr-1"
+      className="relative space-y-0.5 max-h-[380px] overflow-y-auto pr-1"
       onMouseLeave={() => setHover(null)}
     >
       {sorted.map((p) => {

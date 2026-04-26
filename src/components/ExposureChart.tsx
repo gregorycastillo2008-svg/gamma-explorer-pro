@@ -45,7 +45,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
   const sym = symbol[metric];
 
   return (
-    <div className="w-full h-[520px]">
+    <div className="w-full h-[380px]">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold">{labels[metric]} por strike</h3>
         <div className="flex gap-3 text-xs text-muted-foreground">

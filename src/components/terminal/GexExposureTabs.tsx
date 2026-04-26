@@ -86,7 +86,7 @@ function HeatmapView({ ticker, contracts, metric }: Props) {
   }, [ticker, contracts, metric]);
 
   return (
-    <div className="bg-black rounded overflow-auto max-h-[560px]" style={{ scrollbarColor: "#1a1a1a #000" }}>
+    <div className="bg-black rounded overflow-auto max-h-[400px]" style={{ scrollbarColor: "#1a1a1a #000" }}>
       <table className="w-full font-jetbrains text-[11px]" style={{ borderCollapse: "collapse" }}>
         <thead className="sticky top-0 z-20">
           <tr>
@@ -198,7 +198,7 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
 
   return (
     <div
-      className="relative bg-black rounded border border-border p-3 max-h-[560px] overflow-auto"
+      className="relative bg-black rounded border border-border p-3 max-h-[400px] overflow-auto"
       onMouseLeave={() => setHover(null)}
     >
       <div className="font-jetbrains text-[10px] text-muted-foreground uppercase tracking-wider mb-2 grid grid-cols-[1fr_80px_1fr] gap-2">
@@ -435,7 +435,7 @@ function SurfaceView({ ticker, contracts, metric }: Props) {
   const legendStops = [0, 0.25, 0.5, 0.75, 1];
 
   return (
-    <div className="relative bg-black rounded border border-border h-[560px] overflow-hidden">
+    <div className="relative bg-black rounded border border-border h-[400px] overflow-hidden">
       <Canvas camera={{ position: [10, 8, 10], fov: 45 }} style={{ background: "#000" }}>
         <Surface3D strikes={strikes} expiries={expiries} values={values} max={max} onHover={setHover} />
       </Canvas>

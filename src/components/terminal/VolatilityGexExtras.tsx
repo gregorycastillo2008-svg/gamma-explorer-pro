@@ -48,7 +48,7 @@ export function GexHeatmapForVolatility({ ticker, contracts }: Props) {
       noPad
     >
       <div className="p-2 bg-black">
-        <div className="bg-black rounded overflow-auto max-h-[520px]">
+        <div className="bg-black rounded overflow-auto max-h-[380px]">
           <table className="w-full font-jetbrains text-[11px]" style={{ borderCollapse: "collapse" }}>
             <thead className="sticky top-0 z-20">
               <tr>
@@ -300,7 +300,7 @@ export function GexHillSurfaceForVolatility({ ticker, contracts }: Props) {
       noPad
     >
       <div className="p-2 bg-black">
-        <div className="relative bg-black rounded border border-[#2a1505] h-[520px] overflow-hidden">
+        <div className="relative bg-black rounded border border-[#2a1505] h-[380px] overflow-hidden">
           <Canvas camera={{ position: [11, 7, 11], fov: 45 }} style={{ background: "#000" }}>
             <HillSurfaceMesh strikes={strikes} expiries={expiries} values={values} max={max} onHover={setHover} />
           </Canvas>
