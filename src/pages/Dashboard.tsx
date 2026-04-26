@@ -154,10 +154,8 @@ export default function Dashboard() {
           fetchedAt={fetchedAt}
           priceChangePct={priceChangePct}
           onReload={reload}
+          levels={levels}
         />
-        <div className="px-4 py-3 border-b border-border/50 bg-background/60 backdrop-blur-sm">
-          <FloatingStatBar stats={globalStats} />
-        </div>
         <main className="flex-1 overflow-y-auto p-3">
           <SectionTransition sectionKey={`${section}-${active}`}>
             {renderView()}

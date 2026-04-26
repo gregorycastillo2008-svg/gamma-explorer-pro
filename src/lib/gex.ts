@@ -97,18 +97,30 @@ export function computeExposures(spot: number, contracts: OptionContract[], r = 
 export interface KeyLevels {
   callWall: number;
   putWall: number;
+  majorWall: number;
+  maxPain: number;
+  volTrigger: number;
+  totalVt: number;
   gammaFlip: number | null;
   totalGex: number;
 }
 
 export function computeKeyLevels(points: ExposurePoint[]): KeyLevels {
   const totalGex = points.reduce((s, p) => s + p.netGex, 0);
-  const callWall = points.reduce((best, p) => (p.callGex > best.callGex ? p : best), points[0]).strike;
-  const putWall = points.reduce((best, p) => (p.putGex < best.putGex ? p : best), points[0]).strike;
+  const safe = points.length ? points : [{ strike: 0, callGex: 0, putGex: 0, netGex: 0, dex: 0, vex: 0, vanna: 0, charm: 0, callOI: 0, putOI: 0 } as ExposurePoint];
+  const callWall = safe.reduce((best, p) => (p.callGex > best.callGex ? p : best), safe[0]).strike;
+  const putWall = safe.reduce((best, p) => (p.putGex < best.putGex ? p : best), safe[0]).strike;
+  // Major Wall = strike with absolute peak |netGex| (dominant pin level)
+  const majorWall = safe.reduce((best, p) => (Math.abs(p.netGex) > Math.abs(best.netGex) ? p : best), safe[0]).strike;
+  // Max Pain = strike that minimizes total option holder payout
+  const maxPain = safe.reduce((best, p) => {
+    const payout = safe.reduce((s, q) => s + Math.max(0, p.strike - q.strike) * q.callOI + Math.max(0, q.strike - p.strike) * q.putOI, 0);
+    return payout < best.payout ? { strike: p.strike, payout } : best;
+  }, { strike: safe[0].strike, payout: Infinity }).strike;
   // Gamma flip = strike where cumulative net GEX crosses zero
   let cumulative = 0;
   let flip: number | null = null;
-  const sorted = [...points].sort((a, b) => a.strike - b.strike);
+  const sorted = [...safe].sort((a, b) => a.strike - b.strike);
   for (let i = 0; i < sorted.length; i++) {
     const prev = cumulative;
     cumulative += sorted[i].netGex;
@@ -117,7 +129,14 @@ export function computeKeyLevels(points: ExposurePoint[]): KeyLevels {
       break;
     }
   }
-  return { callWall, putWall, gammaFlip: flip, totalGex };
+  // Vol Trigger = gamma flip if exists, else strike with min |netGex| (zero-gamma proxy)
+  const volTrigger = flip ?? safe.reduce((best, p) => (Math.abs(p.netGex) < Math.abs(best.netGex) ? p : best), safe[0]).strike;
+  // Total Volatility Trigger = vega-weighted equilibrium strike
+  const totalVex = safe.reduce((s, p) => s + Math.abs(p.vex), 0);
+  const totalVt = totalVex > 0
+    ? Math.round(safe.reduce((s, p) => s + p.strike * Math.abs(p.vex), 0) / totalVex)
+    : volTrigger;
+  return { callWall, putWall, majorWall, maxPain, volTrigger, totalVt, gammaFlip: flip, totalGex };
 }
 
 // ---------- Demo data generator ----------
