@@ -8,16 +8,38 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
+    let mounted = true;
+    const applySession = (nextSession: Session | null) => {
+      if (!mounted) return;
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
       setLoading(false);
+    };
+
+    const failSafe = window.setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 4000);
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      applySession(nextSession);
     });
-    return () => sub.subscription.unsubscribe();
+
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (error) console.error("useAuth:", error);
+        applySession(data.session);
+      })
+      .catch((error) => {
+        console.error("useAuth:", error);
+        applySession(null);
+      })
+      .finally(() => window.clearTimeout(failSafe));
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(failSafe);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   return { session, user, loading };

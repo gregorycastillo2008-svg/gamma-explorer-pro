@@ -45,19 +45,24 @@ export default function Admin() {
   const [metric, setMetric] = useState<Metric>("netGex");
 
   useEffect(() => {
-    if (!authLoading && !user) nav("/auth");
+    if (!authLoading && !user) nav("/auth", { replace: true });
   }, [user, authLoading, nav]);
 
   useEffect(() => {
     if (!isAdmin) return;
-    supabase.from("admin_users_view").select("*").order("created_at", { ascending: false })
-      .then(({ data }) => setUsers((data as AdminUser[]) ?? []));
-    supabase.from("admin_watchlists_view").select("*").order("created_at", { ascending: false })
-      .then(({ data }) => setWatchlists((data as AdminWatchlist[]) ?? []));
+    Promise.all([
+      supabase.from("admin_users_view").select("*").order("created_at", { ascending: false }),
+      supabase.from("admin_watchlists_view").select("*").order("created_at", { ascending: false }),
+    ]).then(([usersResult, watchlistsResult]) => {
+      if (usersResult.error) console.error("admin_users_view:", usersResult.error);
+      if (watchlistsResult.error) console.error("admin_watchlists_view:", watchlistsResult.error);
+      setUsers((usersResult.data as AdminUser[]) ?? []);
+      setWatchlists((watchlistsResult.data as AdminWatchlist[]) ?? []);
+    }).catch((error) => console.error("Admin data:", error));
   }, [isAdmin]);
 
-  if (authLoading || adminLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando…</div>;
+  if (authLoading || (user && adminLoading)) {
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando panel admin…</div>;
   }
 
   if (!isAdmin) {
