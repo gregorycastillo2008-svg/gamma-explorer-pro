@@ -495,26 +495,29 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
     <div className="space-y-3">
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <div className="rounded border border-border bg-card/60 px-3 py-2">
+        <div className="kpi-card rounded border border-border bg-card/60 px-3 py-2">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">NET VEGA</div>
-          <div className="text-lg font-bold font-mono mt-0.5" style={{ color: VEGA_COLOR }}>
+          <div className="text-lg font-bold font-mono mt-0.5 kpi-pulse" style={{ color: VEGA_COLOR }}>
             {netVega >= 0 ? "+" : ""}{formatNumber(netVega)}
           </div>
           <div className="text-[10px] text-muted-foreground">per 1 vol pt</div>
+          <span className="kpi-bar" style={{ color: VEGA_COLOR, animationDelay: "0s" }} />
         </div>
-        <div className="rounded border border-border bg-card/60 px-3 py-2">
+        <div className="kpi-card rounded border border-border bg-card/60 px-3 py-2">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">NET THETA</div>
-          <div className="text-lg font-bold font-mono mt-0.5" style={{ color: THETA_COLOR }}>
+          <div className="text-lg font-bold font-mono mt-0.5 kpi-pulse" style={{ color: THETA_COLOR, animationDelay: "1.1s" }}>
             {netTheta >= 0 ? "+" : ""}{formatNumber(netTheta)}
           </div>
           <div className="text-[10px] text-muted-foreground">decay / day</div>
+          <span className="kpi-bar" style={{ color: THETA_COLOR, animationDelay: "1.4s" }} />
         </div>
-        <div className="rounded border border-border bg-card/60 px-3 py-2">
+        <div className="kpi-card rounded border border-border bg-card/60 px-3 py-2">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">VANNA / CHARM</div>
-          <div className="text-lg font-bold font-mono mt-0.5 text-muted-foreground">
+          <div className="text-lg font-bold font-mono mt-0.5 kpi-pulse text-foreground/80" style={{ animationDelay: "2.2s" }}>
             {vannaCharmRatio.toFixed(2)}
           </div>
           <div className="text-[10px] text-muted-foreground">cross-greek ratio</div>
+          <span className="kpi-bar text-muted-foreground" style={{ animationDelay: "2.6s" }} />
         </div>
         <div className="rounded border border-border bg-card/60 px-3 py-2 flex items-center justify-between">
           <div>
