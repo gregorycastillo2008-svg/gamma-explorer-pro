@@ -49,7 +49,7 @@ export function GexDexBars({ data, spot, callWall, putWall, flip, metric }: Prop
   };
 
   return (
-    <div className="w-full h-[520px]">
+    <div className="w-full h-[380px]">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }} stackOffset="sign">
           <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.35} horizontal={false} />

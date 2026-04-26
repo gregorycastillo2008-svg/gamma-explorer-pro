@@ -86,7 +86,7 @@ function HeatmapView({ ticker, contracts, metric }: Props) {
   }, [ticker, contracts, metric]);
 
   return (
-    <div className="bg-black rounded overflow-auto max-h-[560px]" style={{ scrollbarColor: "#1a1a1a #000" }}>
+    <div className="bg-black rounded overflow-auto max-h-[400px]" style={{ scrollbarColor: "#1a1a1a #000" }}>
       <table className="w-full font-jetbrains text-[11px]" style={{ borderCollapse: "collapse" }}>
         <thead className="sticky top-0 z-20">
           <tr>
@@ -198,7 +198,7 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
 
   return (
     <div
-      className="relative bg-black rounded border border-border p-3 max-h-[560px] overflow-auto"
+      className="relative bg-black rounded border border-border p-3 max-h-[400px] overflow-auto"
       onMouseLeave={() => setHover(null)}
     >
       <div className="font-jetbrains text-[10px] text-muted-foreground uppercase tracking-wider mb-2 grid grid-cols-[1fr_80px_1fr] gap-2">
@@ -206,12 +206,12 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
         <div className="text-center">Strike</div>
         <div>Positive ★ peak in green</div>
       </div>
-      <div className="space-y-0.5 relative">
+      <div className="space-y-0 relative">
         {/* SPOT horizontal cyan line through chart */}
         {spotIdx >= 0 && (
           <div
             className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
-            style={{ top: `calc(${spotIdx} * 22px + 11px)` }}
+            style={{ top: `calc(${spotIdx} * 16px + 8px)` }}
           >
             <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, transparent, #00ffff 20%, #00ffff 80%, transparent)", boxShadow: "0 0 6px #00ffff" }} />
             <span className="px-1.5 py-0.5 rounded text-[9px] font-jetbrains font-bold text-black mx-1" style={{ background: "#00ffff" }}>
@@ -237,7 +237,7 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
               className={`grid grid-cols-[1fr_80px_1fr] items-center gap-2 font-jetbrains text-[11px] cursor-crosshair transition-colors ${
                 isSpot ? "bg-primary/10" : ""
               } ${isHover ? "bg-white/5" : ""}`}
-              style={{ height: 22 }}
+              style={{ height: 16 }}
             >
               <div className="flex justify-end items-center h-5 relative">
                 {isMaxNeg && (
@@ -435,7 +435,7 @@ function SurfaceView({ ticker, contracts, metric }: Props) {
   const legendStops = [0, 0.25, 0.5, 0.75, 1];
 
   return (
-    <div className="relative bg-black rounded border border-border h-[560px] overflow-hidden">
+    <div className="relative bg-black rounded border border-border h-[400px] overflow-hidden">
       <Canvas camera={{ position: [10, 8, 10], fov: 45 }} style={{ background: "#000" }}>
         <Surface3D strikes={strikes} expiries={expiries} values={values} max={max} onHover={setHover} />
       </Canvas>

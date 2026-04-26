@@ -217,7 +217,7 @@ export function IvSurface3D({ cells }: Props) {
 
   if (cells.length < 4) {
     return (
-      <div className="h-[560px] flex items-center justify-center text-muted-foreground text-sm bg-[#0a0a0c] rounded-md">
+      <div className="h-[400px] flex items-center justify-center text-muted-foreground text-sm bg-[#0a0a0c] rounded-md">
         Datos insuficientes
       </div>
     );
@@ -246,7 +246,7 @@ export function IvSurface3D({ cells }: Props) {
   );
 
   return (
-    <div ref={containerRef} className="relative h-[560px] w-full rounded-md overflow-hidden bg-[#0a0a0c] border border-white/5">
+    <div ref={containerRef} className="relative h-[400px] w-full rounded-md overflow-hidden bg-[#0a0a0c] border border-white/5">
       <Canvas
         camera={{ position: [11, 8, 12], fov: 38 }}
         dpr={[1, 2]}
