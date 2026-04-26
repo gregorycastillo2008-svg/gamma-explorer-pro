@@ -1459,46 +1459,69 @@ export function RiskView({ ticker, exposures, levels, contracts }: Ctx) {
   const tone = riskScore > 60 ? "put" : riskScore > 35 ? "warning" : "call";
 
   return (
-    <div className="space-y-3">
-      <Panel title="Risk Score" subtitle="Composite measure of structural fragility (0–100)">
-        <div className="flex items-center gap-6">
-          <div className="text-center">
-            <div className={`text-5xl font-bold font-mono ${tone === "put" ? "text-put" : tone === "warning" ? "text-warning" : "text-call"}`}>{riskScore}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{riskScore > 60 ? "HIGH RISK" : riskScore > 35 ? "ELEVATED" : "STABLE"}</div>
-          </div>
-          <div className="flex-1 h-3 rounded-full bg-secondary overflow-hidden">
-            <div className={`h-full ${tone === "put" ? "bg-put" : tone === "warning" ? "bg-warning" : "bg-call"}`} style={{ width: `${riskScore}%` }} />
-          </div>
-        </div>
-      </Panel>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatBlock label="Concentration" value={(concentration * 100).toFixed(1) + "%"} sub="HHI of GEX" tone={concentration > 0.15 ? "put" : "default"} />
-        <StatBlock label="Tail OI" value={tailRisk.toFixed(1) + "%"} sub="strikes ±5%" tone={tailRisk > 30 ? "warning" : "default"} />
-        <StatBlock label="Dist to flip" value={distToFlip.toFixed(2) + "%"} sub="closer = fragile" tone={distToFlip < 1 ? "put" : "default"} />
-        <StatBlock label="Day-weighted OI" value={formatNumber(dayWeighted, 0)} sub="short-dated load" />
-      </div>
-      <Panel title="Scenario — spot ±5%">
-        <div className="grid grid-cols-3 gap-2 text-center">
-          {[-5, 0, 5].map((pct) => {
-            const newSpot = ticker.spot * (1 + pct / 100);
-            const closest = exposures.reduce((b, p) => Math.abs(p.strike - newSpot) < Math.abs(b.strike - newSpot) ? p : b, exposures[0]);
-            const Icon = pct < 0 ? TrendingDown : pct > 0 ? TrendingUp : Activity;
-            const localTone = pct < 0 ? "text-put" : pct > 0 ? "text-call" : "text-primary";
-            return (
-              <div key={pct} className="rounded border border-border bg-card/60 p-3">
-                <div className={`flex items-center justify-center gap-1 text-xs ${localTone}`}>
-                  <Icon className="h-3 w-3" />
-                  {pct >= 0 ? "+" : ""}{pct}%
+    <TerminalTabs
+      layoutId="risk-master-tab-bg"
+      tabs={[
+        {
+          key: "score",
+          label: "RISK SCORE",
+          content: (
+            <Panel title="Risk Score" subtitle="Composite measure of structural fragility (0–100)">
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <div className={`text-5xl font-bold font-mono ${tone === "put" ? "text-put" : tone === "warning" ? "text-warning" : "text-call"}`}>{riskScore}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{riskScore > 60 ? "HIGH RISK" : riskScore > 35 ? "ELEVATED" : "STABLE"}</div>
                 </div>
-                <div className="text-base font-mono font-semibold mt-1">${newSpot.toFixed(0)}</div>
-                <div className={`text-xs font-mono mt-1 ${closest.netGex >= 0 ? "text-call" : "text-put"}`}>{formatNumber(closest.netGex)}</div>
-                <div className="text-[10px] text-muted-foreground">net GEX @ K</div>
+                <div className="flex-1 h-3 rounded-full bg-secondary overflow-hidden">
+                  <div className={`h-full ${tone === "put" ? "bg-put" : tone === "warning" ? "bg-warning" : "bg-call"}`} style={{ width: `${riskScore}%` }} />
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </Panel>
-    </div>
+            </Panel>
+          ),
+        },
+        {
+          key: "metrics",
+          label: "METRICS",
+          content: (
+            <Panel title="Risk Metrics">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <StatBlock label="Concentration" value={(concentration * 100).toFixed(1) + "%"} sub="HHI of GEX" tone={concentration > 0.15 ? "put" : "default"} />
+                <StatBlock label="Tail OI" value={tailRisk.toFixed(1) + "%"} sub="strikes ±5%" tone={tailRisk > 30 ? "warning" : "default"} />
+                <StatBlock label="Dist to flip" value={distToFlip.toFixed(2) + "%"} sub="closer = fragile" tone={distToFlip < 1 ? "put" : "default"} />
+                <StatBlock label="Day-weighted OI" value={formatNumber(dayWeighted, 0)} sub="short-dated load" />
+              </div>
+            </Panel>
+          ),
+        },
+        {
+          key: "scenario",
+          label: "SCENARIO",
+          content: (
+            <Panel title="Scenario — spot ±5%">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[-5, 0, 5].map((pct) => {
+                  const newSpot = ticker.spot * (1 + pct / 100);
+                  const closest = exposures.reduce((b, p) => Math.abs(p.strike - newSpot) < Math.abs(b.strike - newSpot) ? p : b, exposures[0]);
+                  const Icon = pct < 0 ? TrendingDown : pct > 0 ? TrendingUp : Activity;
+                  const localTone = pct < 0 ? "text-put" : pct > 0 ? "text-call" : "text-primary";
+                  return (
+                    <div key={pct} className="rounded border border-border bg-card/60 p-3">
+                      <div className={`flex items-center justify-center gap-1 text-xs ${localTone}`}>
+                        <Icon className="h-3 w-3" />
+                        {pct >= 0 ? "+" : ""}{pct}%
+                      </div>
+                      <div className="text-base font-mono font-semibold mt-1">${newSpot.toFixed(0)}</div>
+                      <div className={`text-xs font-mono mt-1 ${closest.netGex >= 0 ? "text-call" : "text-put"}`}>{formatNumber(closest.netGex)}</div>
+                      <div className="text-[10px] text-muted-foreground">net GEX @ K</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Panel>
+          ),
+        },
+      ]}
+    />
   );
 }
 
