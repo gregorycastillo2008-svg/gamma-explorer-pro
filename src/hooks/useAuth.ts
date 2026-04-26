@@ -9,16 +9,18 @@ export function useAuth() {
 
   useEffect(() => {
     let mounted = true;
-    const applySession = (nextSession: Session | null) => {
+    let initialSessionReady = false;
+
+    const applySession = (nextSession: Session | null, ready = false) => {
       if (!mounted) return;
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
-      setLoading(false);
+      if (ready || initialSessionReady) setLoading(false);
     };
 
     const failSafe = window.setTimeout(() => {
       if (mounted) setLoading(false);
-    }, 4000);
+    }, 5000);
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       applySession(nextSession);
@@ -27,11 +29,13 @@ export function useAuth() {
     supabase.auth.getSession()
       .then(({ data, error }) => {
         if (error) console.error("useAuth:", error);
-        applySession(data.session);
+        initialSessionReady = true;
+        applySession(data.session, true);
       })
       .catch((error) => {
         console.error("useAuth:", error);
-        applySession(null);
+        initialSessionReady = true;
+        applySession(null, true);
       })
       .finally(() => window.clearTimeout(failSafe));
 
