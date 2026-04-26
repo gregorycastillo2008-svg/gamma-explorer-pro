@@ -5,9 +5,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useToast } from "@/hooks/use-toast";
 import {
-  DEMO_TICKERS, getDemoTicker, generateDemoChain,
+  DEMO_TICKERS, getDemoTicker,
   computeExposures, computeKeyLevels,
 } from "@/lib/gex";
+import { useOptionsData } from "@/hooks/useOptionsData";
 import { Sidebar, Section } from "@/components/terminal/Sidebar";
 import { Topbar } from "@/components/terminal/Topbar";
 import {
@@ -54,11 +55,9 @@ export default function Dashboard() {
     });
   }, [user]);
 
-  const ticker = getDemoTicker(active);
-  if (!ticker) return null;
+  const { ticker, contracts: liveContracts, status, source, fetchedAt, priceChangePct, reload } = useOptionsData(active);
 
-  const allContracts = generateDemoChain(ticker);
-  const filtered = expiry === "all" ? allContracts : allContracts.filter((c) => String(c.expiry) === expiry);
+  const filtered = expiry === "all" ? liveContracts : liveContracts.filter((c) => String(c.expiry) === expiry);
   const exposures = computeExposures(ticker.spot, filtered);
   const levels = computeKeyLevels(exposures);
   const ctx = { ticker, exposures, levels, contracts: filtered };
@@ -131,6 +130,11 @@ export default function Dashboard() {
           onRemove={removeTicker}
           expiry={expiry}
           onExpiry={setExpiry}
+          status={status}
+          source={source}
+          fetchedAt={fetchedAt}
+          priceChangePct={priceChangePct}
+          onReload={reload}
         />
         <main className="flex-1 overflow-y-auto p-3">
           <SectionTransition sectionKey={`${section}-${active}`}>
