@@ -46,6 +46,13 @@ export default function Auth() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden" style={{ background: "#000" }}>
+      {/* Animated gamma chart background (green/red bars) */}
+      <div className="absolute inset-0 opacity-50">
+        <GammaBackgroundDark />
+      </div>
+      {/* Vignette to keep card readable */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.85) 80%)" }} />
+
       {/* Back to landing arrow */}
       <Link to="/" className="absolute top-5 right-5 z-30 group">
         <motion.div
