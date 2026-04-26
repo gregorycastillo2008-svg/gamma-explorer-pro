@@ -35,7 +35,7 @@ type Metric = "netGex" | "dex" | "vex" | "vanna" | "charm";
 
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: adminLoading } = useIsAdmin();
+  const { isAdmin, loading: adminLoading } = useIsAdmin(user?.id);
   const nav = useNavigate();
 
   const [users, setUsers] = useState<AdminUser[]>([]);

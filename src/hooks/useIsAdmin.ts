@@ -1,42 +1,40 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export function useIsAdmin() {
+export function useIsAdmin(userId?: string | null) {
   const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
-    const check = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
-        if (!user) {
-          if (mounted) { setIsAdmin(false); setLoading(false); }
-          return;
-        }
-        const { data, error } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .maybeSingle();
+    const checkRole = async () => {
+      if (!userId) {
         if (mounted) {
-          if (error) console.error("useIsAdmin:", error);
-          setIsAdmin(!!data);
+          setIsAdmin(false);
           setLoading(false);
         }
-      } catch (e) {
-        console.error("useIsAdmin:", e);
-        if (mounted) { setIsAdmin(false); setLoading(false); }
+        return;
+      }
+
+      if (mounted) setLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+        if (!mounted) return;
+        if (error) console.error("useIsAdmin:", error);
+        setIsAdmin(Boolean(data));
+      } catch (error) {
+        if (!mounted) return;
+        console.error("useIsAdmin:", error);
+        setIsAdmin(false);
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 
-    check();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => check());
-    return () => { mounted = false; sub.subscription.unsubscribe(); };
-  }, []);
+    checkRole();
+    return () => { mounted = false; };
+  }, [userId]);
 
   return { isAdmin, loading };
 }
