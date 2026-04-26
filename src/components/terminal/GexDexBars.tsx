@@ -1,4 +1,4 @@
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Cell } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, ReferenceDot, Cell } from "recharts";
 import { ExposurePoint, formatNumber } from "@/lib/gex";
 
 interface Props {
@@ -26,6 +26,11 @@ export function GexDexBars({ data, spot, callWall, putWall, flip, metric }: Prop
         raw: v,
       };
     });
+
+  // Pico positivo y negativo para marcadores ★
+  const maxPos = chartData.reduce((m, p) => (p.raw > (m?.raw ?? -Infinity) ? p : m), null as null | (typeof chartData)[number]);
+  const maxNeg = chartData.reduce((m, p) => (p.raw < (m?.raw ?? Infinity) ? p : m), null as null | (typeof chartData)[number]);
+  const sym = metric === "netGex" ? "Γ" : "Δ";
 
   const TooltipBody = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
@@ -61,13 +66,43 @@ export function GexDexBars({ data, spot, callWall, putWall, flip, metric }: Prop
             interval={0}
           />
           <ReferenceLine x={0} stroke="hsl(var(--border))" />
-          <ReferenceLine y={spot} stroke="hsl(var(--primary))" strokeWidth={1.5} strokeDasharray="3 3" label={{ value: `Spot ${spot}`, fill: "hsl(var(--primary))", fontSize: 10, position: "right" }} />
+          {/* SPOT horizontal — current price level across the chart */}
+          <ReferenceLine
+            y={spot}
+            stroke="hsl(var(--primary))"
+            strokeWidth={2}
+            strokeDasharray="4 3"
+            label={{ value: `▶ SPOT ${spot}`, fill: "hsl(var(--primary))", fontSize: 10, position: "right", fontWeight: 600 }}
+          />
           {metric === "netGex" && (
             <>
               <ReferenceLine y={callWall} stroke="hsl(var(--call))" strokeDasharray="2 4" label={{ value: "Call Wall", fill: "hsl(var(--call))", fontSize: 9, position: "right" }} />
               <ReferenceLine y={putWall} stroke="hsl(var(--put))" strokeDasharray="2 4" label={{ value: "Put Wall", fill: "hsl(var(--put))", fontSize: 9, position: "right" }} />
               {flip != null && <ReferenceLine y={flip} stroke="hsl(var(--warning))" strokeDasharray="1 3" label={{ value: "Flip", fill: "hsl(var(--warning))", fontSize: 9, position: "right" }} />}
             </>
+          )}
+          {/* Marcadores ★ en gamma máxima positiva y negativa */}
+          {maxPos && maxPos.raw > 0 && (
+            <ReferenceDot
+              x={maxPos.raw}
+              y={maxPos.strike}
+              r={6}
+              fill="hsl(var(--call))"
+              stroke="#fff"
+              strokeWidth={1.5}
+              label={{ value: `★ MAX +${sym}`, position: "right", fill: "hsl(var(--call))", fontSize: 10, fontWeight: 700 }}
+            />
+          )}
+          {maxNeg && maxNeg.raw < 0 && (
+            <ReferenceDot
+              x={maxNeg.raw}
+              y={maxNeg.strike}
+              r={6}
+              fill="hsl(var(--put))"
+              stroke="#fff"
+              strokeWidth={1.5}
+              label={{ value: `★ MAX −${sym}`, position: "left", fill: "hsl(var(--put))", fontSize: 10, fontWeight: 700 }}
+            />
           )}
           <Tooltip content={<TooltipBody />} cursor={{ fill: "hsl(var(--muted) / 0.2)" }} />
           <Bar dataKey="negative" stackId="x" fill="hsl(var(--put))" radius={[0, 0, 0, 0]} />
