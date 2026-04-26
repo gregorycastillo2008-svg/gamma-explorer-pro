@@ -72,13 +72,13 @@ export default function Dashboard() {
   const atmIv = atmContracts.length
     ? (atmContracts.reduce((s, c) => s + c.iv, 0) / atmContracts.length) * 100
     : ticker.baseIV * 100;
-  const globalStats = [
-    { label: "ATM IV",    value: `${atmIv.toFixed(1)}%`,           tone: "primary" as const },
-    { label: "P/C Ratio", value: pcr.toFixed(2),                   tone: (pcr > 1 ? "put" : "call") as const },
-    { label: "Net DEX",   value: formatNumber(netDex),             tone: (netDex >= 0 ? "call" : "put") as const, sub: "dollar delta" },
-    { label: "Total GEX", value: formatNumber(levels.totalGex),    tone: (levels.totalGex >= 0 ? "call" : "put") as const, sub: levels.totalGex >= 0 ? "Positive regime" : "Negative regime" },
-    { label: "Call Wall", value: String(levels.callWall),          tone: "call" as const,    sub: "resistance" },
-    { label: "Put Wall",  value: String(levels.putWall),           tone: "put" as const,     sub: "support" },
+  const globalStats: import("@/components/terminal/FloatingStatBar").FloatingStat[] = [
+    { label: "ATM IV",    value: `${atmIv.toFixed(1)}%`,           tone: "primary" },
+    { label: "P/C Ratio", value: pcr.toFixed(2),                   tone: pcr > 1 ? "put" : "call" },
+    { label: "Net DEX",   value: formatNumber(netDex),             tone: netDex >= 0 ? "call" : "put", sub: "dollar delta" },
+    { label: "Total GEX", value: formatNumber(levels.totalGex),    tone: levels.totalGex >= 0 ? "call" : "put", sub: levels.totalGex >= 0 ? "Positive regime" : "Negative regime" },
+    { label: "Call Wall", value: String(levels.callWall),          tone: "call",    sub: "resistance" },
+    { label: "Put Wall",  value: String(levels.putWall),           tone: "put",     sub: "support" },
   ];
 
   const addTicker = async () => {
