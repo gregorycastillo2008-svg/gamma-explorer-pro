@@ -61,12 +61,8 @@ export function useOptionsData(symbol: string): OptionsData {
 
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke<CboeResp>("cboe-options", {
-          method: "GET",
-          // supabase-js puts query params via body for GET? -> use full URL workaround
-        });
-        // Edge function reads ?symbol= → use direct fetch instead of invoke
-        // (supabase-js v2 invoke does not pass query strings reliably)
+        // Edge function reads ?symbol= from query string — use direct fetch
+        // (supabase-js invoke v2 does not pass query strings on GET reliably)
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cboe-options?symbol=${encodeURIComponent(upper)}`;
         const resp = await fetch(url, {
           headers: {
@@ -80,8 +76,6 @@ export function useOptionsData(symbol: string): OptionsData {
         if (aborted.current) return;
         CACHE.set(upper, { at: Date.now(), resp: json });
         apply(json);
-        // silence unused warning when invoke path not used
-        void data; void error;
       } catch (e) {
         if (aborted.current) return;
         // Fallback silently to demo data
