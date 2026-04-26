@@ -5,14 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { GammaBackground } from "@/components/GammaBackground";
+import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
 import { toast } from "sonner";
-import gamma1 from "@/assets/gamma-1.jpg";
-import gamma2 from "@/assets/gamma-2.jpg";
-import gamma3 from "@/assets/gamma-3.jpg";
-import gamma4 from "@/assets/gamma-4.jpg";
 
 const features = [
   { icon: BarChart3, title: "GEX por strike", desc: "Visualiza Gamma Exposure agregada por strike con detección automática de Call/Put walls." },
@@ -23,12 +19,7 @@ const features = [
   { icon: Shield, title: "Acceso seguro", desc: "Tu cuenta y tu watchlist protegidas con autenticación moderna." },
 ];
 
-const floatingImages = [
-  { src: gamma1, top: "8%", left: "4%", size: 180, delay: 0, dur: 14 },
-  { src: gamma2, top: "55%", left: "2%", size: 150, delay: 2, dur: 16 },
-  { src: gamma3, top: "12%", right: "3%", size: 200, delay: 1, dur: 18 },
-  { src: gamma4, top: "60%", right: "5%", size: 170, delay: 3, dur: 15 },
-];
+
 
 const testimonials = [
   { name: "Carlos M.", role: "Day Trader · SPX", rating: 5, text: "Llevo 8 meses con AllGamma. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.", extra: "Cliente desde 2024 · +320% portfolio" },
@@ -86,27 +77,13 @@ export default function Landing() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <div className="fixed inset-0 opacity-40 pointer-events-none">
-        <GammaBackground />
+    <div className="relative min-h-screen overflow-hidden" style={{ background: "#000" }}>
+      {/* Animated gamma chart background — taller bars, vivid */}
+      <div className="fixed inset-0 opacity-55 pointer-events-none">
+        <GammaBackgroundDark />
       </div>
-
-      {/* Floating gamma images */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        {floatingImages.map((img, i) => (
-          <motion.img
-            key={i}
-            src={img.src}
-            alt=""
-            loading="lazy"
-            className="absolute rounded-2xl border border-primary/20 shadow-2xl opacity-30 hover:opacity-90 pointer-events-auto transition-opacity"
-            style={{ top: img.top, left: img.left, right: img.right, width: img.size, boxShadow: "0 20px 60px -10px hsl(var(--primary) / 0.4)" }}
-            animate={{ y: [0, -20, 0, 20, 0], rotate: [0, 2, -2, 0] }}
-            transition={{ duration: img.dur, delay: img.delay, repeat: Infinity, ease: "easeInOut" }}
-            whileHover={{ scale: 1.15, opacity: 1, zIndex: 50 }}
-          />
-        ))}
-      </div>
+      {/* Soft gold vignette */}
+      <div className="fixed inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at top, rgba(255,215,0,0.06), transparent 60%)" }} />
 
       {/* Floating "Ver Planes" CTA bubble */}
       <AnimatePresence>
@@ -224,20 +201,66 @@ export default function Landing() {
           {[
             { code: "GAMMA30", off: "-30%", note: "primer mes" },
             { code: "ELITE50", off: "-50%", note: "plan Elite anual" },
-            { code: "FLIP15", off: "-15%", note: "para todos" },
-          ].map((d) => (
-            <motion.button
+            { code: "FLIP15",  off: "-15%", note: "para todos" },
+          ].map((d, i) => (
+            <motion.div
               key={d.code}
-              onClick={() => copyCode(d.code)}
-              whileHover={{ scale: 1.06, y: -3 }}
-              whileTap={{ scale: 0.97 }}
-              className="group relative flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 transition-colors"
+              animate={{ y: [0, -6, 0, 6, 0] }}
+              transition={{ duration: 3.5 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
+              className="relative group"
             >
-              <span className="text-xs font-black text-primary tracking-wider">{d.code}</span>
-              <span className="text-xs font-bold text-call">{d.off}</span>
-              <span className="text-xs text-muted-foreground hidden md:inline">· {d.note}</span>
-              <Copy className="h-3 w-3 text-muted-foreground group-hover:text-primary" />
-            </motion.button>
+              {/* Pulsing gold halo */}
+              <motion.div
+                className="absolute -inset-1 rounded-full pointer-events-none"
+                style={{ background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)", filter: "blur(10px)", opacity: 0.5 }}
+                animate={{ opacity: [0.35, 0.7, 0.35] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
+              />
+              <div
+                className="relative flex items-center rounded-full overflow-hidden"
+                style={{
+                  background: "linear-gradient(135deg, rgba(20,15,5,0.95), rgba(40,30,8,0.95))",
+                  border: "1px solid rgba(255,215,0,0.5)",
+                  boxShadow: "0 8px 24px rgba(255,215,0,0.25), inset 0 1px 0 rgba(255,215,0,0.25)",
+                }}
+              >
+                {/* Sweeping shine */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(115deg, transparent 40%, rgba(255,215,0,0.4) 50%, transparent 60%)" }}
+                  animate={{ x: ["-120%", "120%"] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.6, repeatDelay: 0.4 }}
+                />
+                {/* Code text */}
+                <div className="pl-4 pr-3 py-2.5 flex items-center gap-2 relative">
+                  <Sparkles className="h-3.5 w-3.5" style={{ color: "#ffd700" }} />
+                  <span className="font-mono font-black tracking-widest text-sm bg-clip-text text-transparent"
+                    style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
+                  >
+                    {d.code}
+                  </span>
+                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: "rgba(0,255,120,0.15)", color: "#00ff78", border: "1px solid rgba(0,255,120,0.4)" }}
+                  >
+                    {d.off}
+                  </span>
+                  <span className="text-[10px] hidden md:inline" style={{ color: "rgba(255,215,0,0.6)" }}>· {d.note}</span>
+                </div>
+                {/* Integrated copy button */}
+                <button
+                  onClick={() => copyCode(d.code)}
+                  className="relative h-full px-4 py-2.5 flex items-center gap-1.5 font-bold text-xs text-black hover:brightness-110 active:scale-95 transition-all"
+                  style={{
+                    background: "linear-gradient(90deg, #ffd700, #fff5cc, #ffd700)",
+                    backgroundSize: "200% 100%",
+                    borderLeft: "1px solid rgba(255,215,0,0.5)",
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  COPIAR
+                </button>
+              </div>
+            </motion.div>
           ))}
         </motion.div>
 
