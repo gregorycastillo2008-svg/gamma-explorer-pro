@@ -2,7 +2,7 @@ import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, com
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
 import { GexDexBars } from "./GexDexBars";
-import { GexExposureTabs } from "./GexExposureTabs";
+import { GexExposureTabs, HeatmapGridView, StrikeChartView, SurfaceView } from "./GexExposureTabs";
 import { TerminalTabs } from "./TerminalTabs";
 import { FloatingStatBar } from "./FloatingStatBar";
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
@@ -37,34 +37,52 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 
   return (
     <div className="space-y-3">
-      {/* Global stats now persist in Dashboard topbar across sections */}
-
-      <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot}`}>
-        <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric="netGex" />
-      </Panel>
-
-      <div className="grid lg:grid-cols-2 gap-3">
-        <Panel title="Key Levels">
-          <div className="space-y-2 text-sm font-mono">
-            <KV k="Call Wall" v={`$${levels.callWall}`} tone="call" />
-            <KV k="Put Wall" v={`$${levels.putWall}`} tone="put" />
-            <KV k="Gamma Flip" v={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-            <KV k="Spot vs Flip" v={levels.gammaFlip ? `${(((ticker.spot - levels.gammaFlip) / levels.gammaFlip) * 100).toFixed(2)}%` : "—"} />
-            <KV k="Distance to Call Wall" v={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-            <KV k="Distance to Put Wall" v={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-          </div>
-        </Panel>
-        <Panel title="Open Interest">
-          <div className="space-y-2 text-sm font-mono">
-            <KV k="Call OI" v={formatNumber(totalCallOI, 0)} tone="call" />
-            <KV k="Put OI" v={formatNumber(totalPutOI, 0)} tone="put" />
-            <KV k="P/C OI Ratio" v={pcr.toFixed(2)} />
-            <KV k="Strikes" v={String(exposures.length)} />
-            <KV k="Contracts" v={formatNumber(contracts.length, 0)} />
-            <KV k="Expiries loaded" v={String(ticker.expiries.length)} />
-          </div>
-        </Panel>
-      </div>
+      <TerminalTabs
+        layoutId="overview-master-tab-bg"
+        tabs={[
+          {
+            key: "gex",
+            label: "GEX SURFACE",
+            content: (
+              <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot}`}>
+                <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric="netGex" />
+              </Panel>
+            ),
+          },
+          {
+            key: "levels",
+            label: "KEY LEVELS",
+            content: (
+              <Panel title="Key Levels">
+                <div className="space-y-2 text-sm font-mono">
+                  <KV k="Call Wall" v={`$${levels.callWall}`} tone="call" />
+                  <KV k="Put Wall" v={`$${levels.putWall}`} tone="put" />
+                  <KV k="Gamma Flip" v={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
+                  <KV k="Spot vs Flip" v={levels.gammaFlip ? `${(((ticker.spot - levels.gammaFlip) / levels.gammaFlip) * 100).toFixed(2)}%` : "—"} />
+                  <KV k="Distance to Call Wall" v={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                  <KV k="Distance to Put Wall" v={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "oi",
+            label: "OPEN INTEREST",
+            content: (
+              <Panel title="Open Interest">
+                <div className="space-y-2 text-sm font-mono">
+                  <KV k="Call OI" v={formatNumber(totalCallOI, 0)} tone="call" />
+                  <KV k="Put OI" v={formatNumber(totalPutOI, 0)} tone="put" />
+                  <KV k="P/C OI Ratio" v={pcr.toFixed(2)} />
+                  <KV k="Strikes" v={String(exposures.length)} />
+                  <KV k="Contracts" v={formatNumber(contracts.length, 0)} />
+                  <KV k="Expiries loaded" v={String(ticker.expiries.length)} />
+                </div>
+              </Panel>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -134,6 +152,47 @@ export function GexDexView({ ticker, contracts }: Ctx) {
 
   const tapeDelta = tape.length > 1 ? tape[tape.length - 1].gex - tape[0].gex : 0;
 
+  const liveTape = (
+    <Panel title="Live Net GEX Tape" subtitle="Updates every 2s" noPad>
+      <div className="h-[420px] p-3">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={tape.map((p, i) => ({ i, gex: p.gex }))} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.35} />
+            <XAxis dataKey="i" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={() => ""} />
+            <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={(v) => formatNumber(Number(v), 1)} domain={["auto", "auto"]} />
+            <RTooltip
+              contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11 }}
+              formatter={(v: number) => formatNumber(v)}
+              labelFormatter={() => ""}
+            />
+            <ReferenceLine y={0} stroke="hsl(var(--border))" />
+            <Line type="monotone" dataKey="gex" stroke={bias.totalGex >= 0 ? "hsl(var(--call))" : "hsl(var(--put))"} strokeWidth={2} dot={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </Panel>
+  );
+
+  const biasBreakdown = (
+    <Panel title="DEX Bias Breakdown">
+      <div className="space-y-2 text-xs font-mono">
+        <KV k="Total Call Δ" v={formatNumber(bias.callDex)} tone="call" />
+        <KV k="Total Put Δ" v={formatNumber(bias.putDex)} tone="put" />
+        <KV k="Net Δ (C − P)" v={formatNumber(bias.net)} tone={bias.net >= 0 ? "call" : "put"} />
+        <KV k="Call/Put Ratio" v={bias.ratio.toFixed(2)} />
+        <div className="mt-3 p-3 rounded bg-secondary/40 text-[12px] leading-relaxed">
+          <div className="font-semibold text-foreground mb-1 flex items-center gap-1.5">
+            {bias.label === "Call Heavy" ? <TrendingUp className="h-3.5 w-3.5 text-call" /> : bias.label === "Put Heavy" ? <TrendingDown className="h-3.5 w-3.5 text-put" /> : <Activity className="h-3.5 w-3.5 text-warning" />}
+            {bias.label}
+          </div>
+          <p className="text-muted-foreground">
+            {bias.label === "Call Heavy" ? "Dealers net short calls — hedging skews bullish into rallies." : bias.label === "Put Heavy" ? "Dealers net long puts — selling pressure on declines amplifies downside." : "Symmetric positioning — directional bias is muted."}
+          </p>
+        </div>
+      </div>
+    </Panel>
+  );
+
   return (
     <div className="space-y-3">
       {/* Institutional walls panel */}
@@ -169,49 +228,18 @@ export function GexDexView({ ticker, contracts }: Ctx) {
         </Tabs>
       </div>
 
-      {/* Unified tab switcher: HEATMAP / STRIKE CHART / 3D SURFACE */}
-      <GexExposureTabs ticker={ticker} contracts={filtered} metric={m} />
-
-      {/* Live tape + bias breakdown */}
-      <div className="grid lg:grid-cols-3 gap-3">
-        <Panel title="Live Net GEX Tape" subtitle="Updates every 2s" className="lg:col-span-2">
-          <div className="h-44">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={tape.map((p, i) => ({ i, gex: p.gex }))} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.35} />
-                <XAxis dataKey="i" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={() => ""} />
-                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={(v) => formatNumber(Number(v), 1)} domain={["auto", "auto"]} />
-                <RTooltip
-                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11 }}
-                  formatter={(v: number) => formatNumber(v)}
-                  labelFormatter={() => ""}
-                />
-                <ReferenceLine y={0} stroke="hsl(var(--border))" />
-                <Line type="monotone" dataKey="gex" stroke={bias.totalGex >= 0 ? "hsl(var(--call))" : "hsl(var(--put))"} strokeWidth={2} dot={false} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-        <Panel title="DEX Bias Breakdown">
-          <div className="space-y-2 text-xs font-mono">
-            <KV k="Total Call Δ" v={formatNumber(bias.callDex)} tone="call" />
-            <KV k="Total Put Δ" v={formatNumber(bias.putDex)} tone="put" />
-            <KV k="Net Δ (C − P)" v={formatNumber(bias.net)} tone={bias.net >= 0 ? "call" : "put"} />
-            <KV k="Call/Put Ratio" v={bias.ratio.toFixed(2)} />
-            <div className="mt-3 p-2 rounded bg-secondary/40 text-[11px] leading-relaxed">
-              <div className="font-semibold text-foreground mb-0.5 flex items-center gap-1.5">
-                {bias.label === "Call Heavy" ? <TrendingUp className="h-3 w-3 text-call" /> : bias.label === "Put Heavy" ? <TrendingDown className="h-3 w-3 text-put" /> : <Activity className="h-3 w-3 text-warning" />}
-                {bias.label}
-              </div>
-              <p className="text-muted-foreground">
-                {bias.label === "Call Heavy" ? "Dealers net short calls — hedging skews bullish into rallies." : bias.label === "Put Heavy" ? "Dealers net long puts — selling pressure on declines amplifies downside." : "Symmetric positioning — directional bias is muted."}
-              </p>
-            </div>
-          </div>
-        </Panel>
-      </div>
-
-      <StrikeTable exposures={exposures} ticker={ticker} />
+      {/* Each visualization is its own tab — full width, no sibling panels */}
+      <TerminalTabs
+        layoutId="gexdex-master-tab-bg"
+        tabs={[
+          { key: "heatmap", label: "HEATMAP", content: <Panel title="Heatmap Matrix" subtitle={`${ticker.symbol} · ${m === "netGex" ? "GEX" : "DEX"} per strike × DTE`} noPad><div className="p-2 bg-black"><HeatmapGridView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
+          { key: "strike", label: "STRIKE CHART", content: <Panel title="Strike Distribution" subtitle={`${ticker.symbol} · ${m === "netGex" ? "Gamma" : "Delta"} per strike`} noPad><div className="p-2 bg-black"><StrikeChartView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
+          { key: "surface", label: "3D SURFACE", content: <Panel title="3D Surface Projection" subtitle={`${ticker.symbol} · drag to rotate`} noPad><div className="p-2 bg-black"><SurfaceView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
+          { key: "tape", label: "LIVE TAPE", content: liveTape },
+          { key: "bias", label: "BIAS", content: biasBreakdown },
+          { key: "table", label: "STRIKE TABLE", content: <StrikeTable exposures={exposures} ticker={ticker} /> },
+        ]}
+      />
     </div>
   );
 }
@@ -304,39 +332,54 @@ export function DepthView({ ticker, exposures }: Ctx) {
 export function LevelsView({ ticker, exposures, levels }: Ctx) {
   const sorted = [...exposures].sort((a, b) => Math.abs(b.netGex) - Math.abs(a.netGex)).slice(0, 8);
   return (
-    <div className="grid lg:grid-cols-2 gap-3">
-      <Panel title="Top GEX Strikes" subtitle="Largest absolute exposure">
-        <div className="space-y-1.5">
-          {sorted.map((p) => {
-            const dist = ((p.strike - ticker.spot) / ticker.spot) * 100;
-            return (
-              <div key={p.strike} className="flex items-center justify-between text-xs font-mono py-1.5 border-b border-border/30">
-                <span className="font-semibold">${p.strike}</span>
-                <span className="text-muted-foreground">{dist >= 0 ? "+" : ""}{dist.toFixed(2)}%</span>
-                <span className={p.netGex >= 0 ? "text-call" : "text-put"}>{formatNumber(p.netGex)}</span>
+    <TerminalTabs
+      layoutId="levels-master-tab-bg"
+      tabs={[
+        {
+          key: "top",
+          label: "TOP STRIKES",
+          content: (
+            <Panel title="Top GEX Strikes" subtitle="Largest absolute exposure">
+              <div className="space-y-1.5">
+                {sorted.map((p) => {
+                  const dist = ((p.strike - ticker.spot) / ticker.spot) * 100;
+                  return (
+                    <div key={p.strike} className="flex items-center justify-between text-xs font-mono py-1.5 border-b border-border/30">
+                      <span className="font-semibold">${p.strike}</span>
+                      <span className="text-muted-foreground">{dist >= 0 ? "+" : ""}{dist.toFixed(2)}%</span>
+                      <span className={p.netGex >= 0 ? "text-call" : "text-put"}>{formatNumber(p.netGex)}</span>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      </Panel>
-      <Panel title="Critical Levels">
-        <div className="grid grid-cols-2 gap-2">
-          <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-          <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-          <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-          <StatBlock label="Spot" value={`$${ticker.spot}`} tone="primary" />
-        </div>
-        <div className="mt-3 p-3 rounded bg-secondary/40 text-xs leading-relaxed">
-          <div className="font-semibold mb-1 text-foreground">Reading</div>
-          <p className="text-muted-foreground">
-            Spot is {ticker.spot > (levels.gammaFlip ?? 0) ? "above" : "below"} the gamma flip — dealers are{" "}
-            <span className={ticker.spot > (levels.gammaFlip ?? 0) ? "text-call" : "text-put"}>
-              {ticker.spot > (levels.gammaFlip ?? 0) ? "long gamma (suppressing volatility)" : "short gamma (amplifying moves)"}
-            </span>.
-          </p>
-        </div>
-      </Panel>
-    </div>
+            </Panel>
+          ),
+        },
+        {
+          key: "critical",
+          label: "CRITICAL",
+          content: (
+            <Panel title="Critical Levels">
+              <div className="grid grid-cols-2 gap-2">
+                <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
+                <StatBlock label="Spot" value={`$${ticker.spot}`} tone="primary" />
+              </div>
+              <div className="mt-3 p-3 rounded bg-secondary/40 text-xs leading-relaxed">
+                <div className="font-semibold mb-1 text-foreground">Reading</div>
+                <p className="text-muted-foreground">
+                  Spot is {ticker.spot > (levels.gammaFlip ?? 0) ? "above" : "below"} the gamma flip — dealers are{" "}
+                  <span className={ticker.spot > (levels.gammaFlip ?? 0) ? "text-call" : "text-put"}>
+                    {ticker.spot > (levels.gammaFlip ?? 0) ? "long gamma (suppressing volatility)" : "short gamma (amplifying moves)"}
+                  </span>.
+                </p>
+              </div>
+            </Panel>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -833,185 +876,201 @@ export function VolatilityView({ ticker, contracts, exposures }: Ctx) {
         </div>
       </div>
 
-      {/* ───── IV 3D SURFACE (central piece) ───── */}
-      <Panel title="IV Surface" subtitle="Strike × DTE × Implied Volatility · drag to rotate">
-        <IvSurface3D cells={data.cells} spot={ticker.spot} />
-      </Panel>
-
-      {/* ───── PUT/CALL SKEW Fear/Greed + Realized Vol ───── */}
-      <div className="grid lg:grid-cols-2 gap-3">
-        <Panel
-          title="Put/Call Skew"
-          subtitle="Risk Reversal · 1d → 9d · Greed (−10) → Fear (+10)"
-          right={
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: skewColor, boxShadow: `0 0 8px ${skewColor}` }} />
-              <span className="text-[10px] font-bold tracking-widest font-jetbrains" style={{ color: skewColor }}>
-                {data.skewLabel} — {data.skewMood}
-              </span>
-            </div>
-          }
-        >
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.riskReversal} margin={{ top: 16, right: 12, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-                <XAxis dataKey="dte" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
-                <YAxis domain={[-10, 10]} tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} ticks={[-10, -5, 0, 5, 10]} />
-                <RTooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,229,255,0.05)" }} formatter={(v: number) => [`${v.toFixed(2)} RR`, "Risk Reversal"]} />
-                <ReferenceLine y={0} stroke="#333" />
-                <ReferenceLine y={5} stroke={RED} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "FEAR", fill: RED, fontSize: 9, position: "right" }} />
-                <ReferenceLine y={-5} stroke={CYAN} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "GREED", fill: CYAN, fontSize: 9, position: "right" }} />
-                <Bar dataKey="rr" radius={[2, 2, 0, 0]} shape={(props: any) => {
-                  const v = props.payload.rr;
-                  const color = v > 5 ? RED : v > 1.5 ? "#ff7a3d" : v < -5 ? CYAN : v < -1.5 ? "#7dd3fc" : PURPLE;
-                  return <rect {...props} fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }} />;
-                }} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-jetbrains">
-            <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
-              <div className="text-[#666] uppercase tracking-widest">Avg RR</div>
-              <div style={{ color: skewColor }} className="text-sm font-bold">{data.avgRR >= 0 ? "+" : ""}{data.avgRR.toFixed(2)}</div>
-            </div>
-            <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
-              <div className="text-[#666] uppercase tracking-widest">Skew Bias</div>
-              <div style={{ color: data.skewBias > 0 ? RED : CYAN }} className="text-sm font-bold">{data.skewBias >= 0 ? "+" : ""}{data.skewBias.toFixed(2)}pp</div>
-            </div>
-            <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
-              <div className="text-[#666] uppercase tracking-widest">Sentiment</div>
-              <div style={{ color: data.skewMood === "FEAR" ? RED : data.skewMood === "GREED" ? CYAN : PURPLE }} className="text-sm font-bold">{data.skewMood}</div>
-            </div>
-          </div>
-        </Panel>
-
-        <Panel
-          title="Realized Volatility"
-          subtitle="HV10 / HV20 / HV30 vs IV · last 30 sessions"
-          right={
-            <span className="text-[10px] font-jetbrains tracking-widest" style={{ color: data.ivPremium > 0 ? RED : CYAN }}>
-              IV {data.ivPremium > 0 ? "PREMIUM" : "DISCOUNT"} {data.ivPremium >= 0 ? "+" : ""}{data.ivPremium.toFixed(2)}pp
-            </span>
-          }
-        >
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={data.hvSeries}
-                margin={{ top: 12, right: 16, left: 0, bottom: 4 }}
-                onMouseMove={(s: any) => { if (s?.activeTooltipIndex != null) setCrosshairIdx(s.activeTooltipIndex); }}
-                onMouseLeave={() => setCrosshairIdx(null)}
+      {/* Each visualization is its own tab — full width, no sibling panels */}
+      <TerminalTabs
+        layoutId="volatility-master-tab-bg"
+        tabs={[
+          {
+            key: "iv3d",
+            label: "IV SURFACE",
+            content: (
+              <Panel title="IV Surface" subtitle="Strike × DTE × Implied Volatility · drag to rotate">
+                <IvSurface3D cells={data.cells} spot={ticker.spot} />
+              </Panel>
+            ),
+          },
+          {
+            key: "skew",
+            label: "P/C SKEW",
+            content: (
+              <Panel
+                title="Put/Call Skew"
+                subtitle="Risk Reversal · 1d → 9d · Greed (−10) → Fear (+10)"
+                right={
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: skewColor, boxShadow: `0 0 8px ${skewColor}` }} />
+                    <span className="text-[10px] font-bold tracking-widest font-jetbrains" style={{ color: skewColor }}>
+                      {data.skewLabel} — {data.skewMood}
+                    </span>
+                  </div>
+                }
               >
-                <defs>
-                  <filter id="glowCyan" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="2" result="b" />
-                    <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-                  </filter>
-                </defs>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-                <XAxis dataKey="day" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} tickFormatter={(d) => `−${d}d`} reversed />
-                <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-                <RTooltip
-                  contentStyle={tooltipStyle}
-                  cursor={{ stroke: CYAN, strokeWidth: 1, strokeDasharray: "3 3" }}
-                  labelFormatter={(d) => `T −${d} sessions`}
-                  formatter={(v: number, name: string) => [`${v.toFixed(2)}%`, name.toUpperCase()]}
-                />
-                {crosshairIdx != null && data.hvSeries[crosshairIdx] && (
-                  <ReferenceLine x={data.hvSeries[crosshairIdx].day} stroke={CYAN} strokeDasharray="3 3" strokeOpacity={0.6} />
-                )}
-                <Line type="monotone" dataKey="hv10" stroke={CYAN} strokeWidth={2} dot={false} name="HV10" style={{ filter: `drop-shadow(0 0 2px ${CYAN})` }} />
-                <Line type="monotone" dataKey="hv20" stroke={YELLOW} strokeWidth={1.8} dot={false} name="HV20" style={{ filter: `drop-shadow(0 0 2px ${YELLOW})` }} />
-                <Line type="monotone" dataKey="hv30" stroke={PURPLE} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="HV30" />
-                <Line type="monotone" dataKey="iv" stroke={WHITE} strokeWidth={2.2} dot={false} name="IV" style={{ filter: `drop-shadow(0 0 3px ${WHITE})` }} />
-                <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-      </div>
-
-      {/* ───── IV TERM STRUCTURE & VOLATILITY CONE ───── */}
-      <div className="grid lg:grid-cols-2 gap-3">
-        <Panel
-          title="IV Term Structure"
-          subtitle={data.structure === "Contango" ? "Forward IV > spot IV · normal regime" : "Inverted · stress regime"}
-          right={
-            <span className="text-[10px] font-jetbrains tracking-widest font-bold" style={{ color: data.structure === "Contango" ? CYAN : RED }}>
-              {data.structure.toUpperCase()} {data.structureSpread >= 0 ? "+" : ""}{data.structureSpread.toFixed(2)}pp
-            </span>
-          }
-        >
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.term} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-                <XAxis dataKey="label" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
-                <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-                <RTooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(2)}%`, "ATM IV"]} cursor={{ stroke: CYAN, strokeDasharray: "3 3" }} />
-                <ReferenceLine y={data.atmIv} stroke={WHITE} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "Spot IV", fill: WHITE, fontSize: 9, position: "right" }} />
-                <Line
-                  type="monotone"
-                  dataKey="iv"
-                  stroke={data.structure === "Contango" ? CYAN : RED}
-                  strokeWidth={2.5}
-                  dot={{ fill: data.structure === "Contango" ? CYAN : RED, r: 4, strokeWidth: 0 }}
-                  activeDot={{ r: 6 }}
-                  style={{ filter: `drop-shadow(0 0 3px ${data.structure === "Contango" ? CYAN : RED})` }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-
-        <Panel
-          title="Volatility Cone"
-          subtitle="Historical percentiles per window · current vs envelope"
-        >
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.cone} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-                <XAxis dataKey="window" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
-                <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-                <RTooltip contentStyle={tooltipStyle} cursor={{ stroke: CYAN, strokeDasharray: "3 3" }} formatter={(v: number, n: string) => [`${v.toFixed(2)}%`, n.toUpperCase()]} />
-                <Line type="monotone" dataKey="p90" stroke={RED} strokeWidth={1} strokeDasharray="3 3" dot={false} name="90th" />
-                <Line type="monotone" dataKey="p75" stroke="#ff7a3d" strokeWidth={1.2} dot={false} name="75th" />
-                <Line type="monotone" dataKey="median" stroke={WHITE} strokeWidth={2} dot={{ fill: WHITE, r: 3 }} name="Median" style={{ filter: `drop-shadow(0 0 2px ${WHITE})` }} />
-                <Line type="monotone" dataKey="p25" stroke="#7dd3fc" strokeWidth={1.2} dot={false} name="25th" />
-                <Line type="monotone" dataKey="p10" stroke={CYAN} strokeWidth={1} strokeDasharray="3 3" dot={false} name="10th" />
-                <Line type="monotone" dataKey="current" stroke={YELLOW} strokeWidth={2.5} dot={{ fill: YELLOW, r: 4 }} name="Current IV" style={{ filter: `drop-shadow(0 0 4px ${YELLOW})` }} />
-                <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-      </div>
-
-      {/* ───── Volatility Smile (preserved) ───── */}
-      <Panel title="Volatility Smile" subtitle={`Calls vs Puts · ${data.nearExp}DTE`}>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data.skew} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
-              <XAxis dataKey="moneyness" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-              <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
-              <RTooltip contentStyle={tooltipStyle} labelFormatter={(v) => `Moneyness ${v}%`} formatter={(v: number, n: string) => [`${v.toFixed(2)}%`, n]} />
-              <ReferenceLine x={0} stroke={WHITE} strokeDasharray="3 3" label={{ value: "ATM", fill: WHITE, fontSize: 10, position: "top" }} />
-              <Line type="monotone" dataKey="putIv" stroke={RED} strokeWidth={2} dot={false} name="Puts IV" style={{ filter: `drop-shadow(0 0 2px ${RED})` }} />
-              <Line type="monotone" dataKey="callIv" stroke={CYAN} strokeWidth={2} dot={false} name="Calls IV" style={{ filter: `drop-shadow(0 0 2px ${CYAN})` }} />
-              <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </Panel>
-
-      {/* Hill 3D surface (red/yellow terrain) */}
-      <GexHillSurfaceForVolatility ticker={ticker} contracts={contracts} />
-
-      {/* GEX Heatmap */}
-      <GexHeatmapForVolatility ticker={ticker} contracts={contracts} />
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.riskReversal} margin={{ top: 16, right: 12, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="dte" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                      <YAxis domain={[-10, 10]} tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} ticks={[-10, -5, 0, 5, 10]} />
+                      <RTooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0,229,255,0.05)" }} formatter={(v: number) => [`${v.toFixed(2)} RR`, "Risk Reversal"]} />
+                      <ReferenceLine y={0} stroke="#333" />
+                      <ReferenceLine y={5} stroke={RED} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "FEAR", fill: RED, fontSize: 9, position: "right" }} />
+                      <ReferenceLine y={-5} stroke={CYAN} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "GREED", fill: CYAN, fontSize: 9, position: "right" }} />
+                      <Bar dataKey="rr" radius={[2, 2, 0, 0]} shape={(props: any) => {
+                        const v = props.payload.rr;
+                        const color = v > 5 ? RED : v > 1.5 ? "#ff7a3d" : v < -5 ? CYAN : v < -1.5 ? "#7dd3fc" : PURPLE;
+                        return <rect {...props} fill={color} style={{ filter: `drop-shadow(0 0 3px ${color})` }} />;
+                      }} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-jetbrains">
+                  <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
+                    <div className="text-[#666] uppercase tracking-widest">Avg RR</div>
+                    <div style={{ color: skewColor }} className="text-sm font-bold">{data.avgRR >= 0 ? "+" : ""}{data.avgRR.toFixed(2)}</div>
+                  </div>
+                  <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
+                    <div className="text-[#666] uppercase tracking-widest">Skew Bias</div>
+                    <div style={{ color: data.skewBias > 0 ? RED : CYAN }} className="text-sm font-bold">{data.skewBias >= 0 ? "+" : ""}{data.skewBias.toFixed(2)}pp</div>
+                  </div>
+                  <div className="px-2 py-1.5 rounded border border-[#1a1a1a] bg-[#0d0d0d]">
+                    <div className="text-[#666] uppercase tracking-widest">Sentiment</div>
+                    <div style={{ color: data.skewMood === "FEAR" ? RED : data.skewMood === "GREED" ? CYAN : PURPLE }} className="text-sm font-bold">{data.skewMood}</div>
+                  </div>
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "realized",
+            label: "REALIZED VOL",
+            content: (
+              <Panel
+                title="Realized Volatility"
+                subtitle="HV10 / HV20 / HV30 vs IV · last 30 sessions"
+                right={
+                  <span className="text-[10px] font-jetbrains tracking-widest" style={{ color: data.ivPremium > 0 ? RED : CYAN }}>
+                    IV {data.ivPremium > 0 ? "PREMIUM" : "DISCOUNT"} {data.ivPremium >= 0 ? "+" : ""}{data.ivPremium.toFixed(2)}pp
+                  </span>
+                }
+              >
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={data.hvSeries}
+                      margin={{ top: 12, right: 16, left: 0, bottom: 4 }}
+                      onMouseMove={(s: any) => { if (s?.activeTooltipIndex != null) setCrosshairIdx(s.activeTooltipIndex); }}
+                      onMouseLeave={() => setCrosshairIdx(null)}
+                    >
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="day" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} tickFormatter={(d) => `−${d}d`} reversed />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <RTooltip
+                        contentStyle={tooltipStyle}
+                        cursor={{ stroke: CYAN, strokeWidth: 1, strokeDasharray: "3 3" }}
+                        labelFormatter={(d) => `T −${d} sessions`}
+                        formatter={(v: number, name: string) => [`${v.toFixed(2)}%`, name.toUpperCase()]}
+                      />
+                      {crosshairIdx != null && data.hvSeries[crosshairIdx] && (
+                        <ReferenceLine x={data.hvSeries[crosshairIdx].day} stroke={CYAN} strokeDasharray="3 3" strokeOpacity={0.6} />
+                      )}
+                      <Line type="monotone" dataKey="hv10" stroke={CYAN} strokeWidth={2} dot={false} name="HV10" style={{ filter: `drop-shadow(0 0 2px ${CYAN})` }} />
+                      <Line type="monotone" dataKey="hv20" stroke={YELLOW} strokeWidth={1.8} dot={false} name="HV20" style={{ filter: `drop-shadow(0 0 2px ${YELLOW})` }} />
+                      <Line type="monotone" dataKey="hv30" stroke={PURPLE} strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="HV30" />
+                      <Line type="monotone" dataKey="iv" stroke={WHITE} strokeWidth={2.2} dot={false} name="IV" style={{ filter: `drop-shadow(0 0 3px ${WHITE})` }} />
+                      <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "term",
+            label: "TERM STRUCTURE",
+            content: (
+              <Panel
+                title="IV Term Structure"
+                subtitle={data.structure === "Contango" ? "Forward IV > spot IV · normal regime" : "Inverted · stress regime"}
+                right={
+                  <span className="text-[10px] font-jetbrains tracking-widest font-bold" style={{ color: data.structure === "Contango" ? CYAN : RED }}>
+                    {data.structure.toUpperCase()} {data.structureSpread >= 0 ? "+" : ""}{data.structureSpread.toFixed(2)}pp
+                  </span>
+                }
+              >
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.term} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="label" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <RTooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(2)}%`, "ATM IV"]} cursor={{ stroke: CYAN, strokeDasharray: "3 3" }} />
+                      <ReferenceLine y={data.atmIv} stroke={WHITE} strokeDasharray="2 3" strokeOpacity={0.4} label={{ value: "Spot IV", fill: WHITE, fontSize: 9, position: "right" }} />
+                      <Line
+                        type="monotone"
+                        dataKey="iv"
+                        stroke={data.structure === "Contango" ? CYAN : RED}
+                        strokeWidth={2.5}
+                        dot={{ fill: data.structure === "Contango" ? CYAN : RED, r: 4, strokeWidth: 0 }}
+                        activeDot={{ r: 6 }}
+                        style={{ filter: `drop-shadow(0 0 3px ${data.structure === "Contango" ? CYAN : RED})` }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "cone",
+            label: "VOL CONE",
+            content: (
+              <Panel title="Volatility Cone" subtitle="Historical percentiles per window · current vs envelope">
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.cone} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="window" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <RTooltip contentStyle={tooltipStyle} cursor={{ stroke: CYAN, strokeDasharray: "3 3" }} formatter={(v: number, n: string) => [`${v.toFixed(2)}%`, n.toUpperCase()]} />
+                      <Line type="monotone" dataKey="p90" stroke={RED} strokeWidth={1} strokeDasharray="3 3" dot={false} name="90th" />
+                      <Line type="monotone" dataKey="p75" stroke="#ff7a3d" strokeWidth={1.2} dot={false} name="75th" />
+                      <Line type="monotone" dataKey="median" stroke={WHITE} strokeWidth={2} dot={{ fill: WHITE, r: 3 }} name="Median" style={{ filter: `drop-shadow(0 0 2px ${WHITE})` }} />
+                      <Line type="monotone" dataKey="p25" stroke="#7dd3fc" strokeWidth={1.2} dot={false} name="25th" />
+                      <Line type="monotone" dataKey="p10" stroke={CYAN} strokeWidth={1} strokeDasharray="3 3" dot={false} name="10th" />
+                      <Line type="monotone" dataKey="current" stroke={YELLOW} strokeWidth={2.5} dot={{ fill: YELLOW, r: 4 }} name="Current IV" style={{ filter: `drop-shadow(0 0 4px ${YELLOW})` }} />
+                      <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+            ),
+          },
+          {
+            key: "smile",
+            label: "VOL SMILE",
+            content: (
+              <Panel title="Volatility Smile" subtitle={`Calls vs Puts · ${data.nearExp}DTE`}>
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.skew} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="2 4" stroke="#1a1a1a" />
+                      <XAxis dataKey="moneyness" tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "JetBrains Mono" }} unit="%" />
+                      <RTooltip contentStyle={tooltipStyle} labelFormatter={(v) => `Moneyness ${v}%`} formatter={(v: number, n: string) => [`${v.toFixed(2)}%`, n]} />
+                      <ReferenceLine x={0} stroke={WHITE} strokeDasharray="3 3" label={{ value: "ATM", fill: WHITE, fontSize: 10, position: "top" }} />
+                      <Line type="monotone" dataKey="putIv" stroke={RED} strokeWidth={2} dot={false} name="Puts IV" style={{ filter: `drop-shadow(0 0 2px ${RED})` }} />
+                      <Line type="monotone" dataKey="callIv" stroke={CYAN} strokeWidth={2} dot={false} name="Calls IV" style={{ filter: `drop-shadow(0 0 2px ${CYAN})` }} />
+                      <Legend wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+            ),
+          },
+          { key: "hill", label: "HILL 3D", content: <GexHillSurfaceForVolatility ticker={ticker} contracts={contracts} /> },
+          { key: "gexheat", label: "GEX HEATMAP", content: <GexHeatmapForVolatility ticker={ticker} contracts={contracts} /> },
+        ]}
+      />
     </div>
   );
 }
@@ -1026,24 +1085,39 @@ export function RegimeView({ ticker, levels, exposures }: Ctx) {
   const distFlip = levels.gammaFlip ? ((ticker.spot - levels.gammaFlip) / levels.gammaFlip) * 100 : 0;
 
   return (
-    <div className="space-y-3">
-      <Panel title="Market Regime">
-        <div className="text-center py-6">
-          <div className={`inline-block px-4 py-2 rounded font-bold tracking-wider text-lg ${aboveFlip ? "bg-call/20 text-call border border-call/40" : "bg-put/20 text-put border border-put/40"}`}>
-            {regime}
-          </div>
-          <p className="mt-4 text-sm text-muted-foreground max-w-xl mx-auto">{desc}</p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          <StatBlock label="Total GEX" value={formatNumber(levels.totalGex)} tone={levels.totalGex >= 0 ? "call" : "put"} />
-          <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-          <StatBlock label="Spot vs Flip" value={`${distFlip >= 0 ? "+" : ""}${distFlip.toFixed(2)}%`} tone={distFlip >= 0 ? "call" : "put"} />
-        </div>
-      </Panel>
-      <Panel title="Cumulative GEX curve">
-        <CumGexChart exposures={exposures} spot={ticker.spot} flip={levels.gammaFlip} />
-      </Panel>
-    </div>
+    <TerminalTabs
+      layoutId="regime-master-tab-bg"
+      tabs={[
+        {
+          key: "regime",
+          label: "REGIME",
+          content: (
+            <Panel title="Market Regime">
+              <div className="text-center py-6">
+                <div className={`inline-block px-4 py-2 rounded font-bold tracking-wider text-lg ${aboveFlip ? "bg-call/20 text-call border border-call/40" : "bg-put/20 text-put border border-put/40"}`}>
+                  {regime}
+                </div>
+                <p className="mt-4 text-sm text-muted-foreground max-w-xl mx-auto">{desc}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <StatBlock label="Total GEX" value={formatNumber(levels.totalGex)} tone={levels.totalGex >= 0 ? "call" : "put"} />
+                <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
+                <StatBlock label="Spot vs Flip" value={`${distFlip >= 0 ? "+" : ""}${distFlip.toFixed(2)}%`} tone={distFlip >= 0 ? "call" : "put"} />
+              </div>
+            </Panel>
+          ),
+        },
+        {
+          key: "cumgex",
+          label: "CUM GEX",
+          content: (
+            <Panel title="Cumulative GEX curve">
+              <CumGexChart exposures={exposures} spot={ticker.spot} flip={levels.gammaFlip} />
+            </Panel>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -1385,46 +1459,69 @@ export function RiskView({ ticker, exposures, levels, contracts }: Ctx) {
   const tone = riskScore > 60 ? "put" : riskScore > 35 ? "warning" : "call";
 
   return (
-    <div className="space-y-3">
-      <Panel title="Risk Score" subtitle="Composite measure of structural fragility (0–100)">
-        <div className="flex items-center gap-6">
-          <div className="text-center">
-            <div className={`text-5xl font-bold font-mono ${tone === "put" ? "text-put" : tone === "warning" ? "text-warning" : "text-call"}`}>{riskScore}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{riskScore > 60 ? "HIGH RISK" : riskScore > 35 ? "ELEVATED" : "STABLE"}</div>
-          </div>
-          <div className="flex-1 h-3 rounded-full bg-secondary overflow-hidden">
-            <div className={`h-full ${tone === "put" ? "bg-put" : tone === "warning" ? "bg-warning" : "bg-call"}`} style={{ width: `${riskScore}%` }} />
-          </div>
-        </div>
-      </Panel>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatBlock label="Concentration" value={(concentration * 100).toFixed(1) + "%"} sub="HHI of GEX" tone={concentration > 0.15 ? "put" : "default"} />
-        <StatBlock label="Tail OI" value={tailRisk.toFixed(1) + "%"} sub="strikes ±5%" tone={tailRisk > 30 ? "warning" : "default"} />
-        <StatBlock label="Dist to flip" value={distToFlip.toFixed(2) + "%"} sub="closer = fragile" tone={distToFlip < 1 ? "put" : "default"} />
-        <StatBlock label="Day-weighted OI" value={formatNumber(dayWeighted, 0)} sub="short-dated load" />
-      </div>
-      <Panel title="Scenario — spot ±5%">
-        <div className="grid grid-cols-3 gap-2 text-center">
-          {[-5, 0, 5].map((pct) => {
-            const newSpot = ticker.spot * (1 + pct / 100);
-            const closest = exposures.reduce((b, p) => Math.abs(p.strike - newSpot) < Math.abs(b.strike - newSpot) ? p : b, exposures[0]);
-            const Icon = pct < 0 ? TrendingDown : pct > 0 ? TrendingUp : Activity;
-            const localTone = pct < 0 ? "text-put" : pct > 0 ? "text-call" : "text-primary";
-            return (
-              <div key={pct} className="rounded border border-border bg-card/60 p-3">
-                <div className={`flex items-center justify-center gap-1 text-xs ${localTone}`}>
-                  <Icon className="h-3 w-3" />
-                  {pct >= 0 ? "+" : ""}{pct}%
+    <TerminalTabs
+      layoutId="risk-master-tab-bg"
+      tabs={[
+        {
+          key: "score",
+          label: "RISK SCORE",
+          content: (
+            <Panel title="Risk Score" subtitle="Composite measure of structural fragility (0–100)">
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <div className={`text-5xl font-bold font-mono ${tone === "put" ? "text-put" : tone === "warning" ? "text-warning" : "text-call"}`}>{riskScore}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{riskScore > 60 ? "HIGH RISK" : riskScore > 35 ? "ELEVATED" : "STABLE"}</div>
                 </div>
-                <div className="text-base font-mono font-semibold mt-1">${newSpot.toFixed(0)}</div>
-                <div className={`text-xs font-mono mt-1 ${closest.netGex >= 0 ? "text-call" : "text-put"}`}>{formatNumber(closest.netGex)}</div>
-                <div className="text-[10px] text-muted-foreground">net GEX @ K</div>
+                <div className="flex-1 h-3 rounded-full bg-secondary overflow-hidden">
+                  <div className={`h-full ${tone === "put" ? "bg-put" : tone === "warning" ? "bg-warning" : "bg-call"}`} style={{ width: `${riskScore}%` }} />
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </Panel>
-    </div>
+            </Panel>
+          ),
+        },
+        {
+          key: "metrics",
+          label: "METRICS",
+          content: (
+            <Panel title="Risk Metrics">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <StatBlock label="Concentration" value={(concentration * 100).toFixed(1) + "%"} sub="HHI of GEX" tone={concentration > 0.15 ? "put" : "default"} />
+                <StatBlock label="Tail OI" value={tailRisk.toFixed(1) + "%"} sub="strikes ±5%" tone={tailRisk > 30 ? "warning" : "default"} />
+                <StatBlock label="Dist to flip" value={distToFlip.toFixed(2) + "%"} sub="closer = fragile" tone={distToFlip < 1 ? "put" : "default"} />
+                <StatBlock label="Day-weighted OI" value={formatNumber(dayWeighted, 0)} sub="short-dated load" />
+              </div>
+            </Panel>
+          ),
+        },
+        {
+          key: "scenario",
+          label: "SCENARIO",
+          content: (
+            <Panel title="Scenario — spot ±5%">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[-5, 0, 5].map((pct) => {
+                  const newSpot = ticker.spot * (1 + pct / 100);
+                  const closest = exposures.reduce((b, p) => Math.abs(p.strike - newSpot) < Math.abs(b.strike - newSpot) ? p : b, exposures[0]);
+                  const Icon = pct < 0 ? TrendingDown : pct > 0 ? TrendingUp : Activity;
+                  const localTone = pct < 0 ? "text-put" : pct > 0 ? "text-call" : "text-primary";
+                  return (
+                    <div key={pct} className="rounded border border-border bg-card/60 p-3">
+                      <div className={`flex items-center justify-center gap-1 text-xs ${localTone}`}>
+                        <Icon className="h-3 w-3" />
+                        {pct >= 0 ? "+" : ""}{pct}%
+                      </div>
+                      <div className="text-base font-mono font-semibold mt-1">${newSpot.toFixed(0)}</div>
+                      <div className={`text-xs font-mono mt-1 ${closest.netGex >= 0 ? "text-call" : "text-put"}`}>{formatNumber(closest.netGex)}</div>
+                      <div className="text-[10px] text-muted-foreground">net GEX @ K</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Panel>
+          ),
+        },
+      ]}
+    />
   );
 }
 
