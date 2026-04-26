@@ -7,6 +7,7 @@ import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Targ
 import { useAuth } from "@/hooks/useAuth";
 import { GammaBackground } from "@/components/GammaBackground";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
+import { Scroll3DGallery } from "@/components/Scroll3DGallery";
 import { toast } from "sonner";
 import gamma1 from "@/assets/gamma-1.jpg";
 import gamma2 from "@/assets/gamma-2.jpg";
