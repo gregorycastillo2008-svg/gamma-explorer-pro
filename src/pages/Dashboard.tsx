@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
-  const { isAdmin } = useIsAdmin();
+  const { isAdmin } = useIsAdmin(user?.id);
   const nav = useNavigate();
   const { toast } = useToast();
 
