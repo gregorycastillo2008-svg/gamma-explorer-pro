@@ -41,9 +41,9 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
         </div>
       </div>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 10 }} barCategoryGap="15%">
+        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 0 }} barCategoryGap={2} barGap={0}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-          <XAxis dataKey="strike" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={25} />
+          <XAxis dataKey="strike" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={25} tickMargin={2} />
           <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={55} />
           <Tooltip
             contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
@@ -60,7 +60,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
               )}
             </>
           )}
-          <Bar dataKey="value" radius={[3, 3, 0, 0]} shape={(props: any) => {
+          <Bar dataKey="value" radius={[2, 2, 0, 0]} maxBarSize={40} shape={(props: any) => {
             const fill = props.payload.isPositive ? "hsl(var(--call))" : "hsl(var(--put))";
             return <rect {...props} fill={fill} />;
           }} />
