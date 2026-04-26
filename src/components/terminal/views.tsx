@@ -1,8 +1,9 @@
-import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract } from "@/lib/gex";
+import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, computeMaxPain, buildIvGrid } from "@/lib/gex";
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMemo, useState } from "react";
+import { AlertTriangle, TrendingUp, TrendingDown, Activity } from "lucide-react";
 
 interface Ctx {
   ticker: DemoTicker;
