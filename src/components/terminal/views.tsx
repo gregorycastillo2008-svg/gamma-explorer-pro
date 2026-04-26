@@ -12,6 +12,7 @@ import { AlertTriangle, TrendingUp, TrendingDown, Activity, Zap, Shield, Target 
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend, BarChart, Bar } from "recharts";
 import { IvSurface3D } from "./IvSurface3D";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 interface Ctx {
   ticker: DemoTicker;
