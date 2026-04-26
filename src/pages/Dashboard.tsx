@@ -21,6 +21,7 @@ type Metric = "netGex" | "dex" | "vex" | "vanna" | "charm";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const nav = useNavigate();
   const { toast } = useToast();
 
