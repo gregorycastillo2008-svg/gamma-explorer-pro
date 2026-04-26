@@ -52,7 +52,7 @@ export function GammaBackgroundDark() {
 
       const midY = h / 2;
       const barW = w / BARS;
-      const maxBar = h * 0.42;
+      const maxBar = h * 0.85; // much taller bars
 
       // Zero line
       ctx.strokeStyle = "rgba(255,215,0,0.18)";
