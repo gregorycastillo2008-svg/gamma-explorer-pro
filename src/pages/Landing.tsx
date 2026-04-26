@@ -77,27 +77,13 @@ export default function Landing() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <div className="fixed inset-0 opacity-40 pointer-events-none">
-        <GammaBackground />
+    <div className="relative min-h-screen overflow-hidden" style={{ background: "#000" }}>
+      {/* Animated gamma chart background — taller bars, vivid */}
+      <div className="fixed inset-0 opacity-55 pointer-events-none">
+        <GammaBackgroundDark />
       </div>
-
-      {/* Floating gamma images */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        {floatingImages.map((img, i) => (
-          <motion.img
-            key={i}
-            src={img.src}
-            alt=""
-            loading="lazy"
-            className="absolute rounded-2xl border border-primary/20 shadow-2xl opacity-30 hover:opacity-90 pointer-events-auto transition-opacity"
-            style={{ top: img.top, left: img.left, right: img.right, width: img.size, boxShadow: "0 20px 60px -10px hsl(var(--primary) / 0.4)" }}
-            animate={{ y: [0, -20, 0, 20, 0], rotate: [0, 2, -2, 0] }}
-            transition={{ duration: img.dur, delay: img.delay, repeat: Infinity, ease: "easeInOut" }}
-            whileHover={{ scale: 1.15, opacity: 1, zIndex: 50 }}
-          />
-        ))}
-      </div>
+      {/* Soft gold vignette */}
+      <div className="fixed inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at top, rgba(255,215,0,0.06), transparent 60%)" }} />
 
       {/* Floating "Ver Planes" CTA bubble */}
       <AnimatePresence>
