@@ -1535,6 +1535,24 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
   const systemStatus = entropy < 0.35 ? "STABLE FLOW" : entropy < 0.65 ? "ELEVATED" : "CHAOS";
   const entropyColor = entropy < 0.35 ? "hsl(180 100% 50%)" : entropy < 0.65 ? "hsl(35 100% 55%)" : "hsl(0 90% 60%)";
 
+  // ── Toast on each NEW alert with strike + BUY/SELL signal ──
+  const lastAlertId = useRef<string | null>(null);
+  useEffect(() => {
+    if (alerts.length === 0) return;
+    const top = alerts[0];
+    if (lastAlertId.current === top.id) return;
+    if (lastAlertId.current === null) { lastAlertId.current = top.id; return; } // skip seed batch
+    lastAlertId.current = top.id;
+    const side: "BUY" | "SELL" = top.z < 0 ? "BUY" : "SELL";
+    const sev = Math.abs(top.z);
+    const sigmaTxt = `${top.z >= 0 ? "+" : ""}${top.z.toFixed(2)}σ`;
+    const fn = side === "BUY" ? toast.success : toast.error;
+    fn(`${side} signal · ${top.kind}`, {
+      description: `${top.symbol} @ $${top.strike} · ${sigmaTxt} · ${top.detail}`,
+      duration: sev > 2.8 ? 7000 : 4500,
+    });
+  }, [alerts]);
+
   return (
     <div className="space-y-3">
       {/* Header strip */}
