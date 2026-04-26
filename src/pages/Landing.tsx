@@ -310,6 +310,9 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* 3D scroll-driven gallery */}
+      <Scroll3DGallery />
+
       {/* Plans */}
       <section id="planes" className="relative z-10 container pb-20 scroll-mt-20">
         <motion.div
