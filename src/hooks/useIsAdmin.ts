@@ -7,6 +7,9 @@ export function useIsAdmin(userId?: string | null) {
 
   useEffect(() => {
     let mounted = true;
+    const failSafe = window.setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 4000);
 
     const checkRole = async () => {
       if (!userId) {
@@ -29,11 +32,15 @@ export function useIsAdmin(userId?: string | null) {
         setIsAdmin(false);
       } finally {
         if (mounted) setLoading(false);
+        window.clearTimeout(failSafe);
       }
     };
 
     checkRole();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      window.clearTimeout(failSafe);
+    };
   }, [userId]);
 
   return { isAdmin, loading };
