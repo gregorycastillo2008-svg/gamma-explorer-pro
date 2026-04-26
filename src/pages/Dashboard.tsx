@@ -5,9 +5,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useToast } from "@/hooks/use-toast";
 import {
-  DEMO_TICKERS, getDemoTicker, generateDemoChain,
+  DEMO_TICKERS, getDemoTicker,
   computeExposures, computeKeyLevels,
 } from "@/lib/gex";
+import { useOptionsData } from "@/hooks/useOptionsData";
 import { Sidebar, Section } from "@/components/terminal/Sidebar";
 import { Topbar } from "@/components/terminal/Topbar";
 import {
@@ -54,11 +55,9 @@ export default function Dashboard() {
     });
   }, [user]);
 
-  const ticker = getDemoTicker(active);
-  if (!ticker) return null;
+  const { ticker, contracts: liveContracts, status, source, fetchedAt, priceChangePct, reload } = useOptionsData(active);
 
-  const allContracts = generateDemoChain(ticker);
-  const filtered = expiry === "all" ? allContracts : allContracts.filter((c) => String(c.expiry) === expiry);
+  const filtered = expiry === "all" ? liveContracts : liveContracts.filter((c) => String(c.expiry) === expiry);
   const exposures = computeExposures(ticker.spot, filtered);
   const levels = computeKeyLevels(exposures);
   const ctx = { ticker, exposures, levels, contracts: filtered };
@@ -66,8 +65,8 @@ export default function Dashboard() {
   const addTicker = async () => {
     const sym = newTicker.toUpperCase().trim();
     if (!sym || !user) return;
-    if (!getDemoTicker(sym)) {
-      toast({ title: "Ticker not available", description: `Demo: ${DEMO_TICKERS.map((t) => t.symbol).join(", ")}`, variant: "destructive" });
+    if (!/^[A-Z]{1,6}$/.test(sym)) {
+      toast({ title: "Invalid symbol", description: "Use 1–6 letters (e.g. SPX, AAPL, MSFT).", variant: "destructive" });
       return;
     }
     if (watchlist.includes(sym)) { setAddOpen(false); setNewTicker(""); return; }
@@ -131,6 +130,11 @@ export default function Dashboard() {
           onRemove={removeTicker}
           expiry={expiry}
           onExpiry={setExpiry}
+          status={status}
+          source={source}
+          fetchedAt={fetchedAt}
+          priceChangePct={priceChangePct}
+          onReload={reload}
         />
         <main className="flex-1 overflow-y-auto p-3">
           <SectionTransition sectionKey={`${section}-${active}`}>
@@ -151,7 +155,7 @@ export default function Dashboard() {
               onKeyDown={(e) => e.key === "Enter" && addTicker()}
               placeholder="SPX, SPY, AAPL..."
             />
-            <p className="text-xs text-muted-foreground">Available: {DEMO_TICKERS.map((t) => t.symbol).join(", ")}</p>
+            <p className="text-xs text-muted-foreground">Live data via CBOE for any US-listed symbol (SPX, SPY, QQQ, AAPL, NVDA, MSFT, AMD, META…).</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
