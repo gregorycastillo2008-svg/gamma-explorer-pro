@@ -169,9 +169,13 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
   }, [ticker, contracts]);
 
   const max = Math.max(...data.map((d) => Math.abs(d[metric])), 1);
+  const [hover, setHover] = useState<{ strike: number; value: number; x: number; y: number } | null>(null);
 
   return (
-    <div className="bg-black rounded border border-border p-3 max-h-[560px] overflow-auto">
+    <div
+      className="relative bg-black rounded border border-border p-3 max-h-[560px] overflow-auto"
+      onMouseLeave={() => setHover(null)}
+    >
       <div className="font-jetbrains text-[10px] text-muted-foreground uppercase tracking-wider mb-2 grid grid-cols-[1fr_80px_1fr] gap-2">
         <div className="text-right">Negative</div>
         <div className="text-center">Strike</div>
@@ -182,36 +186,75 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
           const v = p[metric];
           const w = (Math.abs(v) / max) * 100;
           const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
+          const isHover = hover?.strike === p.strike;
           return (
             <div
               key={p.strike}
-              className={`grid grid-cols-[1fr_80px_1fr] items-center gap-2 font-jetbrains text-[11px] ${
+              onMouseMove={(e) => {
+                const rect = (e.currentTarget.parentElement?.parentElement as HTMLElement).getBoundingClientRect();
+                setHover({ strike: p.strike, value: v, x: e.clientX - rect.left, y: e.clientY - rect.top });
+              }}
+              className={`grid grid-cols-[1fr_80px_1fr] items-center gap-2 font-jetbrains text-[11px] cursor-crosshair transition-colors ${
                 isSpot ? "bg-primary/10" : ""
-              }`}
+              } ${isHover ? "bg-white/5" : ""}`}
             >
               <div className="flex justify-end items-center h-5">
                 {v < 0 && (
-                  <>
-                    <span className="mr-2" style={{ color: "#ff4d4d" }}>{formatNumber(v, 1)}</span>
-                    <div className="h-3 rounded-l" style={{ width: `${w}%`, background: "#ff4d4d", boxShadow: "0 0 8px rgba(255,77,77,0.4)" }} />
-                  </>
+                  <div
+                    className="h-3 rounded-l transition-all"
+                    style={{
+                      width: `${w}%`,
+                      background: "#ff4d4d",
+                      boxShadow: isHover ? "0 0 14px rgba(255,77,77,0.7)" : "0 0 8px rgba(255,77,77,0.4)",
+                    }}
+                  />
                 )}
               </div>
-              <div className={`text-center ${isSpot ? "text-primary font-bold" : "text-foreground"}`} style={{ borderLeft: "1px solid hsl(var(--border))", borderRight: "1px solid hsl(var(--border))" }}>
+              <div
+                className={`text-center ${isSpot ? "text-primary font-bold" : "text-foreground"} ${isHover ? "text-white" : ""}`}
+                style={{ borderLeft: "1px solid hsl(var(--border))", borderRight: "1px solid hsl(var(--border))" }}
+              >
                 ${p.strike}
               </div>
               <div className="flex items-center h-5">
                 {v >= 0 && (
-                  <>
-                    <div className="h-3 rounded-r" style={{ width: `${w}%`, background: "#00ff88", boxShadow: "0 0 8px rgba(0,255,136,0.4)" }} />
-                    <span className="ml-2" style={{ color: "#00ff88" }}>{formatNumber(v, 1)}</span>
-                  </>
+                  <div
+                    className="h-3 rounded-r transition-all"
+                    style={{
+                      width: `${w}%`,
+                      background: "#00ff88",
+                      boxShadow: isHover ? "0 0 14px rgba(0,255,136,0.7)" : "0 0 8px rgba(0,255,136,0.4)",
+                    }}
+                  />
                 )}
               </div>
             </div>
           );
         })}
       </div>
+
+      <AnimatePresence>
+        {hover && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.12 }}
+            className="pointer-events-none absolute z-30 bg-black/95 backdrop-blur border border-[#1f1f1f] rounded px-3 py-2 font-jetbrains text-[11px] shadow-2xl"
+            style={{
+              left: Math.min(hover.x + 14, 9999),
+              top: hover.y + 14,
+              boxShadow: "0 0 20px rgba(0,255,255,0.15)",
+            }}
+          >
+            <div className="text-[9px] uppercase tracking-[0.18em] text-[#6b7280] mb-1">Strike</div>
+            <div className="text-[#00ffff] text-sm font-bold">${hover.strike}</div>
+            <div className="mt-1" style={{ color: hover.value >= 0 ? "#00ff88" : "#ff4d4d" }}>
+              {metric === "netGex" ? "Γ" : "Δ"} {formatNumber(hover.value)}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
