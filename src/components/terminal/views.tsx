@@ -3,6 +3,7 @@ import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
 import { GexDexBars } from "./GexDexBars";
 import { GexExposureTabs, GexHeatmapPanel, GexSurfacePanel } from "./GexExposureTabs";
+import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState, useEffect } from "react";
