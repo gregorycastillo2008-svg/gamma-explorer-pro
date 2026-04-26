@@ -2,6 +2,7 @@ import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, com
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
 import { GexDexBars } from "./GexDexBars";
+import { GexExposureTabs } from "./GexExposureTabs";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState, useEffect } from "react";
@@ -149,35 +150,29 @@ export function GexDexView({ ticker, contracts }: Ctx) {
       </div>
 
       {/* DTE + metric controls */}
-      <Panel
-        title="Net Exposure by Strike"
-        subtitle={`${ticker.symbol} · spot $${ticker.spot} · ${dte === "all" ? "all expiries" : dte + "DTE"}`}
-        right={
-          <div className="flex items-center gap-2">
-            <div className="flex gap-0.5 bg-secondary/40 rounded p-0.5">
-              {DTE_FILTERS.map((f) => (
-                <Button
-                  key={f.value}
-                  size="sm"
-                  variant={dte === f.value ? "default" : "ghost"}
-                  className="h-6 px-2 text-[10px] font-mono uppercase tracking-wider"
-                  onClick={() => setDte(f.value)}
-                >
-                  {f.label}
-                </Button>
-              ))}
-            </div>
-            <Tabs value={m} onValueChange={(v) => setM(v as any)}>
-              <TabsList className="h-7">
-                <TabsTrigger value="netGex" className="text-xs h-5 px-2">GEX</TabsTrigger>
-                <TabsTrigger value="dex" className="text-xs h-5 px-2">DEX</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        }
-      >
-        <GexDexBars data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric={m} />
-      </Panel>
+      <div className="flex items-center justify-end gap-2">
+        <div className="flex gap-0.5 bg-secondary/40 rounded p-0.5">
+          {DTE_FILTERS.map((f) => (
+            <Button
+              key={f.value}
+              size="sm"
+              variant={dte === f.value ? "default" : "ghost"}
+              className="h-6 px-2 text-[10px] font-mono uppercase tracking-wider"
+              onClick={() => setDte(f.value)}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
+        <Tabs value={m} onValueChange={(v) => setM(v as any)}>
+          <TabsList className="h-7">
+            <TabsTrigger value="netGex" className="text-xs h-5 px-2">GEX</TabsTrigger>
+            <TabsTrigger value="dex" className="text-xs h-5 px-2">DEX</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <GexExposureTabs ticker={ticker} contracts={filtered} metric={m} />
 
       {/* Live tape + bias breakdown */}
       <div className="grid lg:grid-cols-3 gap-3">
