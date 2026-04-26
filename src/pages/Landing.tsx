@@ -1,9 +1,16 @@
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Activity, BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye } from "lucide-react";
+import { Activity, BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GammaBackground } from "@/components/GammaBackground";
+import { toast } from "sonner";
+import gamma1 from "@/assets/gamma-1.jpg";
+import gamma2 from "@/assets/gamma-2.jpg";
+import gamma3 from "@/assets/gamma-3.jpg";
+import gamma4 from "@/assets/gamma-4.jpg";
 
 const features = [
   { icon: BarChart3, title: "GEX por strike", desc: "Visualiza Gamma Exposure agregada por strike con detección automática de Call/Put walls." },
@@ -14,13 +21,126 @@ const features = [
   { icon: Shield, title: "Acceso seguro", desc: "Tu cuenta y tu watchlist protegidas con autenticación moderna." },
 ];
 
+const floatingImages = [
+  { src: gamma1, top: "8%", left: "4%", size: 180, delay: 0, dur: 14 },
+  { src: gamma2, top: "55%", left: "2%", size: 150, delay: 2, dur: 16 },
+  { src: gamma3, top: "12%", right: "3%", size: 200, delay: 1, dur: 18 },
+  { src: gamma4, top: "60%", right: "5%", size: 170, delay: 3, dur: 15 },
+];
+
+const testimonials = [
+  { name: "Carlos M.", role: "Day Trader · SPX", rating: 5, text: "Llevo 8 meses con GammaScope. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.", extra: "Cliente desde 2024 · +320% portfolio" },
+  { name: "Ana L.", role: "Options Trader · QQQ", rating: 5, text: "Las call/put walls funcionan como imanes. Es la herramienta más precisa que he probado.", extra: "Win rate subió del 54% al 71%" },
+  { name: "David R.", role: "Quant · Hedge Fund", rating: 5, text: "La latencia y la calidad de datos son institucionales. El precio es ridículamente bajo para lo que entrega.", extra: "Reemplazó software de $2k/mes" },
+  { name: "Sofía P.", role: "Swing Trader", rating: 5, text: "El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.", extra: "Suscriptora Pro Elite" },
+];
+
+const plans = [
+  {
+    name: "Starter", price: 29.99, icon: Rocket, tone: "muted",
+    features: ["GEX básico SPX/SPY", "1 ticker en watchlist", "Datos con 15min delay", "Soporte por email"],
+  },
+  {
+    name: "Pro", price: 79.99, icon: Crown, tone: "primary", popular: true,
+    features: ["GEX/DEX/VEX en tiempo real", "Watchlist ilimitada", "Call/Put walls + Gamma Flip", "AI Bias diario", "Alertas push", "Soporte prioritario"],
+  },
+  {
+    name: "Elite", price: 159.99, icon: Gem, tone: "call",
+    features: ["Todo lo de Pro", "IV Surface 3D completo", "API access (10k req/día)", "Vanna & Charm exposure", "Reportes institucionales", "Onboarding 1-a-1", "Discord VIP traders"],
+  },
+];
+
+function StarRow({ n }: { n: number }) {
+  return (
+    <div className="flex gap-0.5">
+      {Array.from({ length: n }).map((_, i) => (
+        <motion.div
+          key={i}
+          animate={{ rotate: [0, 12, -12, 0], scale: [1, 1.15, 1] }}
+          transition={{ duration: 2, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+        >
+          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 export default function Landing() {
   const { user } = useAuth();
+  const [showPlansBubble, setShowPlansBubble] = useState(true);
+
+  // animated word in hero
+  const heroWords = ["Gamma Exposure", "Dealer Flow", "Volatility Edge", "Market Bias"];
+  const [wordIdx, setWordIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setWordIdx((i) => (i + 1) % heroWords.length), 2600);
+    return () => clearInterval(t);
+  }, []);
+
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast.success(`Código ${code} copiado · ¡aplícalo al pagar!`);
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       <div className="fixed inset-0 opacity-40 pointer-events-none">
         <GammaBackground />
       </div>
+
+      {/* Floating gamma images */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        {floatingImages.map((img, i) => (
+          <motion.img
+            key={i}
+            src={img.src}
+            alt=""
+            loading="lazy"
+            className="absolute rounded-2xl border border-primary/20 shadow-2xl opacity-30 hover:opacity-90 pointer-events-auto transition-opacity"
+            style={{ top: img.top, left: img.left, right: img.right, width: img.size, boxShadow: "0 20px 60px -10px hsl(var(--primary) / 0.4)" }}
+            animate={{ y: [0, -20, 0, 20, 0], rotate: [0, 2, -2, 0] }}
+            transition={{ duration: img.dur, delay: img.delay, repeat: Infinity, ease: "easeInOut" }}
+            whileHover={{ scale: 1.15, opacity: 1, zIndex: 50 }}
+          />
+        ))}
+      </div>
+
+      {/* Floating "Ver Planes" CTA bubble */}
+      <AnimatePresence>
+        {showPlansBubble && (
+          <motion.div
+            initial={{ opacity: 0, y: -40, scale: 0.6 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.6 }}
+            transition={{ type: "spring", stiffness: 260, damping: 18 }}
+            className="fixed top-20 right-4 z-50"
+          >
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+              className="relative"
+            >
+              <div className="absolute -inset-2 rounded-2xl bg-primary/40 blur-xl animate-pulse" />
+              <a href="#planes" onClick={() => setShowPlansBubble(false)}>
+                <div className="relative flex items-center gap-2 px-4 py-3 rounded-2xl bg-card border-2 border-primary cursor-pointer hover:scale-105 transition-transform"
+                  style={{ boxShadow: "0 10px 40px -5px hsl(var(--primary) / 0.6)" }}>
+                  <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                  <div className="text-left">
+                    <div className="text-xs text-muted-foreground leading-none">Oferta limitada</div>
+                    <div className="text-sm font-bold">Ver planes →</div>
+                  </div>
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPlansBubble(false); }}
+                    className="ml-1 text-muted-foreground hover:text-foreground text-xs"
+                  >✕</button>
+                </div>
+              </a>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <header className="relative z-10 container flex items-center justify-between py-6">
         <Link to="/" className="flex items-center gap-2">
           <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
@@ -29,6 +149,7 @@ export default function Landing() {
           <span className="text-xl font-bold tracking-tight">GammaScope</span>
         </Link>
         <div className="flex items-center gap-3">
+          <a href="#planes"><Button variant="ghost">Planes</Button></a>
           {user ? (
             <Link to="/dashboard"><Button>Ir al panel</Button></Link>
           ) : (
@@ -41,40 +162,225 @@ export default function Landing() {
       </header>
 
       <section className="relative z-10 container py-20 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 border border-primary/20">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 border border-primary/20"
+        >
           <BadgeCheck className="h-4 w-4" />
           Plataforma verificada · análisis institucional en tiempo real
-        </div>
-        <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6 max-w-4xl mx-auto">
-          Análisis de <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>Gamma Exposure</span> profesional
+        </motion.div>
+
+        <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 max-w-5xl mx-auto leading-[1.05]">
+          {"Análisis de ".split("").map((c, i) => (
+            <motion.span
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              className="inline-block"
+            >{c === " " ? "\u00A0" : c}</motion.span>
+          ))}
+          <br />
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={wordIdx}
+              initial={{ opacity: 0, y: 30, rotateX: -90 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0 }}
+              exit={{ opacity: 0, y: -30, rotateX: 90 }}
+              transition={{ duration: 0.6 }}
+              className="inline-block bg-clip-text text-transparent"
+              style={{ backgroundImage: "var(--gradient-primary)" }}
+            >
+              {heroWords[wordIdx]}
+            </motion.span>
+          </AnimatePresence>
+          <br />
+          <span className="text-3xl md:text-4xl font-bold text-muted-foreground">profesional · en tiempo real</span>
         </h1>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8"
+        >
           Calcula GEX, DEX, Vanna y Charm exposure por strike. Detecta call walls, put walls y gamma flips para anticipar el comportamiento del mercado.
-        </p>
-        <div className="flex items-center justify-center gap-3">
+        </motion.p>
+
+        <div className="flex items-center justify-center gap-3 flex-wrap">
           <Link to={user ? "/dashboard" : "/auth"}>
             <Button size="lg" className="text-base">Empezar gratis</Button>
           </Link>
-          <a href="#features"><Button size="lg" variant="outline">Ver funciones</Button></a>
+          <a href="#planes"><Button size="lg" variant="outline">Ver planes</Button></a>
         </div>
 
-        {/* Live stats strip */}
+        {/* Discount codes */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1 }}
+          className="mt-10 flex flex-wrap items-center justify-center gap-3"
+        >
+          {[
+            { code: "GAMMA30", off: "-30%", note: "primer mes" },
+            { code: "ELITE50", off: "-50%", note: "plan Elite anual" },
+            { code: "FLIP15", off: "-15%", note: "para todos" },
+          ].map((d) => (
+            <motion.button
+              key={d.code}
+              onClick={() => copyCode(d.code)}
+              whileHover={{ scale: 1.06, y: -3 }}
+              whileTap={{ scale: 0.97 }}
+              className="group relative flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 transition-colors"
+            >
+              <span className="text-xs font-black text-primary tracking-wider">{d.code}</span>
+              <span className="text-xs font-bold text-call">{d.off}</span>
+              <span className="text-xs text-muted-foreground hidden md:inline">· {d.note}</span>
+              <Copy className="h-3 w-3 text-muted-foreground group-hover:text-primary" />
+            </motion.button>
+          ))}
+        </motion.div>
+
         <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
           {[
             { k: "Tickers", v: "SPX · SPY · QQQ" },
             { k: "Métricas", v: "GEX · DEX · VEX" },
             { k: "Latencia", v: "< 200 ms" },
             { k: "Uptime", v: "99.9%" },
-          ].map((s) => (
-            <Card key={s.k} className="p-4 bg-card/70 backdrop-blur-sm">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">{s.k}</div>
-              <div className="text-sm font-semibold mt-1">{s.v}</div>
-            </Card>
+          ].map((s, i) => (
+            <motion.div
+              key={s.k}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.2 + i * 0.1 }}
+            >
+              <Card className="p-4 bg-card/70 backdrop-blur-sm">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">{s.k}</div>
+                <div className="text-sm font-semibold mt-1">{s.v}</div>
+              </Card>
+            </motion.div>
           ))}
         </div>
       </section>
 
-      {/* Info section: ¿Qué es GEX? */}
+      {/* Testimonials with animated stars */}
+      <section className="relative z-10 container pb-16">
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-4xl md:text-5xl font-black tracking-tight text-center mb-3"
+        >
+          Lo que dicen los <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>traders</span>
+        </motion.h2>
+        <p className="text-center text-muted-foreground mb-10">Pasa el cursor sobre un comentario para verlo completo · se detiene la animación</p>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {testimonials.map((t, i) => (
+            <motion.div
+              key={t.name}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.12 }}
+              animate={{ y: [0, -8, 0] }}
+              {...{ transition: { y: { duration: 3 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 } } } as any}
+              whileHover={{ scale: 1.05, y: 0, zIndex: 10 }}
+              className="group"
+            >
+              <Card className="p-5 h-full bg-card/80 backdrop-blur-sm hover:border-primary/60 transition-colors cursor-pointer relative overflow-hidden"
+                style={{ boxShadow: "var(--shadow-card)" }}>
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/0 group-hover:from-primary/10 group-hover:to-transparent transition-all" />
+                <div className="relative">
+                  <StarRow n={t.rating} />
+                  <p className="text-sm mt-3 text-foreground/90 leading-relaxed">"{t.text}"</p>
+                  <div className="mt-4 pt-3 border-t border-border/50">
+                    <div className="font-bold text-sm">{t.name}</div>
+                    <div className="text-xs text-muted-foreground">{t.role}</div>
+                  </div>
+                  <div className="max-h-0 group-hover:max-h-20 overflow-hidden transition-all duration-500">
+                    <div className="mt-3 text-xs text-primary font-semibold flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" /> {t.extra}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Plans */}
+      <section id="planes" className="relative z-10 container pb-20 scroll-mt-20">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-12"
+        >
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-call/10 text-call text-xs font-bold mb-4 border border-call/30">
+            <Sparkles className="h-3 w-3" /> Todos los planes con 7 días de prueba
+          </div>
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight">Elige tu <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>edge</span></h2>
+          <p className="text-muted-foreground mt-3">Sin permanencia. Cancela cuando quieras. Aplica un código de descuento al pagar.</p>
+        </motion.div>
+
+        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          {plans.map((p, i) => (
+            <motion.div
+              key={p.name}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.15 }}
+              whileHover={{ y: -10 }}
+              className="relative"
+            >
+              {p.popular && (
+                <motion.div
+                  animate={{ scale: [1, 1.08, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-lg"
+                >
+                  ⭐ MÁS POPULAR
+                </motion.div>
+              )}
+              <Card
+                className={`p-7 h-full bg-card/85 backdrop-blur-sm relative overflow-hidden ${p.popular ? "border-primary border-2" : ""}`}
+                style={{ boxShadow: p.popular ? "0 20px 60px -15px hsl(var(--primary) / 0.5)" : "var(--shadow-card)" }}
+              >
+                {p.popular && <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />}
+                <div className="relative">
+                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center mb-4 ${p.tone === "primary" ? "bg-primary/15" : p.tone === "call" ? "bg-call/15" : "bg-muted"}`}>
+                    <p.icon className={`h-6 w-6 ${p.tone === "primary" ? "text-primary" : p.tone === "call" ? "text-call" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="font-bold text-2xl">{p.name}</div>
+                  <div className="mt-3 flex items-baseline gap-1">
+                    <span className="text-5xl font-black">${p.price}</span>
+                    <span className="text-sm text-muted-foreground">/mes</span>
+                  </div>
+                  <ul className="mt-6 space-y-2.5">
+                    {p.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm">
+                        <Check className={`h-4 w-4 mt-0.5 shrink-0 ${p.tone === "call" ? "text-call" : "text-primary"}`} />
+                        <span className="text-foreground/90">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link to={user ? "/dashboard" : "/auth"} className="block mt-7">
+                    <Button className="w-full" variant={p.popular ? "default" : "outline"} size="lg">
+                      Empezar prueba
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Info section */}
       <section className="relative z-10 container pb-16">
         <Card className="p-8 md:p-10 bg-card/80 backdrop-blur-sm" style={{ boxShadow: "var(--shadow-elegant)" }}>
           <div className="grid md:grid-cols-2 gap-8 items-center">
@@ -111,14 +417,23 @@ export default function Landing() {
 
       <section id="features" className="relative z-10 container pb-24">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {features.map((f) => (
-            <Card key={f.title} className="p-6 hover:shadow-lg transition-shadow bg-card/80 backdrop-blur-sm" style={{ boxShadow: "var(--shadow-card)" }}>
-              <div className="h-11 w-11 rounded-lg flex items-center justify-center mb-4 bg-accent">
-                <f.icon className="h-5 w-5 text-primary" />
-              </div>
-              <h3 className="font-semibold mb-2">{f.title}</h3>
-              <p className="text-sm text-muted-foreground">{f.desc}</p>
-            </Card>
+          {features.map((f, i) => (
+            <motion.div
+              key={f.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08 }}
+              whileHover={{ y: -6, scale: 1.02 }}
+            >
+              <Card className="p-6 hover:shadow-lg transition-all bg-card/80 backdrop-blur-sm h-full" style={{ boxShadow: "var(--shadow-card)" }}>
+                <div className="h-11 w-11 rounded-lg flex items-center justify-center mb-4 bg-accent">
+                  <f.icon className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-semibold mb-2">{f.title}</h3>
+                <p className="text-sm text-muted-foreground">{f.desc}</p>
+              </Card>
+            </motion.div>
           ))}
         </div>
       </section>
