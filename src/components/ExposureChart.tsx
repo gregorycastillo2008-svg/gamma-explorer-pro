@@ -20,14 +20,19 @@ const labels: Record<Props["metric"], string> = {
 };
 
 export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: Props) {
-  const chartData = data.map((d) => ({
-    strike: d.strike,
-    value: d[metric],
-    isPositive: d[metric] >= 0,
-  }));
+  // Focus on strikes within ±15% of spot so bars don't get crushed by far OTM strikes
+  const lo = spot * 0.85;
+  const hi = spot * 1.15;
+  const chartData = data
+    .filter((d) => d.strike >= lo && d.strike <= hi)
+    .map((d) => ({
+      strike: d.strike,
+      value: d[metric],
+      isPositive: d[metric] >= 0,
+    }));
 
   return (
-    <div className="w-full h-[420px]">
+    <div className="w-full h-[520px]">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold">{labels[metric]} por strike</h3>
         <div className="flex gap-3 text-xs text-muted-foreground">
@@ -36,10 +41,10 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
         </div>
       </div>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 10 }} barCategoryGap="15%">
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-          <XAxis dataKey="strike" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-          <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => formatNumber(Number(v), 1)} />
+          <XAxis dataKey="strike" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={25} />
+          <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={55} />
           <Tooltip
             contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
             formatter={(v: number) => formatNumber(v)}
