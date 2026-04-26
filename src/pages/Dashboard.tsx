@@ -65,8 +65,8 @@ export default function Dashboard() {
   const addTicker = async () => {
     const sym = newTicker.toUpperCase().trim();
     if (!sym || !user) return;
-    if (!getDemoTicker(sym)) {
-      toast({ title: "Ticker not available", description: `Demo: ${DEMO_TICKERS.map((t) => t.symbol).join(", ")}`, variant: "destructive" });
+    if (!/^[A-Z]{1,6}$/.test(sym)) {
+      toast({ title: "Invalid symbol", description: "Use 1–6 letters (e.g. SPX, AAPL, MSFT).", variant: "destructive" });
       return;
     }
     if (watchlist.includes(sym)) { setAddOpen(false); setNewTicker(""); return; }
