@@ -201,20 +201,66 @@ export default function Landing() {
           {[
             { code: "GAMMA30", off: "-30%", note: "primer mes" },
             { code: "ELITE50", off: "-50%", note: "plan Elite anual" },
-            { code: "FLIP15", off: "-15%", note: "para todos" },
-          ].map((d) => (
-            <motion.button
+            { code: "FLIP15",  off: "-15%", note: "para todos" },
+          ].map((d, i) => (
+            <motion.div
               key={d.code}
-              onClick={() => copyCode(d.code)}
-              whileHover={{ scale: 1.06, y: -3 }}
-              whileTap={{ scale: 0.97 }}
-              className="group relative flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 transition-colors"
+              animate={{ y: [0, -6, 0, 6, 0] }}
+              transition={{ duration: 3.5 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
+              className="relative group"
             >
-              <span className="text-xs font-black text-primary tracking-wider">{d.code}</span>
-              <span className="text-xs font-bold text-call">{d.off}</span>
-              <span className="text-xs text-muted-foreground hidden md:inline">· {d.note}</span>
-              <Copy className="h-3 w-3 text-muted-foreground group-hover:text-primary" />
-            </motion.button>
+              {/* Pulsing gold halo */}
+              <motion.div
+                className="absolute -inset-1 rounded-full pointer-events-none"
+                style={{ background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)", filter: "blur(10px)", opacity: 0.5 }}
+                animate={{ opacity: [0.35, 0.7, 0.35] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
+              />
+              <div
+                className="relative flex items-center rounded-full overflow-hidden"
+                style={{
+                  background: "linear-gradient(135deg, rgba(20,15,5,0.95), rgba(40,30,8,0.95))",
+                  border: "1px solid rgba(255,215,0,0.5)",
+                  boxShadow: "0 8px 24px rgba(255,215,0,0.25), inset 0 1px 0 rgba(255,215,0,0.25)",
+                }}
+              >
+                {/* Sweeping shine */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(115deg, transparent 40%, rgba(255,215,0,0.4) 50%, transparent 60%)" }}
+                  animate={{ x: ["-120%", "120%"] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.6, repeatDelay: 0.4 }}
+                />
+                {/* Code text */}
+                <div className="pl-4 pr-3 py-2.5 flex items-center gap-2 relative">
+                  <Sparkles className="h-3.5 w-3.5" style={{ color: "#ffd700" }} />
+                  <span className="font-mono font-black tracking-widest text-sm bg-clip-text text-transparent"
+                    style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
+                  >
+                    {d.code}
+                  </span>
+                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: "rgba(0,255,120,0.15)", color: "#00ff78", border: "1px solid rgba(0,255,120,0.4)" }}
+                  >
+                    {d.off}
+                  </span>
+                  <span className="text-[10px] hidden md:inline" style={{ color: "rgba(255,215,0,0.6)" }}>· {d.note}</span>
+                </div>
+                {/* Integrated copy button */}
+                <button
+                  onClick={() => copyCode(d.code)}
+                  className="relative h-full px-4 py-2.5 flex items-center gap-1.5 font-bold text-xs text-black hover:brightness-110 active:scale-95 transition-all"
+                  style={{
+                    background: "linear-gradient(90deg, #ffd700, #fff5cc, #ffd700)",
+                    backgroundSize: "200% 100%",
+                    borderLeft: "1px solid rgba(255,215,0,0.5)",
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  COPIAR
+                </button>
+              </div>
+            </motion.div>
           ))}
         </motion.div>
 
