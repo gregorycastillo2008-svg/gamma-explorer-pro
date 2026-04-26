@@ -3,9 +3,10 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Activity, BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem } from "lucide-react";
+import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GammaBackground } from "@/components/GammaBackground";
+import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { toast } from "sonner";
 import gamma1 from "@/assets/gamma-1.jpg";
 import gamma2 from "@/assets/gamma-2.jpg";
@@ -29,7 +30,7 @@ const floatingImages = [
 ];
 
 const testimonials = [
-  { name: "Carlos M.", role: "Day Trader · SPX", rating: 5, text: "Llevo 8 meses con GammaScope. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.", extra: "Cliente desde 2024 · +320% portfolio" },
+  { name: "Carlos M.", role: "Day Trader · SPX", rating: 5, text: "Llevo 8 meses con AllGamma. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.", extra: "Cliente desde 2024 · +320% portfolio" },
   { name: "Ana L.", role: "Options Trader · QQQ", rating: 5, text: "Las call/put walls funcionan como imanes. Es la herramienta más precisa que he probado.", extra: "Win rate subió del 54% al 71%" },
   { name: "David R.", role: "Quant · Hedge Fund", rating: 5, text: "La latencia y la calidad de datos son institucionales. El precio es ridículamente bajo para lo que entrega.", extra: "Reemplazó software de $2k/mes" },
   { name: "Sofía P.", role: "Swing Trader", rating: 5, text: "El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.", extra: "Suscriptora Pro Elite" },
@@ -142,11 +143,8 @@ export default function Landing() {
       </AnimatePresence>
 
       <header className="relative z-10 container flex items-center justify-between py-6">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
-            <Activity className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">GammaScope</span>
+        <Link to="/" className="hover:scale-105 transition-transform">
+          <AllGammaLogo size="md" />
         </Link>
         <div className="flex items-center gap-3">
           <a href="#planes"><Button variant="ghost">Planes</Button></a>
@@ -441,7 +439,7 @@ export default function Landing() {
       <footer className="relative z-10 border-t py-8 text-center text-sm text-muted-foreground bg-card/60 backdrop-blur-sm">
         <div className="flex items-center justify-center gap-2">
           <BadgeCheck className="h-4 w-4 text-primary" />
-          GammaScope · Plataforma verificada · Solo con fines educativos. Datos simulados.
+          AllGamma · Plataforma verificada · Solo con fines educativos. Datos simulados.
         </div>
       </footer>
     </div>

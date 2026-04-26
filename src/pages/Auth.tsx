@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Activity } from "lucide-react";
+import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { GammaBackground } from "@/components/GammaBackground";
 
 export default function Auth() {
@@ -46,11 +46,8 @@ export default function Auth() {
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
       <GammaBackground />
       <div className="relative z-10 w-full max-w-md">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
-            <Activity className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-2xl font-bold tracking-tight">GammaScope</span>
+        <div className="flex items-center justify-center mb-6">
+          <AllGammaLogo size="lg" />
         </div>
         <Card style={{ boxShadow: "var(--shadow-elegant)" }}>
           <CardHeader>
