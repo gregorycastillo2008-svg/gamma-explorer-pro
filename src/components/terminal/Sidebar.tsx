@@ -1,13 +1,15 @@
-import { Activity, BarChart3, LineChart, Layers, Zap, Target, TrendingUp, Wind, Gauge, Shuffle, Sigma, Shield, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Activity, BarChart3, LineChart, Layers, Target, TrendingUp, Wind, Gauge, Shuffle, Sigma, Shield, LogOut, ChevronLeft, ChevronRight, Grid3x3, AlertTriangle, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 
 export type Section =
-  | "overview" | "gex-dex" | "greeks" | "depth" | "levels"
-  | "hedge" | "vanna-charm" | "vega-theta" | "volatility" | "regime" | "admin";
+  | "overview" | "oi-analytics" | "gex-dex" | "greeks" | "depth" | "levels"
+  | "hedge" | "vanna-charm" | "vega-theta"
+  | "volatility" | "heatmap" | "regime" | "risk" | "anomaly";
 
 export const SECTIONS: { id: Section; label: string; icon: any; group: string }[] = [
   { id: "overview", label: "Overview", icon: Activity, group: "MAIN" },
+  { id: "oi-analytics", label: "OI Analytics", icon: BarChart2, group: "MAIN" },
   { id: "gex-dex", label: "GEX & DEX", icon: BarChart3, group: "MAIN" },
   { id: "greeks", label: "Greek Ladder", icon: Sigma, group: "MAIN" },
   { id: "depth", label: "Depth View", icon: Layers, group: "MAIN" },
@@ -16,7 +18,10 @@ export const SECTIONS: { id: Section; label: string; icon: any; group: string }[
   { id: "vanna-charm", label: "Vanna & Charm", icon: Wind, group: "MAIN" },
   { id: "vega-theta", label: "Vega & Theta", icon: TrendingUp, group: "MAIN" },
   { id: "volatility", label: "Volatility", icon: LineChart, group: "ANALYSIS" },
+  { id: "heatmap", label: "Heatmap / 3D", icon: Grid3x3, group: "ANALYSIS" },
   { id: "regime", label: "Regime", icon: Shuffle, group: "ANALYSIS" },
+  { id: "risk", label: "Risk", icon: Shield, group: "ANALYSIS" },
+  { id: "anomaly", label: "Anomaly Detection", icon: AlertTriangle, group: "ANALYSIS" },
 ];
 
 interface Props {

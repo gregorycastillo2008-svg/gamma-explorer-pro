@@ -130,15 +130,45 @@ export interface DemoTicker {
   expiries: number[]; // days
 }
 
+const STD_EXPIRIES = [1, 2, 3, 7, 14, 21, 26, 30, 60];
+
 export const DEMO_TICKERS: DemoTicker[] = [
-  { symbol: "SPX", name: "S&P 500 Index", spot: 5230, baseIV: 0.14, strikeStep: 25, expiries: [1, 7, 30, 60] },
-  { symbol: "SPY", name: "SPDR S&P 500 ETF", spot: 522, baseIV: 0.13, strikeStep: 2, expiries: [1, 7, 30, 60] },
-  { symbol: "QQQ", name: "Invesco QQQ Trust", spot: 445, baseIV: 0.18, strikeStep: 2, expiries: [1, 7, 30, 60] },
-  { symbol: "NDX", name: "Nasdaq 100 Index", spot: 18250, baseIV: 0.18, strikeStep: 50, expiries: [1, 7, 30, 60] },
-  { symbol: "AAPL", name: "Apple Inc.", spot: 195, baseIV: 0.25, strikeStep: 2.5, expiries: [7, 30, 60] },
-  { symbol: "TSLA", name: "Tesla Inc.", spot: 248, baseIV: 0.55, strikeStep: 5, expiries: [7, 30, 60] },
-  { symbol: "NVDA", name: "NVIDIA Corp.", spot: 880, baseIV: 0.45, strikeStep: 10, expiries: [7, 30, 60] },
+  { symbol: "SPX", name: "S&P 500 Index", spot: 5230, baseIV: 0.14, strikeStep: 25, expiries: STD_EXPIRIES },
+  { symbol: "SPY", name: "SPDR S&P 500 ETF", spot: 522, baseIV: 0.13, strikeStep: 2, expiries: STD_EXPIRIES },
+  { symbol: "QQQ", name: "Invesco QQQ Trust", spot: 445, baseIV: 0.18, strikeStep: 2, expiries: STD_EXPIRIES },
+  { symbol: "NDX", name: "Nasdaq 100 Index", spot: 18250, baseIV: 0.18, strikeStep: 50, expiries: STD_EXPIRIES },
+  { symbol: "AAPL", name: "Apple Inc.", spot: 195, baseIV: 0.25, strikeStep: 2.5, expiries: [7, 14, 21, 30, 60] },
+  { symbol: "TSLA", name: "Tesla Inc.", spot: 248, baseIV: 0.55, strikeStep: 5, expiries: [7, 14, 21, 30, 60] },
+  { symbol: "NVDA", name: "NVIDIA Corp.", spot: 880, baseIV: 0.45, strikeStep: 10, expiries: [7, 14, 21, 30, 60] },
 ];
+
+// Max Pain = strike where total option value held by buyers is minimised (= dealers pay least)
+export function computeMaxPain(exposures: ExposurePoint[]): number {
+  let bestStrike = exposures[0]?.strike ?? 0;
+  let bestPain = Infinity;
+  for (const target of exposures) {
+    let pain = 0;
+    for (const p of exposures) {
+      if (p.strike < target.strike) pain += p.callOI * (target.strike - p.strike);
+      if (p.strike > target.strike) pain += p.putOI * (p.strike - target.strike);
+    }
+    if (pain < bestPain) { bestPain = pain; bestStrike = target.strike; }
+  }
+  return bestStrike;
+}
+
+// IV grid for heatmap / 3D surface
+export interface IvCell { strike: number; expiry: number; iv: number; }
+export function buildIvGrid(contracts: OptionContract[]): IvCell[] {
+  const map = new Map<string, { sum: number; n: number; strike: number; expiry: number }>();
+  for (const c of contracts) {
+    const key = `${c.strike}|${c.expiry}`;
+    const cell = map.get(key) ?? { sum: 0, n: 0, strike: c.strike, expiry: c.expiry };
+    cell.sum += c.iv; cell.n++;
+    map.set(key, cell);
+  }
+  return Array.from(map.values()).map((c) => ({ strike: c.strike, expiry: c.expiry, iv: c.sum / c.n }));
+}
 
 // Deterministic pseudo-random based on symbol for stable demo
 function seedRand(seed: string) {
