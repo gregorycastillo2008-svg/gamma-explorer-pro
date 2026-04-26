@@ -134,6 +134,47 @@ export function GexDexView({ ticker, contracts }: Ctx) {
 
   const tapeDelta = tape.length > 1 ? tape[tape.length - 1].gex - tape[0].gex : 0;
 
+  const liveTape = (
+    <Panel title="Live Net GEX Tape" subtitle="Updates every 2s" noPad>
+      <div className="h-[420px] p-3">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={tape.map((p, i) => ({ i, gex: p.gex }))} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.35} />
+            <XAxis dataKey="i" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={() => ""} />
+            <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={(v) => formatNumber(Number(v), 1)} domain={["auto", "auto"]} />
+            <RTooltip
+              contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11 }}
+              formatter={(v: number) => formatNumber(v)}
+              labelFormatter={() => ""}
+            />
+            <ReferenceLine y={0} stroke="hsl(var(--border))" />
+            <Line type="monotone" dataKey="gex" stroke={bias.totalGex >= 0 ? "hsl(var(--call))" : "hsl(var(--put))"} strokeWidth={2} dot={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </Panel>
+  );
+
+  const biasBreakdown = (
+    <Panel title="DEX Bias Breakdown">
+      <div className="space-y-2 text-xs font-mono">
+        <KV k="Total Call Δ" v={formatNumber(bias.callDex)} tone="call" />
+        <KV k="Total Put Δ" v={formatNumber(bias.putDex)} tone="put" />
+        <KV k="Net Δ (C − P)" v={formatNumber(bias.net)} tone={bias.net >= 0 ? "call" : "put"} />
+        <KV k="Call/Put Ratio" v={bias.ratio.toFixed(2)} />
+        <div className="mt-3 p-3 rounded bg-secondary/40 text-[12px] leading-relaxed">
+          <div className="font-semibold text-foreground mb-1 flex items-center gap-1.5">
+            {bias.label === "Call Heavy" ? <TrendingUp className="h-3.5 w-3.5 text-call" /> : bias.label === "Put Heavy" ? <TrendingDown className="h-3.5 w-3.5 text-put" /> : <Activity className="h-3.5 w-3.5 text-warning" />}
+            {bias.label}
+          </div>
+          <p className="text-muted-foreground">
+            {bias.label === "Call Heavy" ? "Dealers net short calls — hedging skews bullish into rallies." : bias.label === "Put Heavy" ? "Dealers net long puts — selling pressure on declines amplifies downside." : "Symmetric positioning — directional bias is muted."}
+          </p>
+        </div>
+      </div>
+    </Panel>
+  );
+
   return (
     <div className="space-y-3">
       {/* Institutional walls panel */}
@@ -169,49 +210,18 @@ export function GexDexView({ ticker, contracts }: Ctx) {
         </Tabs>
       </div>
 
-      {/* Unified tab switcher: HEATMAP / STRIKE CHART / 3D SURFACE */}
-      <GexExposureTabs ticker={ticker} contracts={filtered} metric={m} />
-
-      {/* Live tape + bias breakdown */}
-      <div className="grid lg:grid-cols-3 gap-3">
-        <Panel title="Live Net GEX Tape" subtitle="Updates every 2s" className="lg:col-span-2">
-          <div className="h-44">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={tape.map((p, i) => ({ i, gex: p.gex }))} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.35} />
-                <XAxis dataKey="i" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={() => ""} />
-                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={(v) => formatNumber(Number(v), 1)} domain={["auto", "auto"]} />
-                <RTooltip
-                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11 }}
-                  formatter={(v: number) => formatNumber(v)}
-                  labelFormatter={() => ""}
-                />
-                <ReferenceLine y={0} stroke="hsl(var(--border))" />
-                <Line type="monotone" dataKey="gex" stroke={bias.totalGex >= 0 ? "hsl(var(--call))" : "hsl(var(--put))"} strokeWidth={2} dot={false} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-        <Panel title="DEX Bias Breakdown">
-          <div className="space-y-2 text-xs font-mono">
-            <KV k="Total Call Δ" v={formatNumber(bias.callDex)} tone="call" />
-            <KV k="Total Put Δ" v={formatNumber(bias.putDex)} tone="put" />
-            <KV k="Net Δ (C − P)" v={formatNumber(bias.net)} tone={bias.net >= 0 ? "call" : "put"} />
-            <KV k="Call/Put Ratio" v={bias.ratio.toFixed(2)} />
-            <div className="mt-3 p-2 rounded bg-secondary/40 text-[11px] leading-relaxed">
-              <div className="font-semibold text-foreground mb-0.5 flex items-center gap-1.5">
-                {bias.label === "Call Heavy" ? <TrendingUp className="h-3 w-3 text-call" /> : bias.label === "Put Heavy" ? <TrendingDown className="h-3 w-3 text-put" /> : <Activity className="h-3 w-3 text-warning" />}
-                {bias.label}
-              </div>
-              <p className="text-muted-foreground">
-                {bias.label === "Call Heavy" ? "Dealers net short calls — hedging skews bullish into rallies." : bias.label === "Put Heavy" ? "Dealers net long puts — selling pressure on declines amplifies downside." : "Symmetric positioning — directional bias is muted."}
-              </p>
-            </div>
-          </div>
-        </Panel>
-      </div>
-
-      <StrikeTable exposures={exposures} ticker={ticker} />
+      {/* Each visualization is its own tab — full width, no sibling panels */}
+      <TerminalTabs
+        layoutId="gexdex-master-tab-bg"
+        tabs={[
+          { key: "heatmap", label: "HEATMAP", content: <Panel title="Heatmap Matrix" subtitle={`${ticker.symbol} · ${m === "netGex" ? "GEX" : "DEX"} per strike × DTE`} noPad><div className="p-2 bg-black"><HeatmapGridView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
+          { key: "strike", label: "STRIKE CHART", content: <Panel title="Strike Distribution" subtitle={`${ticker.symbol} · ${m === "netGex" ? "Gamma" : "Delta"} per strike`} noPad><div className="p-2 bg-black"><StrikeChartView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
+          { key: "surface", label: "3D SURFACE", content: <Panel title="3D Surface Projection" subtitle={`${ticker.symbol} · drag to rotate`} noPad><div className="p-2 bg-black"><SurfaceView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
+          { key: "tape", label: "LIVE TAPE", content: liveTape },
+          { key: "bias", label: "BIAS", content: biasBreakdown },
+          { key: "table", label: "STRIKE TABLE", content: <StrikeTable exposures={exposures} ticker={ticker} /> },
+        ]}
+      />
     </div>
   );
 }
