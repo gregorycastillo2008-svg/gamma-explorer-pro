@@ -4,6 +4,8 @@ import { ExposureChart } from "@/components/ExposureChart";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMemo, useState } from "react";
 import { AlertTriangle, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend } from "recharts";
+import { IvSurface3D } from "./IvSurface3D";
 
 interface Ctx {
   ticker: DemoTicker;
