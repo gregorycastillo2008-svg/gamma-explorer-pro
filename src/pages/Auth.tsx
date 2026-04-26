@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
+import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
+import { useTypewriter } from "@/hooks/useTypewriter";
 import { Sparkles, Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 
 export default function Auth() {
