@@ -1085,24 +1085,39 @@ export function RegimeView({ ticker, levels, exposures }: Ctx) {
   const distFlip = levels.gammaFlip ? ((ticker.spot - levels.gammaFlip) / levels.gammaFlip) * 100 : 0;
 
   return (
-    <div className="space-y-3">
-      <Panel title="Market Regime">
-        <div className="text-center py-6">
-          <div className={`inline-block px-4 py-2 rounded font-bold tracking-wider text-lg ${aboveFlip ? "bg-call/20 text-call border border-call/40" : "bg-put/20 text-put border border-put/40"}`}>
-            {regime}
-          </div>
-          <p className="mt-4 text-sm text-muted-foreground max-w-xl mx-auto">{desc}</p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          <StatBlock label="Total GEX" value={formatNumber(levels.totalGex)} tone={levels.totalGex >= 0 ? "call" : "put"} />
-          <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-          <StatBlock label="Spot vs Flip" value={`${distFlip >= 0 ? "+" : ""}${distFlip.toFixed(2)}%`} tone={distFlip >= 0 ? "call" : "put"} />
-        </div>
-      </Panel>
-      <Panel title="Cumulative GEX curve">
-        <CumGexChart exposures={exposures} spot={ticker.spot} flip={levels.gammaFlip} />
-      </Panel>
-    </div>
+    <TerminalTabs
+      layoutId="regime-master-tab-bg"
+      tabs={[
+        {
+          key: "regime",
+          label: "REGIME",
+          content: (
+            <Panel title="Market Regime">
+              <div className="text-center py-6">
+                <div className={`inline-block px-4 py-2 rounded font-bold tracking-wider text-lg ${aboveFlip ? "bg-call/20 text-call border border-call/40" : "bg-put/20 text-put border border-put/40"}`}>
+                  {regime}
+                </div>
+                <p className="mt-4 text-sm text-muted-foreground max-w-xl mx-auto">{desc}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <StatBlock label="Total GEX" value={formatNumber(levels.totalGex)} tone={levels.totalGex >= 0 ? "call" : "put"} />
+                <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
+                <StatBlock label="Spot vs Flip" value={`${distFlip >= 0 ? "+" : ""}${distFlip.toFixed(2)}%`} tone={distFlip >= 0 ? "call" : "put"} />
+              </div>
+            </Panel>
+          ),
+        },
+        {
+          key: "cumgex",
+          label: "CUM GEX",
+          content: (
+            <Panel title="Cumulative GEX curve">
+              <CumGexChart exposures={exposures} spot={ticker.spot} flip={levels.gammaFlip} />
+            </Panel>
+          ),
+        },
+      ]}
+    />
   );
 }
 
