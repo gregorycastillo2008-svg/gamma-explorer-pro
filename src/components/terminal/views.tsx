@@ -2,7 +2,7 @@ import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, com
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
 import { GexDexBars } from "./GexDexBars";
-import { GexExposureTabs, GexHeatmapPanel, GexSurfacePanel } from "./GexExposureTabs";
+import { GexExposureTabs, GexHeatmapPanel, GexSurfacePanel, GexStrikeChartPanel } from "./GexExposureTabs";
 import { FloatingStatBar } from "./FloatingStatBar";
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -168,11 +168,13 @@ export function GexDexView({ ticker, contracts }: Ctx) {
         </Tabs>
       </div>
 
-      <GexExposureTabs ticker={ticker} contracts={filtered} metric={m} />
+      {/* ── Each visualization in its own dedicated panel for clarity ── */}
+      {/* 1. Heatmap Matrix — full width for dense numeric inspection */}
+      <GexHeatmapPanel ticker={ticker} contracts={filtered} metric={m} />
 
-      {/* Two dedicated cells: numeric heatmap + 3D surface side-by-side */}
+      {/* 2. Strike Distribution + 3D Surface side-by-side on wide screens */}
       <div className="grid xl:grid-cols-2 gap-3">
-        <GexHeatmapPanel ticker={ticker} contracts={filtered} metric={m} />
+        <GexStrikeChartPanel ticker={ticker} contracts={filtered} metric={m} />
         <GexSurfacePanel ticker={ticker} contracts={filtered} metric={m} />
       </div>
 

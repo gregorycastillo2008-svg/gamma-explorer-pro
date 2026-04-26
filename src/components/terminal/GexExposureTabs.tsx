@@ -439,6 +439,21 @@ export function GexHeatmapPanel(props: Props) {
   );
 }
 
+// Standalone strike chart panel
+export function GexStrikeChartPanel(props: Props) {
+  return (
+    <Panel
+      title="Strike Distribution"
+      subtitle={`${props.ticker.symbol} · ${props.metric === "netGex" ? "Gamma" : "Delta"} per strike · negative ← → positive`}
+      noPad
+    >
+      <div className="p-2 bg-black">
+        <StrikeChartView {...props} />
+      </div>
+    </Panel>
+  );
+}
+
 // Standalone 3D surface panel
 export function GexSurfacePanel(props: Props) {
   return (
