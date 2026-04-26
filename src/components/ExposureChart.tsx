@@ -5,9 +5,9 @@ import { formatNumber } from "@/lib/gex";
 interface Props {
   data: ExposurePoint[];
   spot: number;
-  callWall: number;
-  putWall: number;
-  flip: number | null;
+  callWall?: number;
+  putWall?: number;
+  flip?: number | null;
   metric: "netGex" | "dex" | "vex" | "vanna" | "charm";
 }
 

@@ -8,66 +8,61 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    /* Altaris-style dark trading terminal */
+    --background: 222 47% 5%;
+    --foreground: 210 40% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 222 35% 8%;
+    --card-foreground: 210 40% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 222 35% 8%;
+    --popover-foreground: 210 40% 96%;
 
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --primary-glow: 217 91% 60%;
+    --primary: 180 100% 50%;
+    --primary-foreground: 222 47% 5%;
+    --primary-glow: 180 100% 60%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 222 30% 12%;
+    --secondary-foreground: 210 40% 96%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 222 25% 14%;
+    --muted-foreground: 215 20% 60%;
 
-    --accent: 217 91% 96%;
-    --accent-foreground: 221 83% 40%;
+    --accent: 180 60% 15%;
+    --accent-foreground: 180 100% 70%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 92% 55%;
     --warning-foreground: 0 0% 100%;
 
-    --call: 142 71% 45%;
+    --call: 142 71% 50%;
     --put: 0 84% 60%;
-    --flip: 38 92% 50%;
+    --flip: 38 92% 55%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --border: 222 25% 16%;
+    --input: 222 25% 14%;
+    --ring: 180 100% 50%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(217 91% 60%));
-    --gradient-hero: linear-gradient(135deg, hsl(217 91% 96%), hsl(210 40% 98%));
-    --shadow-elegant: 0 10px 30px -12px hsl(221 83% 53% / 0.25);
-    --shadow-card: 0 1px 3px hsl(222 47% 11% / 0.06), 0 1px 2px hsl(222 47% 11% / 0.04);
+    --gradient-primary: linear-gradient(135deg, hsl(180 100% 50%), hsl(195 100% 55%));
+    --gradient-hero: linear-gradient(180deg, hsl(222 47% 5%), hsl(222 47% 8%));
+    --shadow-elegant: 0 10px 40px -12px hsl(180 100% 50% / 0.25);
+    --shadow-card: 0 1px 3px hsl(0 0% 0% / 0.4), 0 1px 2px hsl(0 0% 0% / 0.3);
+    --shadow-glow: 0 0 30px hsl(180 100% 50% / 0.15);
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 222 47% 4%;
+    --sidebar-foreground: 215 20% 70%;
+    --sidebar-primary: 180 100% 50%;
+    --sidebar-primary-foreground: 222 47% 5%;
+    --sidebar-accent: 222 30% 10%;
+    --sidebar-accent-foreground: 180 100% 70%;
+    --sidebar-border: 222 25% 12%;
+    --sidebar-ring: 180 100% 50%;
   }
 
   .dark {
