@@ -1264,48 +1264,58 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
     return `hsl(${40 - (t - 0.66) * 120} 90% 55%)`;
   };
 
-  return (
-    <div className="space-y-3">
-      <Panel title="IV Heatmap" subtitle={`${ticker.symbol} · Implied Volatility · Strike × DTE`}>
-        <div className="overflow-x-auto">
-          <div className="inline-block min-w-full">
-            <div className="grid" style={{ gridTemplateColumns: `60px repeat(${expiries.length}, minmax(50px, 1fr))` }}>
-              <div />
-              {expiries.map((e) => (
-                <div key={`h-${e}`} className="text-[10px] font-mono text-muted-foreground text-center pb-1 border-b border-border">{e}d</div>
-              ))}
-              {strikes.map((s) => (
-                <div key={`row-${s}`} className="contents">
-                  <div className={`text-[10px] font-mono py-0.5 pr-2 text-right ${Math.abs(s - ticker.spot) < ticker.strikeStep ? "text-primary font-bold" : "text-muted-foreground"}`}>{s}</div>
-                  {expiries.map((e) => {
-                    const iv = cellMap.get(`${s}|${e}`);
-                    return (
-                      <div
-                        key={`${s}-${e}`}
-                        className="h-6 border border-background flex items-center justify-center text-[9px] font-mono text-foreground/90"
-                        style={{ background: iv != null ? colorFor(iv) : "transparent" }}
-                        title={iv != null ? `IV ${(iv * 100).toFixed(1)}%` : ""}
-                      >
-                        {iv != null ? (iv * 100).toFixed(0) : ""}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+  const heatmapContent = (
+    <div className="overflow-x-auto">
+      <div className="inline-block min-w-full">
+        <div className="grid" style={{ gridTemplateColumns: `60px repeat(${expiries.length}, minmax(50px, 1fr))` }}>
+          <div />
+          {expiries.map((e) => (
+            <div key={`h-${e}`} className="text-[10px] font-mono text-muted-foreground text-center pb-1 border-b border-border">{e}d</div>
+          ))}
+          {strikes.map((s) => (
+            <div key={`row-${s}`} className="contents">
+              <div className={`text-[10px] font-mono py-0.5 pr-2 text-right ${Math.abs(s - ticker.spot) < ticker.strikeStep ? "text-primary font-bold" : "text-muted-foreground"}`}>{s}</div>
+              {expiries.map((e) => {
+                const iv = cellMap.get(`${s}|${e}`);
+                return (
+                  <div
+                    key={`${s}-${e}`}
+                    className="h-6 border border-background flex items-center justify-center text-[9px] font-mono text-foreground/90"
+                    style={{ background: iv != null ? colorFor(iv) : "transparent" }}
+                    title={iv != null ? `IV ${(iv * 100).toFixed(1)}%` : ""}
+                  >
+                    {iv != null ? (iv * 100).toFixed(0) : ""}
+                  </div>
+                );
+              })}
             </div>
-          </div>
-          <div className="flex items-center gap-2 mt-3 text-[10px] text-muted-foreground">
-            <span>Low {(min * 100).toFixed(1)}%</span>
-            <div className="flex-1 h-2 rounded" style={{ background: "linear-gradient(90deg, hsl(220 80% 30%), hsl(180 80% 50%), hsl(60 80% 50%), hsl(0 90% 55%))" }} />
-            <span>High {(max * 100).toFixed(1)}%</span>
-          </div>
+          ))}
         </div>
-      </Panel>
-
-      <Panel title="3D IV Surface" subtitle="Isometric projection · Strike × DTE × IV">
-        <SurfaceChart strikes={strikes.slice().reverse()} expiries={expiries} cellMap={cellMap} min={min} max={max} colorFor={colorFor} />
-      </Panel>
+      </div>
+      <div className="flex items-center gap-2 mt-3 text-[10px] text-muted-foreground">
+        <span>Low {(min * 100).toFixed(1)}%</span>
+        <div className="flex-1 h-2 rounded" style={{ background: "linear-gradient(90deg, hsl(220 80% 30%), hsl(180 80% 50%), hsl(60 80% 50%), hsl(0 90% 55%))" }} />
+        <span>High {(max * 100).toFixed(1)}%</span>
+      </div>
     </div>
+  );
+
+  return (
+    <Panel title="IV Heatmap & Surface" subtitle={`${ticker.symbol} · Implied Volatility · Strike × DTE`} noPad>
+      <div className="p-3">
+        <TerminalTabs
+          layoutId="iv-heatmap-tab-bg"
+          tabs={[
+            { key: "heatmap", label: "HEATMAP", content: heatmapContent },
+            {
+              key: "surface",
+              label: "3D SURFACE",
+              content: <SurfaceChart strikes={strikes.slice().reverse()} expiries={expiries} cellMap={cellMap} min={min} max={max} colorFor={colorFor} />,
+            },
+          ]}
+        />
+      </div>
+    </Panel>
   );
 }
 
