@@ -155,7 +155,7 @@ export default function Dashboard() {
           priceChangePct={priceChangePct}
           onReload={reload}
         />
-        <div className="px-3 pt-3 border-b border-border/50 bg-background/60 backdrop-blur-sm">
+        <div className="px-4 py-3 border-b border-border/50 bg-background/60 backdrop-blur-sm">
           <FloatingStatBar stats={globalStats} />
         </div>
         <main className="flex-1 overflow-y-auto p-3">

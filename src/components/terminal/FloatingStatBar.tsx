@@ -27,69 +27,69 @@ export function FloatingStatBar({ stats }: { stats: FloatingStat[] }) {
       className="relative"
     >
       {/* ambient backdrop glow */}
-      <div className="pointer-events-none absolute inset-x-6 -top-2 h-12 rounded-full bg-gradient-to-r from-primary/0 via-primary/15 to-primary/0 blur-2xl" />
+      <div className="pointer-events-none absolute inset-x-6 -top-3 h-20 rounded-full bg-gradient-to-r from-primary/0 via-primary/20 to-primary/0 blur-3xl" />
 
-      <div className="relative flex items-stretch gap-2 overflow-x-auto scrollbar-thin py-1 px-0.5">
+      <div className="relative flex items-stretch gap-3 md:gap-4 overflow-x-auto scrollbar-thin py-2 px-1">
         {stats.map((s, i) => {
           const tone = toneMap[s.tone ?? "default"];
           return (
             <motion.div
               key={s.label}
-              initial={{ opacity: 0, y: 14, scale: 0.92 }}
+              initial={{ opacity: 0, y: 16, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{
-                delay: 0.06 * i,
+                delay: 0.07 * i,
                 type: "spring",
-                stiffness: 260,
+                stiffness: 240,
                 damping: 22,
               }}
-              whileHover={{ y: -3, scale: 1.04 }}
-              className="group relative shrink-0"
+              whileHover={{ y: -4, scale: 1.05 }}
+              className="group relative shrink-0 flex-1 min-w-[140px] max-w-[200px]"
             >
               {/* hover glow */}
               <div
-                className="pointer-events-none absolute -inset-px rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-md"
+                className="pointer-events-none absolute -inset-0.5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-lg"
                 style={{ background: tone.glow }}
               />
 
               {/* card */}
-              <div className="relative min-w-[112px] rounded-lg border border-border/70 bg-card/70 backdrop-blur-md px-3 py-2 overflow-hidden">
+              <div className="relative h-full rounded-xl border border-border/80 bg-card/80 backdrop-blur-md px-4 py-3 overflow-hidden shadow-md">
                 {/* sweeping shine */}
                 <motion.div
                   aria-hidden
-                  className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent skew-x-12"
+                  className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent skew-x-12"
                   initial={{ x: 0 }}
-                  animate={{ x: ["-50%", "250%"] }}
+                  animate={{ x: ["-50%", "300%"] }}
                   transition={{ duration: 3.6, delay: 0.6 + i * 0.15, repeat: Infinity, repeatDelay: 5, ease: "easeInOut" }}
                 />
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <motion.span
-                    className={cn("h-1.5 w-1.5 rounded-full", tone.dot)}
-                    animate={{ opacity: [0.4, 1, 0.4], scale: [0.85, 1.15, 0.85] }}
+                    className={cn("h-2 w-2 rounded-full shadow-sm", tone.dot)}
+                    animate={{ opacity: [0.4, 1, 0.4], scale: [0.85, 1.2, 0.85] }}
                     transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}
                   />
-                  <span className="text-[9px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-bold">
                     {s.label}
                   </span>
                 </div>
 
-                <div className={cn("font-mono font-bold text-[15px] leading-tight mt-0.5 tabular-nums", tone.text)}>
+                <div className={cn("font-mono font-bold text-xl md:text-2xl leading-none mt-2 tabular-nums", tone.text)}>
                   {s.value}
                 </div>
 
                 {s.sub && (
-                  <div className="text-[9px] text-muted-foreground/80 mt-0.5 truncate">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground/80 mt-1.5 font-medium truncate">
                     {s.sub}
                   </div>
                 )}
 
                 {/* bottom accent line */}
                 <motion.div
-                  className={cn("absolute bottom-0 left-0 h-px", tone.dot)}
+                  className={cn("absolute bottom-0 left-0 h-[2px]", tone.dot)}
                   initial={{ width: "0%" }}
                   animate={{ width: "100%" }}
-                  transition={{ delay: 0.2 + i * 0.06, duration: 0.6, ease: "easeOut" }}
+                  transition={{ delay: 0.2 + i * 0.07, duration: 0.7, ease: "easeOut" }}
                 />
               </div>
             </motion.div>
