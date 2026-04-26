@@ -61,7 +61,7 @@ function jetCss(t: number): string {
 
 // ────────────────────────── HEATMAP ──────────────────────────
 function HeatmapView({ ticker, contracts, metric }: Props) {
-  const { strikes, expiries, grid, max } = useMemo(() => {
+  const { strikes, expiries, grid, max, peakPos, peakNeg } = useMemo(() => {
     const expSet = Array.from(new Set(contracts.map((c) => c.expiry))).sort((a, b) => a - b);
     const perExp = new Map<number, Map<number, number>>();
     for (const exp of expSet) {
@@ -73,8 +73,16 @@ function HeatmapView({ ticker, contracts, metric }: Props) {
     }
     const strikeSet = Array.from(new Set(contracts.map((c) => c.strike))).sort((a, b) => b - a);
     let mx = 0;
-    for (const m of perExp.values()) for (const v of m.values()) mx = Math.max(mx, Math.abs(v));
-    return { strikes: strikeSet, expiries: expSet, grid: perExp, max: mx };
+    let pPos = { strike: NaN, expiry: NaN, value: -Infinity };
+    let pNeg = { strike: NaN, expiry: NaN, value: Infinity };
+    for (const [exp, m] of perExp.entries()) {
+      for (const [s, v] of m.entries()) {
+        if (Math.abs(v) > mx) mx = Math.abs(v);
+        if (v > pPos.value) pPos = { strike: s, expiry: exp, value: v };
+        if (v < pNeg.value) pNeg = { strike: s, expiry: exp, value: v };
+      }
+    }
+    return { strikes: strikeSet, expiries: expSet, grid: perExp, max: mx, peakPos: pPos, peakNeg: pNeg };
   }, [ticker, contracts, metric]);
 
   return (
@@ -134,20 +142,31 @@ function HeatmapView({ ticker, contracts, metric }: Props) {
                   const v = grid.get(e)?.get(s) ?? 0;
                   const bg = heatBg(v, max);
                   const fg = heatFg(v, max);
+                  const isPeakPos = s === peakPos.strike && e === peakPos.expiry && v > 0;
+                  const isPeakNeg = s === peakNeg.strike && e === peakNeg.expiry && v < 0;
+                  const isPeak = isPeakPos || isPeakNeg;
                   return (
                     <td
                       key={e}
-                      className="px-3 py-1.5 text-right transition-colors duration-200 cursor-default"
+                      className="px-3 py-1.5 text-right transition-colors duration-200 cursor-default relative"
                       style={{
                         background: bg,
-                        color: fg,
+                        color: isPeak ? "#ffffff" : fg,
                         borderRight: "1px solid rgba(255,255,255,0.02)",
                         borderBottom: "1px solid rgba(255,255,255,0.02)",
                         textShadow: v !== 0 && Math.abs(v) / max > 0.55 ? "none" : "0 0 6px rgba(0,0,0,0.6)",
-                        fontWeight: Math.abs(v) / max > 0.6 ? 600 : 400,
+                        fontWeight: isPeak ? 800 : Math.abs(v) / max > 0.6 ? 600 : 400,
+                        outline: isPeak ? "2px solid #ffffff" : undefined,
+                        outlineOffset: isPeak ? "-2px" : undefined,
+                        boxShadow: isPeakPos
+                          ? "inset 0 0 12px rgba(0,255,136,0.6), 0 0 8px rgba(0,255,136,0.4)"
+                          : isPeakNeg
+                            ? "inset 0 0 12px rgba(255,77,77,0.6), 0 0 8px rgba(255,77,77,0.4)"
+                            : undefined,
                       }}
-                      title={`Strike $${s} · ${e}DTE · ${formatNumber(v)}`}
+                      title={`Strike $${s} · ${e}DTE · ${formatNumber(v)}${isPeakPos ? " · ★ MAX +Γ" : isPeakNeg ? " · ★ MAX −Γ" : ""}`}
                     >
+                      {isPeak && <span className="absolute top-0.5 left-1 text-[9px]">★</span>}
                       {v === 0 ? <span className="text-[#222]">·</span> : formatNumber(v, 1)}
                     </td>
                   );
@@ -171,22 +190,43 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
   const max = Math.max(...data.map((d) => Math.abs(d[metric])), 1);
   const [hover, setHover] = useState<{ strike: number; value: number; x: number; y: number } | null>(null);
 
+  // Detect spot row index + max positive / max negative strikes
+  const spotIdx = data.findIndex((p) => Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2);
+  const maxPosStrike = data.reduce((m, p) => (p[metric] > (m?.[metric] ?? -Infinity) ? p : m), null as null | (typeof data)[number])?.strike;
+  const maxNegStrike = data.reduce((m, p) => (p[metric] < (m?.[metric] ?? Infinity) ? p : m), null as null | (typeof data)[number])?.strike;
+  const sym = metric === "netGex" ? "Γ" : "Δ";
+
   return (
     <div
       className="relative bg-black rounded border border-border p-3 max-h-[560px] overflow-auto"
       onMouseLeave={() => setHover(null)}
     >
       <div className="font-jetbrains text-[10px] text-muted-foreground uppercase tracking-wider mb-2 grid grid-cols-[1fr_80px_1fr] gap-2">
-        <div className="text-right">Negative</div>
+        <div className="text-right">Negative ★ peak in red</div>
         <div className="text-center">Strike</div>
-        <div>Positive</div>
+        <div>Positive ★ peak in green</div>
       </div>
-      <div className="space-y-0.5">
+      <div className="space-y-0.5 relative">
+        {/* SPOT horizontal cyan line through chart */}
+        {spotIdx >= 0 && (
+          <div
+            className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
+            style={{ top: `calc(${spotIdx} * 22px + 11px)` }}
+          >
+            <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, transparent, #00ffff 20%, #00ffff 80%, transparent)", boxShadow: "0 0 6px #00ffff" }} />
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-jetbrains font-bold text-black mx-1" style={{ background: "#00ffff" }}>
+              ▶ SPOT ${ticker.spot}
+            </span>
+            <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, transparent, #00ffff 20%, #00ffff 80%, transparent)", boxShadow: "0 0 6px #00ffff" }} />
+          </div>
+        )}
         {data.map((p) => {
           const v = p[metric];
           const w = (Math.abs(v) / max) * 100;
           const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
           const isHover = hover?.strike === p.strike;
+          const isMaxPos = p.strike === maxPosStrike && v > 0;
+          const isMaxNeg = p.strike === maxNegStrike && v < 0;
           return (
             <div
               key={p.strike}
@@ -197,40 +237,64 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
               className={`grid grid-cols-[1fr_80px_1fr] items-center gap-2 font-jetbrains text-[11px] cursor-crosshair transition-colors ${
                 isSpot ? "bg-primary/10" : ""
               } ${isHover ? "bg-white/5" : ""}`}
+              style={{ height: 22 }}
             >
-              <div className="flex justify-end items-center h-5">
+              <div className="flex justify-end items-center h-5 relative">
+                {isMaxNeg && (
+                  <span className="absolute -left-1 text-[#ff4d4d] text-[13px] font-bold drop-shadow-[0_0_4px_#ff4d4d]">★</span>
+                )}
                 {v < 0 && (
                   <div
                     className="h-3 rounded-l transition-all"
                     style={{
                       width: `${w}%`,
-                      background: "#ff4d4d",
-                      boxShadow: isHover ? "0 0 14px rgba(255,77,77,0.7)" : "0 0 8px rgba(255,77,77,0.4)",
+                      background: isMaxNeg ? "linear-gradient(90deg, #ff0033, #ff6677)" : "#ff4d4d",
+                      boxShadow: isMaxNeg
+                        ? "0 0 16px #ff0033, inset 0 0 6px #fff3"
+                        : isHover
+                          ? "0 0 14px rgba(255,77,77,0.7)"
+                          : "0 0 8px rgba(255,77,77,0.4)",
+                      outline: isMaxNeg ? "1px solid #fff" : undefined,
                     }}
                   />
                 )}
               </div>
               <div
-                className={`text-center ${isSpot ? "text-primary font-bold" : "text-foreground"} ${isHover ? "text-white" : ""}`}
+                className={`text-center ${isSpot ? "text-[#00ffff] font-bold" : "text-foreground"} ${isHover ? "text-white" : ""}`}
                 style={{ borderLeft: "1px solid hsl(var(--border))", borderRight: "1px solid hsl(var(--border))" }}
               >
                 ${p.strike}
               </div>
-              <div className="flex items-center h-5">
+              <div className="flex items-center h-5 relative">
                 {v >= 0 && (
                   <div
                     className="h-3 rounded-r transition-all"
                     style={{
                       width: `${w}%`,
-                      background: "#00ff88",
-                      boxShadow: isHover ? "0 0 14px rgba(0,255,136,0.7)" : "0 0 8px rgba(0,255,136,0.4)",
+                      background: isMaxPos ? "linear-gradient(90deg, #00ff88, #aaffcc)" : "#00ff88",
+                      boxShadow: isMaxPos
+                        ? "0 0 16px #00ff88, inset 0 0 6px #fff3"
+                        : isHover
+                          ? "0 0 14px rgba(0,255,136,0.7)"
+                          : "0 0 8px rgba(0,255,136,0.4)",
+                      outline: isMaxPos ? "1px solid #fff" : undefined,
                     }}
                   />
+                )}
+                {isMaxPos && (
+                  <span className="ml-1 text-[#00ff88] text-[13px] font-bold drop-shadow-[0_0_4px_#00ff88]">★</span>
                 )}
               </div>
             </div>
           );
         })}
+      </div>
+
+      {/* Footer legend with peak values */}
+      <div className="mt-3 pt-2 border-t border-[#1a1a1a] flex items-center justify-between font-jetbrains text-[10px]">
+        <span className="text-[#ff4d4d]">★ MAX −{sym} @ ${maxNegStrike ?? "—"}</span>
+        <span className="text-[#00ffff]">▶ SPOT ${ticker.spot}</span>
+        <span className="text-[#00ff88]">★ MAX +{sym} @ ${maxPosStrike ?? "—"}</span>
       </div>
 
       <AnimatePresence>
@@ -250,7 +314,7 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
             <div className="text-[9px] uppercase tracking-[0.18em] text-[#6b7280] mb-1">Strike</div>
             <div className="text-[#00ffff] text-sm font-bold">${hover.strike}</div>
             <div className="mt-1" style={{ color: hover.value >= 0 ? "#00ff88" : "#ff4d4d" }}>
-              {metric === "netGex" ? "Γ" : "Δ"} {formatNumber(hover.value)}
+              {sym} {formatNumber(hover.value)}
             </div>
           </motion.div>
         )}
