@@ -61,7 +61,7 @@ function jetCss(t: number): string {
 
 // ────────────────────────── HEATMAP ──────────────────────────
 function HeatmapView({ ticker, contracts, metric }: Props) {
-  const { strikes, expiries, grid, max } = useMemo(() => {
+  const { strikes, expiries, grid, max, peakPos, peakNeg } = useMemo(() => {
     const expSet = Array.from(new Set(contracts.map((c) => c.expiry))).sort((a, b) => a - b);
     const perExp = new Map<number, Map<number, number>>();
     for (const exp of expSet) {
@@ -73,8 +73,16 @@ function HeatmapView({ ticker, contracts, metric }: Props) {
     }
     const strikeSet = Array.from(new Set(contracts.map((c) => c.strike))).sort((a, b) => b - a);
     let mx = 0;
-    for (const m of perExp.values()) for (const v of m.values()) mx = Math.max(mx, Math.abs(v));
-    return { strikes: strikeSet, expiries: expSet, grid: perExp, max: mx };
+    let pPos = { strike: NaN, expiry: NaN, value: -Infinity };
+    let pNeg = { strike: NaN, expiry: NaN, value: Infinity };
+    for (const [exp, m] of perExp.entries()) {
+      for (const [s, v] of m.entries()) {
+        if (Math.abs(v) > mx) mx = Math.abs(v);
+        if (v > pPos.value) pPos = { strike: s, expiry: exp, value: v };
+        if (v < pNeg.value) pNeg = { strike: s, expiry: exp, value: v };
+      }
+    }
+    return { strikes: strikeSet, expiries: expSet, grid: perExp, max: mx, peakPos: pPos, peakNeg: pNeg };
   }, [ticker, contracts, metric]);
 
   return (
