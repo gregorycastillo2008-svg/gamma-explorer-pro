@@ -6,9 +6,10 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useToast } from "@/hooks/use-toast";
 import {
   DEMO_TICKERS, getDemoTicker,
-  computeExposures, computeKeyLevels,
+  computeExposures, computeKeyLevels, formatNumber,
 } from "@/lib/gex";
 import { useOptionsData } from "@/hooks/useOptionsData";
+import { FloatingStatBar } from "@/components/terminal/FloatingStatBar";
 import { Sidebar, Section } from "@/components/terminal/Sidebar";
 import { Topbar } from "@/components/terminal/Topbar";
 import {
@@ -61,6 +62,24 @@ export default function Dashboard() {
   const exposures = computeExposures(ticker.spot, filtered);
   const levels = computeKeyLevels(exposures);
   const ctx = { ticker, exposures, levels, contracts: filtered };
+
+  // Persistent global stats (shown across every section)
+  const totalCallOI = exposures.reduce((s, p) => s + p.callOI, 0);
+  const totalPutOI = exposures.reduce((s, p) => s + p.putOI, 0);
+  const pcr = totalPutOI / Math.max(totalCallOI, 1);
+  const netDex = exposures.reduce((s, p) => s + p.dex, 0);
+  const atmContracts = filtered.filter((c) => Math.abs(c.strike - ticker.spot) < ticker.strikeStep * 1.5);
+  const atmIv = atmContracts.length
+    ? (atmContracts.reduce((s, c) => s + c.iv, 0) / atmContracts.length) * 100
+    : ticker.baseIV * 100;
+  const globalStats = [
+    { label: "ATM IV",    value: `${atmIv.toFixed(1)}%`,           tone: "primary" as const },
+    { label: "P/C Ratio", value: pcr.toFixed(2),                   tone: (pcr > 1 ? "put" : "call") as const },
+    { label: "Net DEX",   value: formatNumber(netDex),             tone: (netDex >= 0 ? "call" : "put") as const, sub: "dollar delta" },
+    { label: "Total GEX", value: formatNumber(levels.totalGex),    tone: (levels.totalGex >= 0 ? "call" : "put") as const, sub: levels.totalGex >= 0 ? "Positive regime" : "Negative regime" },
+    { label: "Call Wall", value: String(levels.callWall),          tone: "call" as const,    sub: "resistance" },
+    { label: "Put Wall",  value: String(levels.putWall),           tone: "put" as const,     sub: "support" },
+  ];
 
   const addTicker = async () => {
     const sym = newTicker.toUpperCase().trim();
