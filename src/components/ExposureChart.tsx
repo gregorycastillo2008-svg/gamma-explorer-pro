@@ -20,14 +20,19 @@ const labels: Record<Props["metric"], string> = {
 };
 
 export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: Props) {
-  const chartData = data.map((d) => ({
-    strike: d.strike,
-    value: d[metric],
-    isPositive: d[metric] >= 0,
-  }));
+  // Focus on strikes within ±15% of spot so bars don't get crushed by far OTM strikes
+  const lo = spot * 0.85;
+  const hi = spot * 1.15;
+  const chartData = data
+    .filter((d) => d.strike >= lo && d.strike <= hi)
+    .map((d) => ({
+      strike: d.strike,
+      value: d[metric],
+      isPositive: d[metric] >= 0,
+    }));
 
   return (
-    <div className="w-full h-[420px]">
+    <div className="w-full h-[520px]">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold">{labels[metric]} por strike</h3>
         <div className="flex gap-3 text-xs text-muted-foreground">
