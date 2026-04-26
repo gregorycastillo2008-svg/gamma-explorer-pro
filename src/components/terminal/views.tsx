@@ -81,23 +81,142 @@ function KV({ k, v, tone }: { k: string; v: string; tone?: "call" | "put" | "war
 }
 
 // ─────── GEX & DEX ───────
-export function GexDexView({ ticker, exposures, levels }: Ctx) {
+const DTE_FILTERS = [
+  { label: "0DTE", value: "0" },
+  { label: "1DTE", value: "1" },
+  { label: "7DTE", value: "7" },
+  { label: "All", value: "all" },
+];
+
+export function GexDexView({ ticker, contracts }: Ctx) {
   const [m, setM] = useState<"netGex" | "dex">("netGex");
+  const [dte, setDte] = useState<string>("all");
+  const [tape, setTape] = useState<{ t: number; gex: number }[]>([]);
+
+  // Filter contracts by DTE selection
+  const filtered = useMemo(() => {
+    if (dte === "all") return contracts;
+    if (dte === "0") return contracts.filter((c) => c.expiry <= 1);
+    if (dte === "1") return contracts.filter((c) => c.expiry <= 2);
+    if (dte === "7") return contracts.filter((c) => c.expiry <= 7);
+    return contracts;
+  }, [contracts, dte]);
+
+  const exposures = useMemo(() => computeExposures(ticker.spot, filtered), [filtered, ticker.spot]);
+  const levels = useMemo(() => computeKeyLevels(exposures), [exposures]);
+
+  // DEX Bias = Total Call Delta − Total Put Delta
+  const bias = useMemo(() => {
+    let callDex = 0, putDex = 0, totalGex = 0;
+    for (const p of exposures) {
+      callDex += Math.max(0, p.dex);
+      putDex += Math.min(0, p.dex);
+      totalGex += p.netGex;
+    }
+    const net = callDex + putDex;
+    const ratio = Math.abs(callDex) / Math.max(1, Math.abs(putDex));
+    const label = ratio > 1.15 ? "Call Heavy" : ratio < 0.87 ? "Put Heavy" : "Balanced";
+    return { callDex, putDex, net, ratio, label, totalGex };
+  }, [exposures]);
+
+  // Live tape: simulate tick of total GEX every 2s
+  useEffect(() => {
+    setTape([{ t: Date.now(), gex: bias.totalGex }]);
+    const id = setInterval(() => {
+      setTape((prev) => {
+        const last = prev[prev.length - 1]?.gex ?? bias.totalGex;
+        const noise = (Math.random() - 0.5) * Math.abs(bias.totalGex) * 0.012;
+        const next = [...prev, { t: Date.now(), gex: last + noise }];
+        return next.slice(-30);
+      });
+    }, 2000);
+    return () => clearInterval(id);
+  }, [bias.totalGex, dte, ticker.symbol]);
+
+  const tapeDelta = tape.length > 1 ? tape[tape.length - 1].gex - tape[0].gex : 0;
+
   return (
     <div className="space-y-3">
+      {/* Institutional walls panel */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub="resistance" />
+        <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub="support" />
+        <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" sub="zero gamma" />
+        <StatBlock label="Net GEX" value={formatNumber(bias.totalGex)} tone={bias.totalGex >= 0 ? "call" : "put"} sub={bias.totalGex >= 0 ? "long gamma" : "short gamma"} />
+        <StatBlock label="DEX Bias" value={bias.label} tone={bias.label === "Call Heavy" ? "call" : bias.label === "Put Heavy" ? "put" : "warning"} sub={`ratio ${bias.ratio.toFixed(2)}`} />
+        <StatBlock label="Live Δ" value={`${tapeDelta >= 0 ? "+" : ""}${formatNumber(tapeDelta)}`} tone={tapeDelta >= 0 ? "call" : "put"} sub="last 60s" />
+      </div>
+
+      {/* DTE + metric controls */}
       <Panel
-        title="Exposure"
+        title="Net Exposure by Strike"
+        subtitle={`${ticker.symbol} · spot $${ticker.spot} · ${dte === "all" ? "all expiries" : dte + "DTE"}`}
         right={
-          <Tabs value={m} onValueChange={(v) => setM(v as any)}>
-            <TabsList className="h-7">
-              <TabsTrigger value="netGex" className="text-xs h-5 px-2">GEX</TabsTrigger>
-              <TabsTrigger value="dex" className="text-xs h-5 px-2">DEX</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5 bg-secondary/40 rounded p-0.5">
+              {DTE_FILTERS.map((f) => (
+                <Button
+                  key={f.value}
+                  size="sm"
+                  variant={dte === f.value ? "default" : "ghost"}
+                  className="h-6 px-2 text-[10px] font-mono uppercase tracking-wider"
+                  onClick={() => setDte(f.value)}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </div>
+            <Tabs value={m} onValueChange={(v) => setM(v as any)}>
+              <TabsList className="h-7">
+                <TabsTrigger value="netGex" className="text-xs h-5 px-2">GEX</TabsTrigger>
+                <TabsTrigger value="dex" className="text-xs h-5 px-2">DEX</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         }
       >
-        <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric={m} />
+        <GexDexBars data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric={m} />
       </Panel>
+
+      {/* Live tape + bias breakdown */}
+      <div className="grid lg:grid-cols-3 gap-3">
+        <Panel title="Live Net GEX Tape" subtitle="Updates every 2s" className="lg:col-span-2">
+          <div className="h-44">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={tape.map((p, i) => ({ i, gex: p.gex }))} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.35} />
+                <XAxis dataKey="i" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={() => ""} />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={(v) => formatNumber(Number(v), 1)} domain={["auto", "auto"]} />
+                <RTooltip
+                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11 }}
+                  formatter={(v: number) => formatNumber(v)}
+                  labelFormatter={() => ""}
+                />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                <Line type="monotone" dataKey="gex" stroke={bias.totalGex >= 0 ? "hsl(var(--call))" : "hsl(var(--put))"} strokeWidth={2} dot={false} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+        <Panel title="DEX Bias Breakdown">
+          <div className="space-y-2 text-xs font-mono">
+            <KV k="Total Call Δ" v={formatNumber(bias.callDex)} tone="call" />
+            <KV k="Total Put Δ" v={formatNumber(bias.putDex)} tone="put" />
+            <KV k="Net Δ (C − P)" v={formatNumber(bias.net)} tone={bias.net >= 0 ? "call" : "put"} />
+            <KV k="Call/Put Ratio" v={bias.ratio.toFixed(2)} />
+            <div className="mt-3 p-2 rounded bg-secondary/40 text-[11px] leading-relaxed">
+              <div className="font-semibold text-foreground mb-0.5 flex items-center gap-1.5">
+                {bias.label === "Call Heavy" ? <TrendingUp className="h-3 w-3 text-call" /> : bias.label === "Put Heavy" ? <TrendingDown className="h-3 w-3 text-put" /> : <Activity className="h-3 w-3 text-warning" />}
+                {bias.label}
+              </div>
+              <p className="text-muted-foreground">
+                {bias.label === "Call Heavy" ? "Dealers net short calls — hedging skews bullish into rallies." : bias.label === "Put Heavy" ? "Dealers net long puts — selling pressure on declines amplifies downside." : "Symmetric positioning — directional bias is muted."}
+              </p>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
       <StrikeTable exposures={exposures} ticker={ticker} />
     </div>
   );
