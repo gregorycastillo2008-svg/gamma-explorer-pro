@@ -206,7 +206,7 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
         <div className="text-center">Strike</div>
         <div>Positive ★ peak in green</div>
       </div>
-      <div className="space-y-0.5 relative">
+      <div className="space-y-0 relative">
         {/* SPOT horizontal cyan line through chart */}
         {spotIdx >= 0 && (
           <div
@@ -237,7 +237,7 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
               className={`grid grid-cols-[1fr_80px_1fr] items-center gap-2 font-jetbrains text-[11px] cursor-crosshair transition-colors ${
                 isSpot ? "bg-primary/10" : ""
               } ${isHover ? "bg-white/5" : ""}`}
-              style={{ height: 22 }}
+              style={{ height: 16 }}
             >
               <div className="flex justify-end items-center h-5 relative">
                 {isMaxNeg && (
