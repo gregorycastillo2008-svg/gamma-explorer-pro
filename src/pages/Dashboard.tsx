@@ -16,6 +16,7 @@ import {
   OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
 } from "@/components/terminal/views";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
+import { SectionTransition } from "@/components/terminal/SectionTransition";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -132,7 +133,9 @@ export default function Dashboard() {
           onExpiry={setExpiry}
         />
         <main className="flex-1 overflow-y-auto p-3">
-          {renderView()}
+          <SectionTransition sectionKey={`${section}-${active}`}>
+            {renderView()}
+          </SectionTransition>
         </main>
       </div>
 
