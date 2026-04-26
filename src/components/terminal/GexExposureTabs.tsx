@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,36 +14,55 @@ interface Props {
   metric: "netGex" | "dex";
 }
 
-// ────── color helpers ──────
-// Black neutral, intense green positive, intense red negative
-function gexBg(value: number, max: number): string {
-  if (max <= 0 || value === 0) return "rgb(0,0,0)";
+// ────────────────────────── COLOR HELPERS ──────────────────────────
+// Heatmap: pure black for 0, emerald neon for positive, crimson for negative.
+function heatBg(value: number, max: number): string {
+  if (max <= 0 || value === 0) return "#000000";
   const t = Math.min(1, Math.abs(value) / max);
-  // ease so small values stay dark
   const a = Math.pow(t, 0.55);
   if (value > 0) {
-    // toward #00ff88
-    const r = Math.round(0 * a);
-    const g = Math.round(255 * a);
-    const b = Math.round(136 * a);
-    return `rgb(${r},${g},${b})`;
+    // emerald neon → #00ff88
+    return `rgb(${Math.round(0)},${Math.round(255 * a)},${Math.round(136 * a)})`;
   }
-  const r = Math.round(255 * a);
-  const g = Math.round(77 * a);
-  const b = Math.round(77 * a);
-  return `rgb(${r},${g},${b})`;
+  // crimson → #ff3344
+  return `rgb(${Math.round(255 * a)},${Math.round(51 * a)},${Math.round(68 * a)})`;
 }
 
-function fgFor(value: number, max: number): string {
+function heatFg(value: number, max: number): string {
   const t = max > 0 ? Math.abs(value) / max : 0;
-  return t > 0.45 ? "#000000" : "#e5e7eb";
+  return t > 0.55 ? "#000000" : "#e5e7eb";
 }
 
-// ────── HEATMAP ──────
+// 3D Surface: thermal colormap (blue → cyan → green → yellow → red)
+function jet(t: number): [number, number, number] {
+  // t in [0,1]
+  const stops = [
+    [0.0, 0.05, 0.18, 0.55],   // deep blue
+    [0.25, 0.0, 0.78, 0.95],   // cyan
+    [0.5, 0.0, 0.95, 0.35],    // green
+    [0.75, 1.0, 0.85, 0.0],    // yellow
+    [1.0, 1.0, 0.18, 0.18],    // red
+  ];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [a, ar, ag, ab] = stops[i];
+    const [b, br, bg, bb] = stops[i + 1];
+    if (t >= a && t <= b) {
+      const k = (t - a) / (b - a);
+      return [ar + (br - ar) * k, ag + (bg - ag) * k, ab + (bb - ab) * k];
+    }
+  }
+  return [stops[stops.length - 1][1], stops[stops.length - 1][2], stops[stops.length - 1][3]];
+}
+
+function jetCss(t: number): string {
+  const [r, g, b] = jet(Math.max(0, Math.min(1, t)));
+  return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
+}
+
+// ────────────────────────── HEATMAP ──────────────────────────
 function HeatmapView({ ticker, contracts, metric }: Props) {
   const { strikes, expiries, grid, max } = useMemo(() => {
     const expSet = Array.from(new Set(contracts.map((c) => c.expiry))).sort((a, b) => a - b);
-    // Build per-expiry exposures
     const perExp = new Map<number, Map<number, number>>();
     for (const exp of expSet) {
       const subset = contracts.filter((c) => c.expiry === exp);
@@ -59,45 +78,77 @@ function HeatmapView({ ticker, contracts, metric }: Props) {
   }, [ticker, contracts, metric]);
 
   return (
-    <div className="bg-black rounded border border-border overflow-auto max-h-[560px]">
-      <table className="w-full font-mono text-[11px] border-separate border-spacing-px">
-        <thead className="sticky top-0 z-10">
+    <div className="bg-black rounded overflow-auto max-h-[560px]" style={{ scrollbarColor: "#1a1a1a #000" }}>
+      <table className="w-full font-jetbrains text-[11px]" style={{ borderCollapse: "collapse" }}>
+        <thead className="sticky top-0 z-20">
           <tr>
-            <th className="bg-black px-2 py-1.5 text-left text-[10px] uppercase tracking-wider text-muted-foreground sticky left-0">
-              Strike \ DTE
+            <th
+              className="px-3 py-2 text-left text-[9px] uppercase tracking-[0.15em] text-[#6b7280] sticky left-0 z-30"
+              style={{ background: "#000" }}
+            >
+              Strike / DTE
             </th>
             {expiries.map((e) => (
-              <th key={e} className="bg-black px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground text-center">
+              <th
+                key={e}
+                className="px-3 py-2 text-[9px] uppercase tracking-[0.15em] text-[#6b7280] text-right"
+                style={{ background: "#000", minWidth: 78 }}
+              >
                 {e}D
               </th>
             ))}
+          </tr>
+          <tr>
+            <th colSpan={expiries.length + 1} style={{ background: "#000", padding: 0 }}>
+              <div style={{ height: 1, background: "linear-gradient(90deg, transparent, #1a1a1a, transparent)" }} />
+            </th>
           </tr>
         </thead>
         <tbody>
           {strikes.map((s) => {
             const isSpot = Math.abs(s - ticker.spot) < ticker.strikeStep / 2;
             return (
-              <tr key={s}>
+              <tr
+                key={s}
+                style={
+                  isSpot
+                    ? {
+                        outline: "1px solid #00ffff",
+                        outlineOffset: "-1px",
+                        boxShadow: "0 0 14px rgba(0,255,255,0.35) inset",
+                      }
+                    : undefined
+                }
+              >
                 <td
-                  className={`px-2 py-1 sticky left-0 bg-black text-right border-r border-border ${
-                    isSpot ? "text-primary font-bold" : "text-foreground"
-                  }`}
+                  className={`px-3 py-1.5 sticky left-0 text-right z-10 ${isSpot ? "font-bold" : ""}`}
+                  style={{
+                    background: "#000",
+                    color: isSpot ? "#00ffff" : "#9ca3af",
+                    borderRight: "1px solid #0a0a0a",
+                  }}
                 >
-                  ${s}
-                  {isSpot && <span className="ml-1">●</span>}
+                  {isSpot && <span className="mr-1.5 text-[#00ffff]">●</span>}${s}
                 </td>
                 {expiries.map((e) => {
                   const v = grid.get(e)?.get(s) ?? 0;
-                  const bg = gexBg(v, max);
-                  const fg = fgFor(v, max);
+                  const bg = heatBg(v, max);
+                  const fg = heatFg(v, max);
                   return (
                     <td
                       key={e}
-                      className="px-2 py-1 text-right tabular-nums transition-colors"
-                      style={{ background: bg, color: fg, minWidth: 70 }}
+                      className="px-3 py-1.5 text-right transition-colors duration-200 cursor-default"
+                      style={{
+                        background: bg,
+                        color: fg,
+                        borderRight: "1px solid rgba(255,255,255,0.02)",
+                        borderBottom: "1px solid rgba(255,255,255,0.02)",
+                        textShadow: v !== 0 && Math.abs(v) / max > 0.55 ? "none" : "0 0 6px rgba(0,0,0,0.6)",
+                        fontWeight: Math.abs(v) / max > 0.6 ? 600 : 400,
+                      }}
                       title={`Strike $${s} · ${e}DTE · ${formatNumber(v)}`}
                     >
-                      {v === 0 ? "—" : formatNumber(v, 1)}
+                      {v === 0 ? <span className="text-[#222]">·</span> : formatNumber(v, 1)}
                     </td>
                   );
                 })}
@@ -110,7 +161,7 @@ function HeatmapView({ ticker, contracts, metric }: Props) {
   );
 }
 
-// ────── STRIKE CHART (divergent horizontal bars) ──────
+// ────────────────────────── STRIKE CHART ──────────────────────────
 function StrikeChartView({ ticker, contracts, metric }: Props) {
   const data = useMemo(() => {
     const points = computeExposures(ticker.spot, contracts);
@@ -121,10 +172,10 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
 
   return (
     <div className="bg-black rounded border border-border p-3 max-h-[560px] overflow-auto">
-      <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider mb-2 grid grid-cols-[1fr_80px_1fr] gap-2">
-        <div className="text-right">Negative Gamma</div>
+      <div className="font-jetbrains text-[10px] text-muted-foreground uppercase tracking-wider mb-2 grid grid-cols-[1fr_80px_1fr] gap-2">
+        <div className="text-right">Negative</div>
         <div className="text-center">Strike</div>
-        <div>Positive Gamma</div>
+        <div>Positive</div>
       </div>
       <div className="space-y-0.5">
         {data.map((p) => {
@@ -134,39 +185,26 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
           return (
             <div
               key={p.strike}
-              className={`grid grid-cols-[1fr_80px_1fr] items-center gap-2 font-mono text-[11px] ${
+              className={`grid grid-cols-[1fr_80px_1fr] items-center gap-2 font-jetbrains text-[11px] ${
                 isSpot ? "bg-primary/10" : ""
               }`}
             >
               <div className="flex justify-end items-center h-5">
                 {v < 0 && (
                   <>
-                    <span className="mr-2 tabular-nums" style={{ color: "#ff4d4d" }}>
-                      {formatNumber(v, 1)}
-                    </span>
-                    <div
-                      className="h-3 rounded-l"
-                      style={{ width: `${w}%`, background: "#ff4d4d", boxShadow: "0 0 8px rgba(255,77,77,0.4)" }}
-                    />
+                    <span className="mr-2" style={{ color: "#ff4d4d" }}>{formatNumber(v, 1)}</span>
+                    <div className="h-3 rounded-l" style={{ width: `${w}%`, background: "#ff4d4d", boxShadow: "0 0 8px rgba(255,77,77,0.4)" }} />
                   </>
                 )}
               </div>
-              <div
-                className={`text-center tabular-nums ${isSpot ? "text-primary font-bold" : "text-foreground"}`}
-                style={{ borderLeft: "1px solid hsl(var(--border))", borderRight: "1px solid hsl(var(--border))" }}
-              >
+              <div className={`text-center ${isSpot ? "text-primary font-bold" : "text-foreground"}`} style={{ borderLeft: "1px solid hsl(var(--border))", borderRight: "1px solid hsl(var(--border))" }}>
                 ${p.strike}
               </div>
               <div className="flex items-center h-5">
                 {v >= 0 && (
                   <>
-                    <div
-                      className="h-3 rounded-r"
-                      style={{ width: `${w}%`, background: "#00ff88", boxShadow: "0 0 8px rgba(0,255,136,0.4)" }}
-                    />
-                    <span className="ml-2 tabular-nums" style={{ color: "#00ff88" }}>
-                      {formatNumber(v, 1)}
-                    </span>
+                    <div className="h-3 rounded-r" style={{ width: `${w}%`, background: "#00ff88", boxShadow: "0 0 8px rgba(0,255,136,0.4)" }} />
+                    <span className="ml-2" style={{ color: "#00ff88" }}>{formatNumber(v, 1)}</span>
                   </>
                 )}
               </div>
@@ -178,7 +216,18 @@ function StrikeChartView({ ticker, contracts, metric }: Props) {
   );
 }
 
-// ────── 3D SURFACE ──────
+// ────────────────────────── 3D SURFACE ──────────────────────────
+function FloorGrid() {
+  const grid = useMemo(() => {
+    const g = new THREE.GridHelper(14, 28, 0x1a4d4d, 0x0d2626);
+    (g.material as THREE.Material).transparent = true;
+    (g.material as THREE.Material).opacity = 0.45;
+    g.position.y = -0.005;
+    return g;
+  }, []);
+  return <primitive object={grid} />;
+}
+
 function Surface3D({
   strikes,
   expiries,
@@ -188,7 +237,7 @@ function Surface3D({
 }: {
   strikes: number[];
   expiries: number[];
-  values: number[][]; // [iExp][iStrike]
+  values: number[][];
   max: number;
   onHover: (info: { strike: number; expiry: number; value: number } | null) => void;
 }) {
@@ -204,15 +253,16 @@ function Surface3D({
       for (let i = 0; i < w; i++) {
         const idx = j * w + i;
         const v = values[j]?.[i] ?? 0;
-        const z = max > 0 ? (v / max) * 3 : 0; // height
+        const z = max > 0 ? (v / max) * 3 : 0;
         pos.setZ(idx, z);
-        const t = max > 0 ? Math.abs(v) / max : 0;
-        const a = Math.pow(t, 0.5);
-        if (v >= 0) {
-          colors.push(0, a, 0.53 * a);
-        } else {
-          colors.push(a, 0.3 * a, 0.3 * a);
-        }
+        // thermal colormap based on signed normalized magnitude
+        const t = max > 0 ? (v / max + 1) / 2 : 0.5; // 0..1, 0.5 = neutral
+        // For pure GEX we re-map: negatives → cool blue side, positives → warm side
+        const tt = max > 0 ? Math.max(0, Math.min(1, (v / max + 1) / 2)) : 0.5;
+        const [r, g, b] = jet(tt);
+        // boost vertical highlights
+        const intensity = 0.6 + 0.4 * Math.abs(v / Math.max(max, 1));
+        colors.push(r * intensity, g * intensity, b * intensity);
       }
     }
     geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
@@ -222,9 +272,12 @@ function Surface3D({
 
   return (
     <>
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[5, 8, 5]} intensity={1.0} />
-      <directionalLight position={[-5, 4, -3]} intensity={0.4} color="#00ff88" />
+      <ambientLight intensity={0.55} />
+      <directionalLight position={[6, 10, 6]} intensity={0.9} />
+      <directionalLight position={[-6, 4, -4]} intensity={0.35} color="#00bbff" />
+      <pointLight position={[0, 6, 0]} intensity={0.4} color="#ffffff" />
+
+      <FloorGrid />
 
       <mesh
         geometry={geometry}
@@ -240,20 +293,14 @@ function Surface3D({
         }}
         onPointerOut={() => onHover(null)}
       >
-        <meshStandardMaterial vertexColors side={THREE.DoubleSide} flatShading={false} metalness={0.1} roughness={0.65} />
+        <meshStandardMaterial vertexColors side={THREE.DoubleSide} flatShading={false} metalness={0.15} roughness={0.55} />
       </mesh>
 
       <mesh geometry={geometry} rotation={[-Math.PI / 2.4, 0, 0]}>
-        <meshBasicMaterial wireframe color="#ffffff" transparent opacity={0.08} />
+        <meshBasicMaterial wireframe color="#ffffff" transparent opacity={0.06} />
       </mesh>
 
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
-        <planeGeometry args={[14, 10]} />
-        <meshBasicMaterial color="#000000" />
-      </mesh>
-
-      <OrbitControls enablePan enableZoom enableRotate />
+      <OrbitControls enablePan enableZoom enableRotate makeDefault />
     </>
   );
 }
@@ -278,18 +325,20 @@ function SurfaceView({ ticker, contracts, metric }: Props) {
     return { strikes: strikeSet, expiries: expSet, values: grid, max: mx };
   }, [ticker, contracts, metric]);
 
+  const legendStops = [0, 0.25, 0.5, 0.75, 1];
+
   return (
-    <div className="relative bg-black rounded border border-border h-[560px]">
-      <Canvas camera={{ position: [10, 8, 10], fov: 45 }} style={{ background: "#000000" }}>
+    <div className="relative bg-black rounded border border-border h-[560px] overflow-hidden">
+      <Canvas camera={{ position: [10, 8, 10], fov: 45 }} style={{ background: "#000" }}>
         <Surface3D strikes={strikes} expiries={expiries} values={values} max={max} onHover={setHover} />
       </Canvas>
 
-      {/* Axis labels overlay */}
-      <div className="absolute bottom-2 left-3 font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-        X: Strikes ({strikes[0]} → {strikes[strikes.length - 1]}) · Y: DTE ({expiries[0]} → {expiries[expiries.length - 1]}D) · Z: Gamma
+      {/* Top-left meta */}
+      <div className="absolute top-3 left-3 font-jetbrains text-[10px] text-[#6b7280] uppercase tracking-[0.2em] pointer-events-none">
+        {ticker.symbol} · {metric === "netGex" ? "Gamma" : "Delta"} Surface
       </div>
-      <div className="absolute top-2 left-3 font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-        Drag to rotate · Scroll to zoom
+      <div className="absolute bottom-3 left-3 font-jetbrains text-[9px] text-[#4b5563] uppercase tracking-[0.18em] pointer-events-none">
+        X strikes · Y dte · Z magnitude
       </div>
 
       {/* Tooltip */}
@@ -299,32 +348,70 @@ function SurfaceView({ ticker, contracts, metric }: Props) {
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="absolute top-3 right-3 bg-black/90 backdrop-blur border border-border rounded px-3 py-2 font-mono text-[11px] shadow-lg"
+            className="absolute top-3 right-3 bg-black/90 backdrop-blur border border-[#1f1f1f] rounded px-3 py-2 font-jetbrains text-[11px] shadow-2xl pointer-events-none"
           >
-            <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Surface point</div>
-            <div className="text-foreground">Strike <span className="text-primary">${hover.strike}</span></div>
-            <div className="text-foreground">DTE <span className="text-primary">{hover.expiry}D</span></div>
+            <div className="text-[9px] uppercase tracking-[0.18em] text-[#6b7280] mb-1">Surface point</div>
+            <div className="text-[#e5e7eb]">Strike <span className="text-[#00ffff]">${hover.strike}</span></div>
+            <div className="text-[#e5e7eb]">DTE <span className="text-[#00ffff]">{hover.expiry}D</span></div>
             <div style={{ color: hover.value >= 0 ? "#00ff88" : "#ff4d4d" }}>
-              {metric === "netGex" ? "Gamma" : "Delta"}: {formatNumber(hover.value)}
+              {metric === "netGex" ? "Γ" : "Δ"} {formatNumber(hover.value)}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Color legend */}
-      <div className="absolute bottom-2 right-3 flex items-center gap-2 font-mono text-[10px]">
-        <span style={{ color: "#ff4d4d" }}>− Short γ</span>
+      {/* Vertical thermal legend */}
+      <div className="absolute top-1/2 right-3 -translate-y-1/2 flex items-stretch gap-2 pointer-events-none">
+        <div className="flex flex-col justify-between font-jetbrains text-[9px] text-[#6b7280]">
+          <span>HIGH</span>
+          <span>MID</span>
+          <span>LOW</span>
+        </div>
         <div
-          className="h-2 w-32 rounded"
-          style={{ background: "linear-gradient(to right, #ff4d4d, #000000, #00ff88)" }}
+          className="w-3 rounded"
+          style={{
+            height: 140,
+            background: `linear-gradient(to top, ${jetCss(0)}, ${jetCss(0.25)}, ${jetCss(0.5)}, ${jetCss(0.75)}, ${jetCss(1)})`,
+            boxShadow: "0 0 10px rgba(0,255,255,0.15)",
+          }}
         />
-        <span style={{ color: "#00ff88" }}>+ Long γ</span>
       </div>
     </div>
   );
 }
 
-// ────── MAIN TAB SWITCHER ──────
+// ────────────────────────── EXPORTED PANELS ──────────────────────────
+// Standalone heatmap panel
+export function GexHeatmapPanel(props: Props) {
+  return (
+    <Panel
+      title="Heatmap Matrix"
+      subtitle={`${props.ticker.symbol} · ${props.metric === "netGex" ? "GEX" : "DEX"} per strike × DTE`}
+      noPad
+    >
+      <div className="p-2 bg-black">
+        <HeatmapView {...props} />
+      </div>
+    </Panel>
+  );
+}
+
+// Standalone 3D surface panel
+export function GexSurfacePanel(props: Props) {
+  return (
+    <Panel
+      title="3D Surface Projection"
+      subtitle={`${props.ticker.symbol} · thermal colormap · drag to rotate`}
+      noPad
+    >
+      <div className="p-2 bg-black">
+        <SurfaceView {...props} />
+      </div>
+    </Panel>
+  );
+}
+
+// Tab switcher (kept for backward compat / overview view)
 export function GexExposureTabs(props: Props) {
   const [view, setView] = useState<View>("heatmap");
   const tabs: { key: View; label: string }[] = [
@@ -343,7 +430,7 @@ export function GexExposureTabs(props: Props) {
             <button
               key={t.key}
               onClick={() => setView(t.key)}
-              className={`relative px-3 py-1 text-[10px] font-mono uppercase tracking-widest rounded transition-colors ${
+              className={`relative px-3 py-1 text-[10px] font-jetbrains uppercase tracking-[0.18em] rounded transition-colors ${
                 view === t.key ? "text-black" : "text-muted-foreground hover:text-foreground"
               }`}
             >
