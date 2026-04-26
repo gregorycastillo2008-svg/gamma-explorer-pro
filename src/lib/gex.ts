@@ -1,0 +1,210 @@
+// Black-Scholes greeks + Gamma Exposure utilities
+// All formulas are standard BS for European options on non-dividend paying underlying.
+
+const SQRT_2PI = Math.sqrt(2 * Math.PI);
+
+function pdf(x: number) {
+  return Math.exp(-0.5 * x * x) / SQRT_2PI;
+}
+function cdf(x: number) {
+  // Abramowitz & Stegun approximation
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return 0.5 * (1 + sign * y);
+}
+
+export interface OptionContract {
+  strike: number;
+  expiry: number; // days to expiry
+  type: "call" | "put";
+  iv: number; // implied vol (decimal)
+  oi: number; // open interest
+}
+
+export interface Greeks {
+  delta: number;
+  gamma: number;
+  vega: number;
+  vanna: number;
+  charm: number;
+}
+
+export function bsGreeks(S: number, K: number, T: number, r: number, sigma: number, type: "call" | "put"): Greeks {
+  if (T <= 0 || sigma <= 0) return { delta: 0, gamma: 0, vega: 0, vanna: 0, charm: 0 };
+  const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+  const d2 = d1 - sigma * Math.sqrt(T);
+  const nd1 = pdf(d1);
+  const delta = type === "call" ? cdf(d1) : cdf(d1) - 1;
+  const gamma = nd1 / (S * sigma * Math.sqrt(T));
+  const vega = S * nd1 * Math.sqrt(T) / 100;
+  const vanna = -nd1 * d2 / sigma;
+  const charm =
+    type === "call"
+      ? -nd1 * (2 * r * T - d2 * sigma * Math.sqrt(T)) / (2 * T * sigma * Math.sqrt(T))
+      : -nd1 * (2 * r * T - d2 * sigma * Math.sqrt(T)) / (2 * T * sigma * Math.sqrt(T)) - r * Math.exp(-r * T);
+  return { delta, gamma, vega, vanna, charm };
+}
+
+export interface ExposurePoint {
+  strike: number;
+  callGex: number;
+  putGex: number;
+  netGex: number;
+  dex: number;
+  vex: number;
+  vanna: number;
+  charm: number;
+  callOI: number;
+  putOI: number;
+}
+
+const CONTRACT_SIZE = 100;
+
+export function computeExposures(spot: number, contracts: OptionContract[], r = 0.05): ExposurePoint[] {
+  const map = new Map<number, ExposurePoint>();
+  for (const c of contracts) {
+    const T = Math.max(c.expiry, 1) / 365;
+    const g = bsGreeks(spot, c.strike, T, r, c.iv, c.type);
+    const notional = c.oi * CONTRACT_SIZE;
+    const point = map.get(c.strike) ?? {
+      strike: c.strike, callGex: 0, putGex: 0, netGex: 0,
+      dex: 0, vex: 0, vanna: 0, charm: 0, callOI: 0, putOI: 0,
+    };
+    // Dealer is short calls / long puts (standard convention)
+    const sign = c.type === "call" ? 1 : -1;
+    const gexContrib = g.gamma * notional * spot * spot * 0.01 * sign;
+    if (c.type === "call") {
+      point.callGex += gexContrib;
+      point.callOI += c.oi;
+    } else {
+      point.putGex += gexContrib;
+      point.putOI += c.oi;
+    }
+    point.netGex += gexContrib;
+    point.dex += g.delta * notional * spot * sign;
+    point.vex += g.vega * notional * sign;
+    point.vanna += g.vanna * notional * sign;
+    point.charm += g.charm * notional * sign;
+    map.set(c.strike, point);
+  }
+  return Array.from(map.values()).sort((a, b) => a.strike - b.strike);
+}
+
+export interface KeyLevels {
+  callWall: number;
+  putWall: number;
+  gammaFlip: number | null;
+  totalGex: number;
+}
+
+export function computeKeyLevels(points: ExposurePoint[]): KeyLevels {
+  const totalGex = points.reduce((s, p) => s + p.netGex, 0);
+  const callWall = points.reduce((best, p) => (p.callGex > best.callGex ? p : best), points[0]).strike;
+  const putWall = points.reduce((best, p) => (p.putGex < best.putGex ? p : best), points[0]).strike;
+  // Gamma flip = strike where cumulative net GEX crosses zero
+  let cumulative = 0;
+  let flip: number | null = null;
+  const sorted = [...points].sort((a, b) => a.strike - b.strike);
+  for (let i = 0; i < sorted.length; i++) {
+    const prev = cumulative;
+    cumulative += sorted[i].netGex;
+    if (i > 0 && Math.sign(prev) !== Math.sign(cumulative) && prev !== 0) {
+      flip = sorted[i].strike;
+      break;
+    }
+  }
+  return { callWall, putWall, gammaFlip: flip, totalGex };
+}
+
+// ---------- Demo data generator ----------
+export interface DemoTicker {
+  symbol: string;
+  name: string;
+  spot: number;
+  baseIV: number;
+  strikeStep: number;
+  expiries: number[]; // days
+}
+
+export const DEMO_TICKERS: DemoTicker[] = [
+  { symbol: "SPX", name: "S&P 500 Index", spot: 5230, baseIV: 0.14, strikeStep: 25, expiries: [1, 7, 30, 60] },
+  { symbol: "SPY", name: "SPDR S&P 500 ETF", spot: 522, baseIV: 0.13, strikeStep: 2, expiries: [1, 7, 30, 60] },
+  { symbol: "QQQ", name: "Invesco QQQ Trust", spot: 445, baseIV: 0.18, strikeStep: 2, expiries: [1, 7, 30, 60] },
+  { symbol: "NDX", name: "Nasdaq 100 Index", spot: 18250, baseIV: 0.18, strikeStep: 50, expiries: [1, 7, 30, 60] },
+  { symbol: "AAPL", name: "Apple Inc.", spot: 195, baseIV: 0.25, strikeStep: 2.5, expiries: [7, 30, 60] },
+  { symbol: "TSLA", name: "Tesla Inc.", spot: 248, baseIV: 0.55, strikeStep: 5, expiries: [7, 30, 60] },
+  { symbol: "NVDA", name: "NVIDIA Corp.", spot: 880, baseIV: 0.45, strikeStep: 10, expiries: [7, 30, 60] },
+];
+
+// Deterministic pseudo-random based on symbol for stable demo
+function seedRand(seed: string) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h += 0x6D2B79F5;
+    let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function generateDemoChain(t: DemoTicker): OptionContract[] {
+  const rand = seedRand(t.symbol);
+  const contracts: OptionContract[] = [];
+  const range = 0.12; // ±12% strikes
+  const minK = Math.floor((t.spot * (1 - range)) / t.strikeStep) * t.strikeStep;
+  const maxK = Math.ceil((t.spot * (1 + range)) / t.strikeStep) * t.strikeStep;
+
+  for (const expiry of t.expiries) {
+    for (let k = minK; k <= maxK; k += t.strikeStep) {
+      const moneyness = (k - t.spot) / t.spot;
+      // IV smile
+      const iv = t.baseIV * (1 + 0.8 * moneyness * moneyness) * (0.9 + rand() * 0.2);
+      // OI distribution: peaks at round numbers and ATM
+      const distFromATM = Math.abs(moneyness);
+      const baseOI = Math.exp(-distFromATM * 12) * 8000 + rand() * 1500;
+      const roundBoost = k % (t.strikeStep * 4) === 0 ? 1.8 : 1;
+      const expiryWeight = expiry <= 7 ? 1.4 : expiry <= 30 ? 1 : 0.6;
+
+      // Calls heavier above spot, puts heavier below (typical hedging)
+      const callBias = moneyness > 0 ? 1.3 : 0.7;
+      const putBias = moneyness < 0 ? 1.4 : 0.6;
+
+      contracts.push({
+        strike: k,
+        expiry,
+        type: "call",
+        iv,
+        oi: Math.round(baseOI * roundBoost * expiryWeight * callBias),
+      });
+      contracts.push({
+        strike: k,
+        expiry,
+        type: "put",
+        iv,
+        oi: Math.round(baseOI * roundBoost * expiryWeight * putBias),
+      });
+    }
+  }
+  return contracts;
+}
+
+export function getDemoTicker(symbol: string): DemoTicker | undefined {
+  return DEMO_TICKERS.find((t) => t.symbol === symbol.toUpperCase());
+}
+
+export function formatNumber(n: number, digits = 2): string {
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return (n / 1e9).toFixed(digits) + "B";
+  if (abs >= 1e6) return (n / 1e6).toFixed(digits) + "M";
+  if (abs >= 1e3) return (n / 1e3).toFixed(digits) + "K";
+  return n.toFixed(digits);
+}
