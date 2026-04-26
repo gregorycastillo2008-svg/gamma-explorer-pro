@@ -5,14 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { GammaBackground } from "@/components/GammaBackground";
+import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
 import { toast } from "sonner";
-import gamma1 from "@/assets/gamma-1.jpg";
-import gamma2 from "@/assets/gamma-2.jpg";
-import gamma3 from "@/assets/gamma-3.jpg";
-import gamma4 from "@/assets/gamma-4.jpg";
 
 const features = [
   { icon: BarChart3, title: "GEX por strike", desc: "Visualiza Gamma Exposure agregada por strike con detección automática de Call/Put walls." },
@@ -23,12 +19,7 @@ const features = [
   { icon: Shield, title: "Acceso seguro", desc: "Tu cuenta y tu watchlist protegidas con autenticación moderna." },
 ];
 
-const floatingImages = [
-  { src: gamma1, top: "8%", left: "4%", size: 180, delay: 0, dur: 14 },
-  { src: gamma2, top: "55%", left: "2%", size: 150, delay: 2, dur: 16 },
-  { src: gamma3, top: "12%", right: "3%", size: 200, delay: 1, dur: 18 },
-  { src: gamma4, top: "60%", right: "5%", size: 170, delay: 3, dur: 15 },
-];
+
 
 const testimonials = [
   { name: "Carlos M.", role: "Day Trader · SPX", rating: 5, text: "Llevo 8 meses con AllGamma. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.", extra: "Cliente desde 2024 · +320% portfolio" },
