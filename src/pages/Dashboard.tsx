@@ -155,7 +155,7 @@ export default function Dashboard() {
               onKeyDown={(e) => e.key === "Enter" && addTicker()}
               placeholder="SPX, SPY, AAPL..."
             />
-            <p className="text-xs text-muted-foreground">Available: {DEMO_TICKERS.map((t) => t.symbol).join(", ")}</p>
+            <p className="text-xs text-muted-foreground">Live data via CBOE for any US-listed symbol (SPX, SPY, QQQ, AAPL, NVDA, MSFT, AMD, META…).</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
