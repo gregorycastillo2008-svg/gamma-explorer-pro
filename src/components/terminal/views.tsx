@@ -332,39 +332,54 @@ export function DepthView({ ticker, exposures }: Ctx) {
 export function LevelsView({ ticker, exposures, levels }: Ctx) {
   const sorted = [...exposures].sort((a, b) => Math.abs(b.netGex) - Math.abs(a.netGex)).slice(0, 8);
   return (
-    <div className="grid lg:grid-cols-2 gap-3">
-      <Panel title="Top GEX Strikes" subtitle="Largest absolute exposure">
-        <div className="space-y-1.5">
-          {sorted.map((p) => {
-            const dist = ((p.strike - ticker.spot) / ticker.spot) * 100;
-            return (
-              <div key={p.strike} className="flex items-center justify-between text-xs font-mono py-1.5 border-b border-border/30">
-                <span className="font-semibold">${p.strike}</span>
-                <span className="text-muted-foreground">{dist >= 0 ? "+" : ""}{dist.toFixed(2)}%</span>
-                <span className={p.netGex >= 0 ? "text-call" : "text-put"}>{formatNumber(p.netGex)}</span>
+    <TerminalTabs
+      layoutId="levels-master-tab-bg"
+      tabs={[
+        {
+          key: "top",
+          label: "TOP STRIKES",
+          content: (
+            <Panel title="Top GEX Strikes" subtitle="Largest absolute exposure">
+              <div className="space-y-1.5">
+                {sorted.map((p) => {
+                  const dist = ((p.strike - ticker.spot) / ticker.spot) * 100;
+                  return (
+                    <div key={p.strike} className="flex items-center justify-between text-xs font-mono py-1.5 border-b border-border/30">
+                      <span className="font-semibold">${p.strike}</span>
+                      <span className="text-muted-foreground">{dist >= 0 ? "+" : ""}{dist.toFixed(2)}%</span>
+                      <span className={p.netGex >= 0 ? "text-call" : "text-put"}>{formatNumber(p.netGex)}</span>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      </Panel>
-      <Panel title="Critical Levels">
-        <div className="grid grid-cols-2 gap-2">
-          <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-          <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-          <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-          <StatBlock label="Spot" value={`$${ticker.spot}`} tone="primary" />
-        </div>
-        <div className="mt-3 p-3 rounded bg-secondary/40 text-xs leading-relaxed">
-          <div className="font-semibold mb-1 text-foreground">Reading</div>
-          <p className="text-muted-foreground">
-            Spot is {ticker.spot > (levels.gammaFlip ?? 0) ? "above" : "below"} the gamma flip — dealers are{" "}
-            <span className={ticker.spot > (levels.gammaFlip ?? 0) ? "text-call" : "text-put"}>
-              {ticker.spot > (levels.gammaFlip ?? 0) ? "long gamma (suppressing volatility)" : "short gamma (amplifying moves)"}
-            </span>.
-          </p>
-        </div>
-      </Panel>
-    </div>
+            </Panel>
+          ),
+        },
+        {
+          key: "critical",
+          label: "CRITICAL",
+          content: (
+            <Panel title="Critical Levels">
+              <div className="grid grid-cols-2 gap-2">
+                <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
+                <StatBlock label="Spot" value={`$${ticker.spot}`} tone="primary" />
+              </div>
+              <div className="mt-3 p-3 rounded bg-secondary/40 text-xs leading-relaxed">
+                <div className="font-semibold mb-1 text-foreground">Reading</div>
+                <p className="text-muted-foreground">
+                  Spot is {ticker.spot > (levels.gammaFlip ?? 0) ? "above" : "below"} the gamma flip — dealers are{" "}
+                  <span className={ticker.spot > (levels.gammaFlip ?? 0) ? "text-call" : "text-put"}>
+                    {ticker.spot > (levels.gammaFlip ?? 0) ? "long gamma (suppressing volatility)" : "short gamma (amplifying moves)"}
+                  </span>.
+                </p>
+              </div>
+            </Panel>
+          ),
+        },
+      ]}
+    />
   );
 }
 
