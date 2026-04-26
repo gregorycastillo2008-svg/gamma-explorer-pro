@@ -13,6 +13,7 @@ import { Topbar } from "@/components/terminal/Topbar";
 import {
   OverviewView, GexDexView, GreeksView, DepthView, LevelsView,
   HedgeView, VannaCharmView, VegaThetaView, VolatilityView, RegimeView,
+  OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
 } from "@/components/terminal/views";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
