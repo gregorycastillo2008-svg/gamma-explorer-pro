@@ -1492,7 +1492,7 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
     const n = 60;
     let p = ticker.spot;
     let sumPV = 0, sumV = 0;
-    const data: { i: number; price: number; vwap: number; z: number }[] = [];
+    const data: { i: number; price: number; vwap: number; z: number; anomaly: number | null; buy: number | null; sell: number | null; side: "BUY" | "SELL" | null; sigma: number }[] = [];
     const prices: number[] = [];
     for (let i = 0; i < n; i++) {
       const v = 1 + Math.random();
@@ -1504,7 +1504,19 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
       const m = recent.reduce((s, x) => s + x, 0) / recent.length;
       const sd = Math.sqrt(recent.reduce((s, x) => s + (x - m) ** 2, 0) / recent.length) || 1;
       const z = (p - vwap) / sd;
-      data.push({ i, price: p, vwap, z });
+      const isAnom = Math.abs(z) > 2;
+      const side: "BUY" | "SELL" | null = isAnom ? (z < 0 ? "BUY" : "SELL") : null;
+      data.push({
+        i,
+        price: Number(p.toFixed(2)),
+        vwap: Number(vwap.toFixed(2)),
+        z: Number(z.toFixed(2)),
+        sigma: Number(Math.abs(z).toFixed(2)),
+        anomaly: isAnom ? z : null,
+        buy: side === "BUY" ? z : null,
+        sell: side === "SELL" ? z : null,
+        side,
+      });
     }
     return data;
   }, [ticker.spot, ticker.symbol]);
