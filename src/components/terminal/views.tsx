@@ -431,3 +431,337 @@ function StrikeTable({ exposures, ticker }: { exposures: ExposurePoint[]; ticker
     </Panel>
   );
 }
+
+// ─────── OI ANALYTICS (horizontal bars + Max Pain + DEX Bias) ───────
+export function OiAnalyticsView({ ticker, exposures, contracts }: Ctx) {
+  const [metric, setMetric] = useState<"netGex" | "dex">("netGex");
+  const maxPain = useMemo(() => computeMaxPain(exposures), [exposures]);
+  const totalCallOI = exposures.reduce((s, p) => s + p.callOI, 0);
+  const totalPutOI = exposures.reduce((s, p) => s + p.putOI, 0);
+  const netDex = exposures.reduce((s, p) => s + p.dex, 0);
+  const callWall = exposures.reduce((b, p) => (p.callGex > b.callGex ? p : b), exposures[0]).strike;
+  const putWall = exposures.reduce((b, p) => (p.putGex < b.putGex ? p : b), exposures[0]).strike;
+  const atmContracts = contracts.filter((c) => Math.abs(c.strike - ticker.spot) < ticker.strikeStep * 1.5);
+  const atmIv = atmContracts.length ? (atmContracts.reduce((s, c) => s + c.iv, 0) / atmContracts.length) * 100 : ticker.baseIV * 100;
+
+  const biasRatio = netDex / Math.max(Math.abs(totalCallOI - totalPutOI) * ticker.spot, 1);
+  let bias: { label: string; tone: "call" | "put" | "warning" };
+  const absDex = Math.abs(netDex);
+  if (absDex < 1e6) bias = { label: "NEUTRAL", tone: "warning" };
+  else if (netDex > 0) bias = { label: biasRatio > 0.5 ? "CALL HEAVY" : "CALL LEAN", tone: "call" };
+  else bias = { label: biasRatio < -0.5 ? "PUT HEAVY" : "PUT LEAN", tone: "put" };
+
+  const max = Math.max(...exposures.map((p) => Math.abs(p[metric])));
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        <StatBlock label="Spot" value={`$${ticker.spot.toLocaleString()}`} tone="primary" />
+        <StatBlock label="Call Wall" value={`$${callWall}`} tone="call" />
+        <StatBlock label="Put Wall" value={`$${putWall}`} tone="put" />
+        <StatBlock label="Max Pain" value={`$${maxPain}`} tone="warning" sub={`${(((maxPain - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+        <StatBlock label="ATM IV" value={`${atmIv.toFixed(2)}%`} tone="primary" />
+        <StatBlock label="DEX Bias" value={bias.label} tone={bias.tone} sub={formatNumber(netDex)} />
+      </div>
+
+      <Panel
+        title="Net Exposure by Strike"
+        subtitle="Notional ($) per strike — green = positive, red = negative"
+        right={
+          <Tabs value={metric} onValueChange={(v) => setMetric(v as any)}>
+            <TabsList className="h-7">
+              <TabsTrigger value="netGex" className="text-xs h-5 px-2">Net GEX</TabsTrigger>
+              <TabsTrigger value="dex" className="text-xs h-5 px-2">Net DEX</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+      >
+        <HorizontalBars exposures={exposures} metric={metric} max={max} spot={ticker.spot} maxPain={maxPain} />
+      </Panel>
+    </div>
+  );
+}
+
+function HorizontalBars({ exposures, metric, max, spot, maxPain }: {
+  exposures: ExposurePoint[]; metric: "netGex" | "dex"; max: number; spot: number; maxPain: number;
+}) {
+  const sorted = [...exposures].sort((a, b) => b.strike - a.strike);
+  return (
+    <div className="space-y-0.5 max-h-[600px] overflow-y-auto pr-1">
+      {sorted.map((p) => {
+        const v = p[metric];
+        const pct = (Math.abs(v) / max) * 50;
+        const isSpot = Math.abs(p.strike - spot) < (spot * 0.001);
+        const isMaxPain = p.strike === maxPain;
+        return (
+          <div key={p.strike} className={`grid grid-cols-[60px_1fr_60px] items-center gap-2 text-[11px] font-mono py-0.5 ${isSpot ? "bg-primary/15" : isMaxPain ? "bg-warning/10" : ""}`}>
+            <span className={`text-right pr-2 ${isSpot ? "text-primary font-bold" : isMaxPain ? "text-warning font-semibold" : ""}`}>
+              {p.strike}
+              {isSpot && <span className="ml-1">●</span>}
+              {isMaxPain && !isSpot && <span className="ml-1 text-[9px]">MP</span>}
+            </span>
+            <div className="relative h-4 bg-secondary/30 rounded-sm">
+              <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
+              {v >= 0 ? (
+                <div className="absolute inset-y-0 left-1/2 bg-call/70 rounded-r-sm" style={{ width: `${pct}%` }} />
+              ) : (
+                <div className="absolute inset-y-0 right-1/2 bg-put/70 rounded-l-sm" style={{ width: `${pct}%` }} />
+              )}
+            </div>
+            <span className={`text-left pl-1 ${v >= 0 ? "text-call" : "text-put"}`}>{formatNumber(v)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────── HEATMAP IV + 3D Surface ───────
+export function HeatmapView({ ticker, contracts }: Ctx) {
+  const grid = buildIvGrid(contracts);
+  const expiries = Array.from(new Set(grid.map((c) => c.expiry))).sort((a, b) => a - b);
+  const strikes = Array.from(new Set(grid.map((c) => c.strike))).sort((a, b) => b - a);
+  const cellMap = new Map(grid.map((c) => [`${c.strike}|${c.expiry}`, c.iv]));
+  const ivs = grid.map((c) => c.iv);
+  const min = Math.min(...ivs), max = Math.max(...ivs);
+
+  const colorFor = (iv: number) => {
+    const t = (iv - min) / (max - min || 1);
+    if (t < 0.33) return `hsl(220 80% ${30 + t * 60}%)`;
+    if (t < 0.66) return `hsl(${180 - (t - 0.33) * 240} 80% 50%)`;
+    return `hsl(${40 - (t - 0.66) * 120} 90% 55%)`;
+  };
+
+  return (
+    <div className="space-y-3">
+      <Panel title="IV Heatmap" subtitle={`${ticker.symbol} · Implied Volatility · Strike × DTE`}>
+        <div className="overflow-x-auto">
+          <div className="inline-block min-w-full">
+            <div className="grid" style={{ gridTemplateColumns: `60px repeat(${expiries.length}, minmax(50px, 1fr))` }}>
+              <div />
+              {expiries.map((e) => (
+                <div key={`h-${e}`} className="text-[10px] font-mono text-muted-foreground text-center pb-1 border-b border-border">{e}d</div>
+              ))}
+              {strikes.map((s) => (
+                <div key={`row-${s}`} className="contents">
+                  <div className={`text-[10px] font-mono py-0.5 pr-2 text-right ${Math.abs(s - ticker.spot) < ticker.strikeStep ? "text-primary font-bold" : "text-muted-foreground"}`}>{s}</div>
+                  {expiries.map((e) => {
+                    const iv = cellMap.get(`${s}|${e}`);
+                    return (
+                      <div
+                        key={`${s}-${e}`}
+                        className="h-6 border border-background flex items-center justify-center text-[9px] font-mono text-foreground/90"
+                        style={{ background: iv != null ? colorFor(iv) : "transparent" }}
+                        title={iv != null ? `IV ${(iv * 100).toFixed(1)}%` : ""}
+                      >
+                        {iv != null ? (iv * 100).toFixed(0) : ""}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-3 text-[10px] text-muted-foreground">
+            <span>Low {(min * 100).toFixed(1)}%</span>
+            <div className="flex-1 h-2 rounded" style={{ background: "linear-gradient(90deg, hsl(220 80% 30%), hsl(180 80% 50%), hsl(60 80% 50%), hsl(0 90% 55%))" }} />
+            <span>High {(max * 100).toFixed(1)}%</span>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel title="3D IV Surface" subtitle="Isometric projection · Strike × DTE × IV">
+        <SurfaceChart strikes={strikes.slice().reverse()} expiries={expiries} cellMap={cellMap} min={min} max={max} colorFor={colorFor} />
+      </Panel>
+    </div>
+  );
+}
+
+function SurfaceChart({ strikes, expiries, cellMap, min, max, colorFor }: {
+  strikes: number[]; expiries: number[]; cellMap: Map<string, number>; min: number; max: number; colorFor: (n: number) => string;
+}) {
+  const W = 700, H = 380;
+  const cellW = 24, cellD = 14, hMax = 130;
+  const ox = 80, oy = 280;
+  const range = max - min || 1;
+
+  type Q = { d: string; fill: string; depth: number };
+  const quads: Q[] = [];
+
+  for (let i = 0; i < strikes.length - 1; i++) {
+    for (let j = 0; j < expiries.length - 1; j++) {
+      const corners = [
+        { si: i, ei: j }, { si: i + 1, ei: j }, { si: i + 1, ei: j + 1 }, { si: i, ei: j + 1 },
+      ].map(({ si, ei }) => {
+        const iv = cellMap.get(`${strikes[si]}|${expiries[ei]}`) ?? min;
+        const h = ((iv - min) / range) * hMax;
+        const x = ox + ei * cellW + si * cellD;
+        const y = oy - h - si * cellD * 0.6;
+        return { x, y, iv };
+      });
+      const avgIv = corners.reduce((s, c) => s + c.iv, 0) / 4;
+      const d = `M ${corners[0].x} ${corners[0].y} L ${corners[1].x} ${corners[1].y} L ${corners[2].x} ${corners[2].y} L ${corners[3].x} ${corners[3].y} Z`;
+      quads.push({ d, fill: colorFor(avgIv), depth: i + j });
+    }
+  }
+  quads.sort((a, b) => a.depth - b.depth);
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" style={{ minHeight: 380 }}>
+        <line x1={ox} y1={oy} x2={ox + expiries.length * cellW} y2={oy} stroke="hsl(222 25% 25%)" />
+        <line x1={ox} y1={oy} x2={ox - 10 + strikes.length * cellD} y2={oy - strikes.length * cellD * 0.6} stroke="hsl(222 25% 25%)" />
+        <line x1={ox} y1={oy} x2={ox} y2={oy - hMax - 20} stroke="hsl(222 25% 25%)" />
+        {quads.map((q, i) => (
+          <path key={i} d={q.d} fill={q.fill} fillOpacity={0.85} stroke="hsl(222 47% 5%)" strokeWidth="0.5" />
+        ))}
+        <text x={ox + (expiries.length * cellW) / 2} y={H - 10} textAnchor="middle" fill="hsl(215 20% 60%)" fontSize="10" fontFamily="monospace">DTE (days)</text>
+        <text x={20} y={oy - hMax / 2} textAnchor="middle" fill="hsl(215 20% 60%)" fontSize="10" fontFamily="monospace" transform={`rotate(-90 20 ${oy - hMax / 2})`}>IV (%)</text>
+        <text x={ox - 5 + strikes.length * cellD * 0.7} y={oy - strikes.length * cellD * 0.4} fill="hsl(215 20% 60%)" fontSize="10" fontFamily="monospace">STRIKE</text>
+      </svg>
+    </div>
+  );
+}
+
+// ─────── RISK ───────
+export function RiskView({ ticker, exposures, levels, contracts }: Ctx) {
+  const totalGamma = exposures.reduce((s, p) => s + Math.abs(p.netGex), 0);
+  const concentration = exposures.reduce((s, p) => s + (p.netGex / Math.max(totalGamma, 1)) ** 2, 0);
+  const tailPuts = exposures.filter((p) => p.strike < ticker.spot * 0.95).reduce((s, p) => s + p.putOI, 0);
+  const tailCalls = exposures.filter((p) => p.strike > ticker.spot * 1.05).reduce((s, p) => s + p.callOI, 0);
+  const totalOI = exposures.reduce((s, p) => s + p.callOI + p.putOI, 0);
+  const tailRisk = ((tailPuts + tailCalls) / Math.max(totalOI, 1)) * 100;
+  const dayWeighted = contracts.reduce((s, c) => s + c.oi / Math.max(c.expiry, 1), 0);
+  const distToFlip = levels.gammaFlip ? Math.abs((ticker.spot - levels.gammaFlip) / ticker.spot) * 100 : 100;
+
+  const riskScore = Math.min(100, Math.round(
+    concentration * 30 +
+    (tailRisk / 50) * 30 +
+    (1 / Math.max(distToFlip, 0.1)) * 5 +
+    (levels.totalGex < 0 ? 20 : 0)
+  ));
+  const tone = riskScore > 60 ? "put" : riskScore > 35 ? "warning" : "call";
+
+  return (
+    <div className="space-y-3">
+      <Panel title="Risk Score" subtitle="Composite measure of structural fragility (0–100)">
+        <div className="flex items-center gap-6">
+          <div className="text-center">
+            <div className={`text-5xl font-bold font-mono ${tone === "put" ? "text-put" : tone === "warning" ? "text-warning" : "text-call"}`}>{riskScore}</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{riskScore > 60 ? "HIGH RISK" : riskScore > 35 ? "ELEVATED" : "STABLE"}</div>
+          </div>
+          <div className="flex-1 h-3 rounded-full bg-secondary overflow-hidden">
+            <div className={`h-full ${tone === "put" ? "bg-put" : tone === "warning" ? "bg-warning" : "bg-call"}`} style={{ width: `${riskScore}%` }} />
+          </div>
+        </div>
+      </Panel>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <StatBlock label="Concentration" value={(concentration * 100).toFixed(1) + "%"} sub="HHI of GEX" tone={concentration > 0.15 ? "put" : "default"} />
+        <StatBlock label="Tail OI" value={tailRisk.toFixed(1) + "%"} sub="strikes ±5%" tone={tailRisk > 30 ? "warning" : "default"} />
+        <StatBlock label="Dist to flip" value={distToFlip.toFixed(2) + "%"} sub="closer = fragile" tone={distToFlip < 1 ? "put" : "default"} />
+        <StatBlock label="Day-weighted OI" value={formatNumber(dayWeighted, 0)} sub="short-dated load" />
+      </div>
+      <Panel title="Scenario — spot ±5%">
+        <div className="grid grid-cols-3 gap-2 text-center">
+          {[-5, 0, 5].map((pct) => {
+            const newSpot = ticker.spot * (1 + pct / 100);
+            const closest = exposures.reduce((b, p) => Math.abs(p.strike - newSpot) < Math.abs(b.strike - newSpot) ? p : b, exposures[0]);
+            const Icon = pct < 0 ? TrendingDown : pct > 0 ? TrendingUp : Activity;
+            const localTone = pct < 0 ? "text-put" : pct > 0 ? "text-call" : "text-primary";
+            return (
+              <div key={pct} className="rounded border border-border bg-card/60 p-3">
+                <div className={`flex items-center justify-center gap-1 text-xs ${localTone}`}>
+                  <Icon className="h-3 w-3" />
+                  {pct >= 0 ? "+" : ""}{pct}%
+                </div>
+                <div className="text-base font-mono font-semibold mt-1">${newSpot.toFixed(0)}</div>
+                <div className={`text-xs font-mono mt-1 ${closest.netGex >= 0 ? "text-call" : "text-put"}`}>{formatNumber(closest.netGex)}</div>
+                <div className="text-[10px] text-muted-foreground">net GEX @ K</div>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+// ─────── ANOMALY DETECTION ───────
+export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
+  const gexes = exposures.map((p) => p.netGex);
+  const meanG = gexes.reduce((s, x) => s + x, 0) / gexes.length;
+  const sdG = Math.sqrt(gexes.reduce((s, x) => s + (x - meanG) ** 2, 0) / gexes.length) || 1;
+
+  const ois = exposures.map((p) => p.callOI + p.putOI);
+  const meanO = ois.reduce((s, x) => s + x, 0) / ois.length;
+  const sdO = Math.sqrt(ois.reduce((s, x) => s + (x - meanO) ** 2, 0) / ois.length) || 1;
+
+  const anomalies = exposures
+    .map((p) => {
+      const zG = (p.netGex - meanG) / sdG;
+      const zO = (p.callOI + p.putOI - meanO) / sdO;
+      return { ...p, zG, zO, score: Math.max(Math.abs(zG), Math.abs(zO)) };
+    })
+    .filter((a) => a.score > 1.8)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 12);
+
+  const ivs = contracts.map((c) => c.iv);
+  const meanIv = ivs.reduce((s, x) => s + x, 0) / ivs.length;
+  const sdIv = Math.sqrt(ivs.reduce((s, x) => s + (x - meanIv) ** 2, 0) / ivs.length) || 1;
+  const ivOutliers = contracts
+    .map((c) => ({ ...c, z: (c.iv - meanIv) / sdIv }))
+    .filter((c) => Math.abs(c.z) > 2)
+    .sort((a, b) => Math.abs(b.z) - Math.abs(a.z))
+    .slice(0, 8);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <StatBlock label="Anomalies" value={anomalies.length} tone="warning" sub=">1.8σ" />
+        <StatBlock label="IV outliers" value={ivOutliers.length} tone="put" sub=">2σ" />
+        <StatBlock label="Mean GEX" value={formatNumber(meanG)} />
+        <StatBlock label="GEX σ" value={formatNumber(sdG)} />
+      </div>
+      <Panel title="Strike Anomalies" subtitle="Strikes with abnormal positioning">
+        {anomalies.length === 0 ? (
+          <div className="text-xs text-muted-foreground py-6 text-center">No significant anomalies detected.</div>
+        ) : (
+          <div className="space-y-1.5">
+            {anomalies.map((a) => (
+              <div key={a.strike} className="grid grid-cols-[80px_1fr_80px_80px] gap-2 text-xs font-mono items-center py-1.5 border-b border-border/30">
+                <span className="font-semibold flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3 text-warning" />
+                  ${a.strike}
+                </span>
+                <span className="text-muted-foreground">
+                  {Math.abs(a.zG) > Math.abs(a.zO) ? "GEX spike" : "OI cluster"} · {(((a.strike - ticker.spot) / ticker.spot) * 100).toFixed(2)}%
+                </span>
+                <span className={a.netGex >= 0 ? "text-call text-right" : "text-put text-right"}>{formatNumber(a.netGex)}</span>
+                <span className="text-warning text-right">{a.score.toFixed(2)}σ</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+      <Panel title="IV Outliers" subtitle="Contracts with unusual implied volatility">
+        {ivOutliers.length === 0 ? (
+          <div className="text-xs text-muted-foreground py-6 text-center">No IV outliers detected.</div>
+        ) : (
+          <div className="space-y-1">
+            {ivOutliers.map((c, i) => (
+              <div key={i} className="grid grid-cols-[60px_50px_50px_1fr_60px_60px] gap-2 text-xs font-mono items-center py-1 border-b border-border/30">
+                <span className="font-semibold">${c.strike}</span>
+                <span className={`uppercase text-[10px] ${c.type === "call" ? "text-call" : "text-put"}`}>{c.type}</span>
+                <span className="text-muted-foreground">{c.expiry}d</span>
+                <span className="text-muted-foreground">OI {formatNumber(c.oi, 0)}</span>
+                <span className="text-foreground text-right">{(c.iv * 100).toFixed(1)}%</span>
+                <span className={`text-right ${c.z > 0 ? "text-put" : "text-call"}`}>{c.z > 0 ? "+" : ""}{c.z.toFixed(1)}σ</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
