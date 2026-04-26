@@ -1,1 +1,4 @@
 project_id = "ikvwejdepfvjuofcnbww"
+
+[functions.cboe-options]
+verify_jwt = false
