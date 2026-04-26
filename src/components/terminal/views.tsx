@@ -657,15 +657,36 @@ function HorizontalBars({ exposures, metric, max, spot, maxPain }: {
   exposures: ExposurePoint[]; metric: "netGex" | "dex"; max: number; spot: number; maxPain: number;
 }) {
   const sorted = [...exposures].sort((a, b) => b.strike - a.strike);
+  const [hover, setHover] = useState<{ strike: number; v: number; x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className="space-y-0.5 max-h-[600px] overflow-y-auto pr-1">
+    <div
+      ref={containerRef}
+      className="relative space-y-0.5 max-h-[600px] overflow-y-auto pr-1"
+      onMouseLeave={() => setHover(null)}
+    >
       {sorted.map((p) => {
         const v = p[metric];
         const pct = (Math.abs(v) / max) * 50;
         const isSpot = Math.abs(p.strike - spot) < (spot * 0.001);
         const isMaxPain = p.strike === maxPain;
+        const isHover = hover?.strike === p.strike;
         return (
-          <div key={p.strike} className={`grid grid-cols-[60px_1fr_60px] items-center gap-2 text-[11px] font-mono py-0.5 ${isSpot ? "bg-primary/15" : isMaxPain ? "bg-warning/10" : ""}`}>
+          <div
+            key={p.strike}
+            className={`grid grid-cols-[60px_1fr] items-center gap-2 text-[11px] font-mono py-0.5 transition-colors ${isSpot ? "bg-primary/15" : isMaxPain ? "bg-warning/10" : ""} ${isHover ? "bg-primary/10" : ""}`}
+            onMouseMove={(e) => {
+              const rect = containerRef.current?.getBoundingClientRect();
+              if (!rect) return;
+              setHover({
+                strike: p.strike,
+                v,
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+              });
+            }}
+          >
             <span className={`text-right pr-2 ${isSpot ? "text-primary font-bold" : isMaxPain ? "text-warning font-semibold" : ""}`}>
               {p.strike}
               {isSpot && <span className="ml-1">●</span>}
@@ -674,18 +695,46 @@ function HorizontalBars({ exposures, metric, max, spot, maxPain }: {
             <div className="relative h-4 bg-secondary/30 rounded-sm">
               <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
               {v >= 0 ? (
-                <div className="absolute inset-y-0 left-1/2 bg-call/70 rounded-r-sm" style={{ width: `${pct}%` }} />
+                <div
+                  className="absolute inset-y-0 left-1/2 bg-call/70 rounded-r-sm transition-all"
+                  style={{ width: `${pct}%`, boxShadow: isHover ? "0 0 10px hsl(var(--call) / 0.6)" : undefined }}
+                />
               ) : (
-                <div className="absolute inset-y-0 right-1/2 bg-put/70 rounded-l-sm" style={{ width: `${pct}%` }} />
+                <div
+                  className="absolute inset-y-0 right-1/2 bg-put/70 rounded-l-sm transition-all"
+                  style={{ width: `${pct}%`, boxShadow: isHover ? "0 0 10px hsl(var(--put) / 0.6)" : undefined }}
+                />
               )}
             </div>
-            <span className={`text-left pl-1 ${v >= 0 ? "text-call" : "text-put"}`}>{formatNumber(v)}</span>
           </div>
         );
       })}
+
+      <AnimatePresence>
+        {hover && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            transition={{ duration: 0.12 }}
+            className="pointer-events-none absolute z-30 px-2.5 py-1.5 rounded-md border border-border bg-popover/95 backdrop-blur-sm shadow-lg font-mono text-[11px] whitespace-nowrap"
+            style={{
+              left: Math.min(hover.x + 14, (containerRef.current?.clientWidth ?? 0) - 160),
+              top: hover.y + 14,
+            }}
+          >
+            <div className="text-primary font-semibold">Strike ${hover.strike.toLocaleString()}</div>
+            <div className={hover.v >= 0 ? "text-call" : "text-put"}>
+              {metric === "netGex" ? "Γ " : "Δ "}
+              {hover.v >= 0 ? "+" : ""}{formatNumber(hover.v)}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
 
 // ─────── HEATMAP IV + 3D Surface ───────
 export function HeatmapView({ ticker, contracts }: Ctx) {
