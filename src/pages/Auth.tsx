@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
-import { GammaBackground } from "@/components/GammaBackground";
+import { Sparkles, Mail, Lock, ArrowRight } from "lucide-react";
 
 export default function Auth() {
   const { user, loading } = useAuth();
@@ -43,53 +43,170 @@ export default function Auth() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
-      <GammaBackground />
-      <div className="relative z-10 w-full max-w-md">
-        <div className="flex items-center justify-center mb-6">
+    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden" style={{ background: "#000" }}>
+      {/* Animated gold orbs */}
+      <motion.div
+        className="absolute rounded-full pointer-events-none"
+        style={{ width: 500, height: 500, background: "radial-gradient(circle, rgba(255,215,0,0.18) 0%, transparent 70%)", top: "-10%", left: "-10%" }}
+        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.9, 0.5] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute rounded-full pointer-events-none"
+        style={{ width: 600, height: 600, background: "radial-gradient(circle, rgba(212,175,55,0.15) 0%, transparent 70%)", bottom: "-15%", right: "-10%" }}
+        animate={{ scale: [1.2, 1, 1.2], opacity: [0.6, 0.3, 0.6] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      />
+      {/* Floating particles */}
+      {Array.from({ length: 15 }).map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            width: 3, height: 3,
+            background: "#ffd700",
+            boxShadow: "0 0 8px #ffd700",
+            top: `${Math.random() * 100}%`,
+            left: `${Math.random() * 100}%`,
+          }}
+          animate={{ y: [0, -40, 0], opacity: [0, 1, 0] }}
+          transition={{ duration: 4 + Math.random() * 4, repeat: Infinity, delay: Math.random() * 4, ease: "easeInOut" }}
+        />
+      ))}
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 120, damping: 18 }}
+        className="relative z-10 w-full max-w-md"
+      >
+        <div className="flex items-center justify-center mb-8">
           <AllGammaLogo size="lg" />
         </div>
-        <Card style={{ boxShadow: "var(--shadow-elegant)" }}>
-          <CardHeader>
-            <CardTitle>Accede a tu panel</CardTitle>
-            <CardDescription>Análisis de Gamma Exposure profesional</CardDescription>
-          </CardHeader>
-          <CardContent>
+
+        {/* Outer rotating gold ring */}
+        <div className="relative">
+          <motion.div
+            className="absolute -inset-1 rounded-[3rem] pointer-events-none"
+            style={{
+              background: "conic-gradient(from 0deg, #ffd700, #b8860b, #fff5cc, #d4af37, #ffd700)",
+              filter: "blur(8px)",
+              opacity: 0.7,
+            }}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+          />
+          <motion.div
+            className="absolute -inset-px rounded-[3rem] pointer-events-none"
+            style={{
+              background: "conic-gradient(from 180deg, #ffd700, transparent, #d4af37, transparent, #ffd700)",
+            }}
+            animate={{ rotate: -360 }}
+            transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+          />
+
+          {/* Card */}
+          <div
+            className="relative rounded-[3rem] p-8 backdrop-blur-xl"
+            style={{
+              background: "linear-gradient(135deg, rgba(20,20,20,0.95) 0%, rgba(10,8,3,0.95) 100%)",
+              border: "1px solid rgba(255,215,0,0.3)",
+              boxShadow: "0 30px 80px -10px rgba(255,215,0,0.25), inset 0 1px 0 rgba(255,215,0,0.2)",
+            }}
+          >
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase mb-3"
+                style={{
+                  background: "rgba(255,215,0,0.1)",
+                  border: "1px solid rgba(255,215,0,0.4)",
+                  color: "#ffd700",
+                }}
+              >
+                <Sparkles className="h-3 w-3" /> Acceso Premium
+              </div>
+              <h2 className="text-2xl font-black bg-clip-text text-transparent"
+                style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
+              >
+                Bienvenido de nuevo
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">Análisis Gamma Exposure profesional</p>
+            </div>
+
             <Tabs defaultValue="signin">
-              <TabsList className="grid grid-cols-2 w-full mb-4">
-                <TabsTrigger value="signin">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Crear cuenta</TabsTrigger>
+              <TabsList
+                className="grid grid-cols-2 w-full mb-6 rounded-full p-1"
+                style={{ background: "rgba(255,215,0,0.06)", border: "1px solid rgba(255,215,0,0.2)" }}
+              >
+                <TabsTrigger value="signin" className="rounded-full data-[state=active]:bg-[#ffd700] data-[state=active]:text-black data-[state=active]:font-bold">Entrar</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-full data-[state=active]:bg-[#ffd700] data-[state=active]:text-black data-[state=active]:font-bold">Crear cuenta</TabsTrigger>
               </TabsList>
+
               <TabsContent value="signin">
                 <form onSubmit={signIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="e1">Email</Label>
-                    <Input id="e1" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="p1">Contraseña</Label>
-                    <Input id="p1" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={busy}>{busy ? "..." : "Entrar"}</Button>
+                  <FieldGold id="e1" label="Email" type="email" value={email} onChange={setEmail} icon={Mail} />
+                  <FieldGold id="p1" label="Contraseña" type="password" value={password} onChange={setPassword} icon={Lock} />
+                  <GoldButton busy={busy}>Entrar al panel</GoldButton>
                 </form>
               </TabsContent>
+
               <TabsContent value="signup">
                 <form onSubmit={signUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="e2">Email</Label>
-                    <Input id="e2" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="p2">Contraseña</Label>
-                    <Input id="p2" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={busy}>{busy ? "..." : "Crear cuenta"}</Button>
+                  <FieldGold id="e2" label="Email" type="email" value={email} onChange={setEmail} icon={Mail} />
+                  <FieldGold id="p2" label="Contraseña" type="password" value={password} onChange={setPassword} icon={Lock} minLength={6} />
+                  <GoldButton busy={busy}>Crear mi cuenta</GoldButton>
                 </form>
               </TabsContent>
             </Tabs>
-          </CardContent>
-        </Card>
+
+            <div className="mt-6 pt-4 text-center text-[11px] text-muted-foreground"
+              style={{ borderTop: "1px solid rgba(255,215,0,0.15)" }}
+            >
+              🔒 Conexión segura cifrada
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function FieldGold({ id, label, type, value, onChange, icon: Icon, minLength }: any) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id} className="text-xs font-semibold tracking-wide" style={{ color: "#d4af37" }}>{label}</Label>
+      <div className="relative">
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#d4af37" }} />
+        <Input
+          id={id}
+          type={type}
+          required
+          minLength={minLength}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="pl-10 rounded-full h-11 bg-black/40 focus:bg-black/60 transition-colors"
+          style={{ border: "1px solid rgba(255,215,0,0.3)", color: "#fff5cc" }}
+        />
       </div>
     </div>
+  );
+}
+
+function GoldButton({ busy, children }: { busy: boolean; children: React.ReactNode }) {
+  return (
+    <Button
+      type="submit"
+      disabled={busy}
+      className="w-full rounded-full h-12 font-bold text-black hover:scale-[1.02] transition-transform group"
+      style={{
+        background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)",
+        backgroundSize: "200% 100%",
+        boxShadow: "0 8px 24px rgba(255,215,0,0.4)",
+      }}
+    >
+      <span className="flex items-center justify-center gap-2">
+        {busy ? "..." : children}
+        {!busy && <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />}
+      </span>
+    </Button>
   );
 }
