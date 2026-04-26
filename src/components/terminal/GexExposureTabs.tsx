@@ -60,7 +60,7 @@ function jetCss(t: number): string {
 }
 
 // ────────────────────────── HEATMAP ──────────────────────────
-function HeatmapView({ ticker, contracts, metric }: Props) {
+export function HeatmapGridView({ ticker, contracts, metric }: Props) {
   const { strikes, expiries, grid, max, peakPos, peakNeg } = useMemo(() => {
     const expSet = Array.from(new Set(contracts.map((c) => c.expiry))).sort((a, b) => a - b);
     const perExp = new Map<number, Map<number, number>>();
@@ -181,7 +181,7 @@ function HeatmapView({ ticker, contracts, metric }: Props) {
 }
 
 // ────────────────────────── STRIKE CHART ──────────────────────────
-function StrikeChartView({ ticker, contracts, metric }: Props) {
+export function StrikeChartView({ ticker, contracts, metric }: Props) {
   const data = useMemo(() => {
     const points = computeExposures(ticker.spot, contracts);
     return points.slice().sort((a, b) => b.strike - a.strike);
@@ -407,7 +407,7 @@ function Surface3D({
   );
 }
 
-function SurfaceView({ ticker, contracts, metric }: Props) {
+export function SurfaceView({ ticker, contracts, metric }: Props) {
   const [hover, setHover] = useState<{ strike: number; expiry: number; value: number } | null>(null);
 
   const { strikes, expiries, values, max } = useMemo(() => {
