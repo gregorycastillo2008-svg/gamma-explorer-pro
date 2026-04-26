@@ -1649,42 +1649,107 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
         </Panel>
       </div>
 
-      {/* Z-Distance from VWAP */}
-      <Panel title="Z-Distance from VWAP" subtitle="Statistical stretch · ±1σ ±2σ ±3σ bands">
-        <div className="h-56">
+      {/* Z-Distance from VWAP — anomalías marcadas con BUY/SELL */}
+      <Panel
+        title="Anomaly Tracker · Z-Distance"
+        subtitle="Standard deviations from VWAP · BUY (z < −2σ) / SELL (z > +2σ)"
+        right={
+          <div className="flex items-center gap-3 text-[10px] font-mono">
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-call" style={{ boxShadow: "0 0 6px hsl(140 100% 50%)" }} /> BUY</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-put" style={{ boxShadow: "0 0 6px hsl(0 100% 55%)" }} /> SELL</span>
+            <span className="text-muted-foreground">{vwapSeries.filter((d) => d.side).length} hits</span>
+          </div>
+        }
+      >
+        <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={vwapSeries} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+            <LineChart data={vwapSeries} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
               <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.35} />
-              <XAxis dataKey="i" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} />
+              <XAxis dataKey="i" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} tickFormatter={(v) => `t-${60 - Number(v)}`} />
               <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} domain={[-3.5, 3.5]} tickFormatter={(v) => `${v}σ`} />
               <RTooltip
-                contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11, fontFamily: "monospace" }}
-                formatter={(v: number) => [`${v.toFixed(2)}σ`, "Z"]}
-                labelFormatter={(l) => `t-${60 - Number(l)}`}
+                cursor={{ stroke: "hsl(var(--primary))", strokeDasharray: "3 3" }}
+                content={({ active, payload }: any) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0].payload;
+                  return (
+                    <div className="bg-popover border border-border rounded px-3 py-2 font-mono text-[11px] shadow-xl">
+                      <div className="text-muted-foreground text-[9px] uppercase tracking-widest mb-1">t-{60 - d.i}</div>
+                      <div>Price <span className="text-foreground">${d.price}</span></div>
+                      <div>VWAP  <span className="text-muted-foreground">${d.vwap}</span></div>
+                      <div>Z     <span style={{ color: d.side === "BUY" ? "hsl(140 100% 50%)" : d.side === "SELL" ? "hsl(0 100% 60%)" : "hsl(var(--foreground))" }}>{d.z >= 0 ? "+" : ""}{d.z}σ</span></div>
+                      {d.side && (
+                        <div className="mt-1 pt-1 border-t border-border font-bold" style={{ color: d.side === "BUY" ? "hsl(140 100% 50%)" : "hsl(0 100% 60%)" }}>
+                          ▶ {d.side} signal · {d.sigma}σ
+                        </div>
+                      )}
+                    </div>
+                  );
+                }}
               />
               <ReferenceLine y={3} stroke="hsl(0 90% 60%)" strokeDasharray="3 3" label={{ value: "+3σ", fill: "hsl(0 90% 60%)", fontSize: 9, position: "right" }} />
-              <ReferenceLine y={2} stroke="hsl(35 100% 55%)" strokeDasharray="3 3" label={{ value: "+2σ", fill: "hsl(35 100% 55%)", fontSize: 9, position: "right" }} />
-              <ReferenceLine y={1} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 4" opacity={0.5} />
-              <ReferenceLine y={0} stroke="hsl(var(--foreground))" />
-              <ReferenceLine y={-1} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 4" opacity={0.5} />
-              <ReferenceLine y={-2} stroke="hsl(35 100% 55%)" strokeDasharray="3 3" label={{ value: "-2σ", fill: "hsl(35 100% 55%)", fontSize: 9, position: "right" }} />
+              <ReferenceLine y={2} stroke="hsl(0 100% 55%)" strokeDasharray="3 3" label={{ value: "+2σ SELL", fill: "hsl(0 100% 55%)", fontSize: 9, position: "right" }} />
+              <ReferenceLine y={0} stroke="hsl(var(--foreground))" strokeOpacity={0.5} />
+              <ReferenceLine y={-2} stroke="hsl(140 100% 50%)" strokeDasharray="3 3" label={{ value: "-2σ BUY", fill: "hsl(140 100% 50%)", fontSize: 9, position: "right" }} />
               <ReferenceLine y={-3} stroke="hsl(0 90% 60%)" strokeDasharray="3 3" label={{ value: "-3σ", fill: "hsl(0 90% 60%)", fontSize: 9, position: "right" }} />
-              <Line type="monotone" dataKey="z" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} isAnimationActive={false} />
+              <Line
+                type="monotone"
+                dataKey="z"
+                stroke="hsl(var(--primary))"
+                strokeWidth={1.8}
+                dot={false}
+                isAnimationActive={false}
+                style={{ filter: "drop-shadow(0 0 2px hsl(var(--primary)))" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="buy"
+                stroke="transparent"
+                isAnimationActive={false}
+                dot={(p: any) => {
+                  if (p.payload.buy == null) return <g />;
+                  return (
+                    <g key={`b-${p.payload.i}`}>
+                      <circle cx={p.cx} cy={p.cy} r={6} fill="hsl(140 100% 50%)" stroke="#000" strokeWidth={1.5} style={{ filter: "drop-shadow(0 0 5px hsl(140 100% 50%))" }} />
+                      <text x={p.cx} y={p.cy + 18} textAnchor="middle" fontSize={9} fontFamily="monospace" fontWeight="bold" fill="hsl(140 100% 50%)">BUY</text>
+                    </g>
+                  );
+                }}
+                activeDot={false}
+                legendType="none"
+              />
+              <Line
+                type="monotone"
+                dataKey="sell"
+                stroke="transparent"
+                isAnimationActive={false}
+                dot={(p: any) => {
+                  if (p.payload.sell == null) return <g />;
+                  return (
+                    <g key={`s-${p.payload.i}`}>
+                      <circle cx={p.cx} cy={p.cy} r={6} fill="hsl(0 100% 60%)" stroke="#000" strokeWidth={1.5} style={{ filter: "drop-shadow(0 0 5px hsl(0 100% 60%))" }} />
+                      <text x={p.cx} y={p.cy - 12} textAnchor="middle" fontSize={9} fontFamily="monospace" fontWeight="bold" fill="hsl(0 100% 60%)">SELL</text>
+                    </g>
+                  );
+                }}
+                activeDot={false}
+                legendType="none"
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
         <div className="grid grid-cols-3 gap-2 mt-3 text-[10px] font-mono">
-          <div className="rounded border border-border bg-secondary/30 px-2 py-1.5">
-            <span className="text-muted-foreground">OVERSOLD ZONE</span>
-            <div className="text-call font-bold">z &lt; -2σ → mean reversion long</div>
+          <div className="rounded border border-call/40 bg-call/5 px-2 py-1.5">
+            <span className="text-muted-foreground">OVERSOLD → BUY</span>
+            <div className="text-call font-bold">z &lt; -2σ · {vwapSeries.filter((d) => d.side === "BUY").length} hits</div>
           </div>
           <div className="rounded border border-border bg-secondary/30 px-2 py-1.5">
             <span className="text-muted-foreground">NEUTRAL</span>
-            <div className="text-foreground font-bold">|z| &lt; 1σ → fair value</div>
+            <div className="text-foreground font-bold">|z| &lt; 2σ · fair value</div>
           </div>
-          <div className="rounded border border-border bg-secondary/30 px-2 py-1.5">
-            <span className="text-muted-foreground">OVERBOUGHT ZONE</span>
-            <div className="text-put font-bold">z &gt; +2σ → mean reversion short</div>
+          <div className="rounded border border-put/40 bg-put/5 px-2 py-1.5">
+            <span className="text-muted-foreground">OVERBOUGHT → SELL</span>
+            <div className="text-put font-bold">z &gt; +2σ · {vwapSeries.filter((d) => d.side === "SELL").length} hits</div>
           </div>
         </div>
       </Panel>
