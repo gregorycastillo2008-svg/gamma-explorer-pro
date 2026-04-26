@@ -8,28 +8,31 @@ export function useIsAdmin(userId?: string | null) {
   useEffect(() => {
     let mounted = true;
 
-    if (!userId) {
-      setIsAdmin(false);
-      setLoading(false);
-      return () => { mounted = false; };
-    }
+    const checkRole = async () => {
+      if (!userId) {
+        if (mounted) {
+          setIsAdmin(false);
+          setLoading(false);
+        }
+        return;
+      }
 
-    setLoading(true);
-    supabase
-      .rpc("has_role", { _user_id: userId, _role: "admin" })
-      .then(({ data, error }) => {
+      if (mounted) setLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
         if (!mounted) return;
         if (error) console.error("useIsAdmin:", error);
         setIsAdmin(Boolean(data));
-        setLoading(false);
-      })
-      .catch((error) => {
+      } catch (error) {
         if (!mounted) return;
         console.error("useIsAdmin:", error);
         setIsAdmin(false);
-        setLoading(false);
-      });
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
 
+    checkRole();
     return () => { mounted = false; };
   }, [userId]);
 
