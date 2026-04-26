@@ -2,7 +2,7 @@ import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, com
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
 import { GexDexBars } from "./GexDexBars";
-import { GexExposureTabs } from "./GexExposureTabs";
+import { GexExposureTabs, GexHeatmapPanel, GexSurfacePanel } from "./GexExposureTabs";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState, useEffect } from "react";
@@ -173,6 +173,12 @@ export function GexDexView({ ticker, contracts }: Ctx) {
       </div>
 
       <GexExposureTabs ticker={ticker} contracts={filtered} metric={m} />
+
+      {/* Two dedicated cells: numeric heatmap + 3D surface side-by-side */}
+      <div className="grid xl:grid-cols-2 gap-3">
+        <GexHeatmapPanel ticker={ticker} contracts={filtered} metric={m} />
+        <GexSurfacePanel ticker={ticker} contracts={filtered} metric={m} />
+      </div>
 
       {/* Live tape + bias breakdown */}
       <div className="grid lg:grid-cols-3 gap-3">
