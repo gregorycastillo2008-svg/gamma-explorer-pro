@@ -446,8 +446,8 @@ export default function Landing() {
         className="fixed bottom-0 left-0 right-0 z-40 px-3 py-3 backdrop-blur-xl"
         style={{
           background: "linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.92))",
-          borderTop: "1px solid rgba(255,215,0,0.35)",
-          boxShadow: "0 -10px 30px -5px rgba(255,215,0,0.18)",
+          borderTop: "1px solid rgba(59,130,246,0.45)",
+          boxShadow: "0 -10px 30px -5px rgba(59,130,246,0.25)",
         }}
       >
         <div className="container flex items-center gap-3 overflow-x-auto justify-center flex-wrap">
