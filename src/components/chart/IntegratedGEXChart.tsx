@@ -15,7 +15,7 @@ const TICKERS = ["SPY", "QQQ", "IWM", "DIA", "AAPL", "MSFT", "NVDA", "TSLA", "AM
 const TIMEFRAMES = ["1D", "5D", "1M", "3M", "6M", "1Y"] as const;
 type TF = typeof TIMEFRAMES[number];
 type ChartMode = "line" | "candle";
-type DteFilter = "all" | "1" | "2" | "3";
+type DteFilter = "1" | "2" | "3";
 
 interface PricePoint { time: number; value: number }
 interface OhlcPoint { time: number; open: number; high: number; low: number; close: number }
