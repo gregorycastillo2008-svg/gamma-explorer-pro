@@ -57,7 +57,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         </div>
         {!collapsed && (
           <span
-            className="ml-2 font-black tracking-wider text-sm bg-clip-text text-[#ff0000]"
+            className="ml-2 font-black tracking-wider text-sm bg-clip-text text-primary"
             style={{ backgroundImage: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)" }}
           >
             GEXSATELIT
