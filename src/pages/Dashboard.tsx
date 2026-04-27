@@ -55,6 +55,17 @@ export default function Dashboard() {
 
   useEffect(() => { if (!loading && !user) nav("/auth"); }, [user, loading, nav]);
 
+  // Refresh subscription if returning from successful checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "success") {
+      toast({ title: "Welcome!", description: "Activating your subscription..." });
+      const tries = [1500, 4000, 8000];
+      tries.forEach((ms) => setTimeout(() => refreshSub(), ms));
+      window.history.replaceState({}, "", "/dashboard");
+    }
+  }, []);
+
   // If current section not allowed for this tier, fall back to first allowed (or pricing)
   useEffect(() => {
     if (isAdmin || subLoading) return;
