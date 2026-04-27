@@ -275,9 +275,9 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
                     className="rounded-r transition-all"
                     style={{
                       width: `${w}%`,
-                      height: "70%",
-                      maxHeight: 10,
-                      minHeight: 2,
+                      height: "90%",
+                      maxHeight: 28,
+                      minHeight: 8,
                       background: isMaxPos ? "linear-gradient(90deg, #00ff88, #aaffcc)" : "#00ff88",
                       boxShadow: isMaxPos
                         ? "0 0 14px #00ff88, inset 0 0 6px #fff3"
