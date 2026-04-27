@@ -1,15 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { PriceGexChart } from "./PriceGexChart";
 import { LiveMetricsSidebar } from "./LiveMetricsSidebar";
 import { useOptionsData } from "@/hooks/useOptionsData";
 import { computeExposures, computeKeyLevels } from "@/lib/gex";
 import type { GexSnapshot } from "@/lib/gexSimData";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CalendarDays } from "lucide-react";
 
 const SYMBOLS = ["QQQ", "SPY", "SPX", "AAPL", "TSLA", "NVDA"];
 
 interface Props { defaultSymbol?: string; }
 
-type DteOpt = 1 | 2 | 3;
+type DteOpt = "1" | "2" | "3" | "all";
+const DTE_OPTIONS: { value: DteOpt; label: string }[] = [
+  { value: "1", label: "1 day" },
+  { value: "2", label: "2 days" },
+  { value: "3", label: "3 days" },
+  { value: "all", label: "All expiries (≤3D)" },
+];
 
 export function PriceGexChartContainer({ defaultSymbol = "QQQ" }: Props) {
   const [symbol, setSymbol] = useState(SYMBOLS.includes(defaultSymbol) ? defaultSymbol : "QQQ");
