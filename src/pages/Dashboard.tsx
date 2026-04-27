@@ -35,7 +35,7 @@ import { Label } from "@/components/ui/label";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
-  const { isAdmin } = useIsAdmin(user?.id);
+  const { isAdmin, loading: adminLoading } = useIsAdmin(user?.id);
   const { tier, subscribed, loading: subLoading, refresh: refreshSub } = useSubscription(user?.id);
   const nav = useNavigate();
   const { toast } = useToast();
@@ -68,11 +68,12 @@ export default function Dashboard() {
 
   // If current section not allowed for this tier, fall back to first allowed (or pricing)
   useEffect(() => {
-    if (isAdmin || subLoading) return;
+    if (adminLoading || subLoading) return;
+    if (isAdmin) return;
     if (!allowed) return;
     if (allowed.length === 0) { nav("/pricing"); return; }
     if (!allowed.includes(section)) setSection(allowed[0]);
-  }, [allowed, section, isAdmin, subLoading, nav]);
+  }, [allowed, section, isAdmin, adminLoading, subLoading, nav]);
 
   const openManagePlan = async () => {
     if (!subscribed) { nav("/pricing"); return; }
