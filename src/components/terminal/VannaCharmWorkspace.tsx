@@ -137,21 +137,52 @@ function HeatmapTab({
   const visibleExp = expiryFilter === "all" ? expiries : [expiryFilter as number];
   return (
     <div className="grid grid-cols-2 gap-4 h-full">
-      <HeatmapPanel title="VANNAEX HEATMAP" grid={vannaGrid} expiries={visibleExp} spot={spot} positiveColor="#fbbf24" negativeColor="#a78bfa" />
-      <HeatmapPanel title="CHARMEX HEATMAP" grid={charmGrid} expiries={visibleExp} spot={spot} positiveColor="#10b981" negativeColor="#ef4444" />
+      <HeatmapPanel
+        title="VANNAEX HEATMAP"
+        grid={vannaGrid}
+        expiries={visibleExp}
+        spot={spot}
+        positiveRgb={[167, 139, 250]}   // purple-400 (vanna +)
+        negativeRgb={[91, 33, 182]}     // purple-800 (vanna −)
+      />
+      <HeatmapPanel
+        title="CHARMEX HEATMAP"
+        grid={charmGrid}
+        expiries={visibleExp}
+        spot={spot}
+        positiveRgb={[244, 114, 182]}   // pink-400 (charm +)
+        negativeRgb={[219, 39, 119]}    // pink-600 (charm −)
+      />
     </div>
   );
 }
 
+// Heat ramp: black → saturated peak (matches GEX/DEX style)
+function rampBg(v: number, max: number, posRgb: number[], negRgb: number[]): string {
+  if (!max || v === 0) return "#000000";
+  const t = Math.min(1, Math.abs(v) / max);
+  const a = 0.15 + 0.85 * Math.pow(t, 0.5);
+  const peak = v > 0 ? posRgb : negRgb;
+  const r = Math.round(peak[0] * a);
+  const g = Math.round(peak[1] * a);
+  const b = Math.round(peak[2] * a);
+  return `rgb(${r},${g},${b})`;
+}
+
+function rampFg(v: number, max: number): string {
+  if (!max || v === 0) return "#444";
+  return Math.abs(v) / max > 0.55 ? "#ffffff" : "rgba(255,255,255,0.85)";
+}
+
 function HeatmapPanel({
-  title, grid, expiries, spot, positiveColor, negativeColor,
+  title, grid, expiries, spot, positiveRgb, negativeRgb,
 }: {
   title: string;
   grid: { strike: number; expiry: number; value: number }[];
   expiries: number[];
   spot: number;
-  positiveColor: string;
-  negativeColor: string;
+  positiveRgb: number[];
+  negativeRgb: number[];
 }) {
   const strikes = useMemo(
     () => Array.from(new Set(grid.map((g) => g.strike))).sort((a, b) => b - a),
@@ -161,15 +192,15 @@ function HeatmapPanel({
   const cellMap = new Map(grid.map((g) => [`${g.strike}|${g.expiry}`, g.value]));
 
   return (
-    <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ background: PANEL_BG, border: `1px solid ${BORDER}` }}>
-      <div className="px-3 py-2 text-[11px] uppercase tracking-wider" style={{ color: TEXT, borderBottom: `1px solid ${BORDER}` }}>{title}</div>
+    <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ background: "#000000", border: `1px solid ${BORDER}` }}>
+      <div className="px-3 py-2 text-[11px] uppercase tracking-wider" style={{ color: TEXT, borderBottom: `1px solid ${BORDER}`, background: PANEL_BG }}>{title}</div>
       <div className="flex-1 overflow-auto">
-        <table className="w-full text-[10px] font-mono">
-          <thead className="sticky top-0" style={{ background: PANEL_BG }}>
+        <table className="w-full text-[11px] font-mono border-collapse">
+          <thead className="sticky top-0 z-10" style={{ background: "#000000" }}>
             <tr>
-              <th className="text-left px-2 py-1" style={{ color: MUTED }}>Strike</th>
+              <th className="text-left px-2 py-1.5" style={{ color: MUTED, borderBottom: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}>Strike</th>
               {expiries.map((e) => (
-                <th key={e} className="text-center px-1 py-1" style={{ color: MUTED }}>{e}D</th>
+                <th key={e} className="text-center px-2 py-1.5" style={{ color: MUTED, borderBottom: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}>{e}D</th>
               ))}
             </tr>
           </thead>
@@ -177,18 +208,32 @@ function HeatmapPanel({
             {strikes.map((s) => {
               const isSpot = Math.abs(s - spot) < 1;
               return (
-                <tr key={s} style={{ borderTop: `1px solid rgba(31,31,31,0.5)` }}>
-                  <td className="px-2 py-0.5" style={{ color: isSpot ? YELLOW : "#e5e7eb", fontWeight: isSpot ? 700 : 400 }}>${s}</td>
+                <tr key={s}>
+                  <td
+                    className="px-2 py-1 sticky left-0 z-[1]"
+                    style={{
+                      color: isSpot ? YELLOW : "#e5e7eb",
+                      fontWeight: isSpot ? 700 : 500,
+                      background: "#000000",
+                      borderRight: `1px solid ${BORDER}`,
+                      borderBottom: `1px solid ${BORDER}`,
+                    }}
+                  >
+                    ${s}{isSpot && <span className="ml-1 text-[9px]">◀</span>}
+                  </td>
                   {expiries.map((e) => {
                     const v = cellMap.get(`${s}|${e}`) ?? 0;
-                    const intensity = Math.min(1, Math.abs(v) / max);
-                    const baseColor = v >= 0 ? positiveColor : negativeColor;
-                    const bg = v === 0 ? "transparent" : hexToRgba(baseColor, 0.15 + intensity * 0.7);
                     return (
                       <td
                         key={e}
-                        className="text-center px-1 py-0.5 tabular-nums"
-                        style={{ background: bg, color: intensity > 0.5 ? "#fff" : "rgba(255,255,255,0.7)" }}
+                        className="text-center px-2 py-1 tabular-nums"
+                        style={{
+                          background: rampBg(v, max, positiveRgb, negativeRgb),
+                          color: rampFg(v, max),
+                          borderRight: `1px solid #0f0f0f`,
+                          borderBottom: `1px solid #0f0f0f`,
+                          fontWeight: Math.abs(v) / max > 0.55 ? 600 : 400,
+                        }}
                         title={`Strike $${s} · ${e}D · ${formatNumber(v)}`}
                       >
                         {Math.abs(v) < max * 0.005 ? "·" : formatNumber(v, 1)}
@@ -205,13 +250,7 @@ function HeatmapPanel({
   );
 }
 
-function hexToRgba(hex: string, a: number) {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${a})`;
-}
+
 
 // ─────────── STRIKE CHART TAB ───────────
 function StrikeChartTab({
