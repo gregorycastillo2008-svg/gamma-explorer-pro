@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
     const raw = selectedExpiration
       ? await fetchChainSnapshot(symbol, selectedExpiration)
       : [];
+    console.log("raw contracts", raw.length, "selectedExp", selectedExpiration);
 
     // Window strikes around spot ±15%
     const lo = spot * 0.85;
