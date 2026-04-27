@@ -87,34 +87,8 @@ export function GammaBackgroundDark() {
         ctx.shadowBlur = 0;
       }
 
-      // Net curve in gold
-      ctx.beginPath();
-      for (let i = 0; i < BARS; i++) {
-        const x = i * barW + barW / 2;
-        const y = midY - values[i] * maxBar;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = "rgba(255,215,0,0.65)";
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = "rgba(255,215,0,0.6)";
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+      // Net curve and spot dot removed (no yellow line)
 
-      // Spot dot
-      const spotIdx = Math.floor(BARS / 2);
-      const sx = spotIdx * barW + barW / 2;
-      const sy = midY - values[spotIdx] * maxBar;
-      const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, 40);
-      glow.addColorStop(0, "rgba(255,215,0,0.8)");
-      glow.addColorStop(1, "rgba(255,215,0,0)");
-      ctx.fillStyle = glow;
-      ctx.fillRect(sx - 40, sy - 40, 80, 80);
-      ctx.beginPath();
-      ctx.arc(sx, sy, 5, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffd700";
-      ctx.fill();
 
       raf = requestAnimationFrame(draw);
     };
