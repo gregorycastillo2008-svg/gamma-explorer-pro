@@ -28,32 +28,45 @@ const PCT_COLS = [0, 10, 20, 30, 40, 70, 80, 95, 100, 115] as const;
 
 type Metric = "GEX" | "DEX";
 
-// ── Continuous heat gradient: bright neon peaks, faint floor for low volume ──
-// Peaks: neon emerald #00ff88 (positive) / neon red #ff2244 (negative).
-// Min floor (~0.18) keeps low-volume cells dim but always readable.
-function cellBg(v: number, max: number): string {
-  if (!max || v === 0) return "#000000";
+type Theme = "dark" | "light";
+
+// ── Heat ramp: dark (low |v|) → bright (high |v|) for a single hue per sign.
+//   Dark theme: starts near black, peaks at neon green / red.
+//   Light theme: starts near white, peaks at deep green / red.
+function cellBg(v: number, max: number, theme: Theme): string {
+  if (!max || v === 0) return theme === "light" ? "#ffffff" : "#000000";
   const t = Math.min(1, Math.abs(v) / max);
-  // Gamma 0.45 lifts mid/low values; floor 0.18 guarantees visibility.
-  const a = 0.18 + 0.82 * Math.pow(t, 0.45);
+  // Gamma 0.5 lifts mid-low values so they're readable
+  const a = 0.12 + 0.88 * Math.pow(t, 0.5);
+
+  if (theme === "light") {
+    // White → deep green / red. Lerp from #ffffff towards peak.
+    const peak = v > 0 ? [4, 120, 60] : [160, 12, 24];     // deep emerald / deep red
+    const r = Math.round(255 + (peak[0] - 255) * a);
+    const g = Math.round(255 + (peak[1] - 255) * a);
+    const b = Math.round(255 + (peak[2] - 255) * a);
+    return `rgb(${r},${g},${b})`;
+  }
+  // Dark theme: black → neon. Single-hue ramp scaled by `a`.
   if (v > 0) {
-    // Neon emerald peak rgb(0, 255, 136)
     const r = Math.round(0   * a);
     const g = Math.round(255 * a);
     const b = Math.round(136 * a);
     return `rgb(${r},${g},${b})`;
   }
-  // Neon red peak rgb(255, 34, 68)
   const r = Math.round(255 * a);
   const g = Math.round(34  * a);
   const b = Math.round(68  * a);
   return `rgb(${r},${g},${b})`;
 }
 
-function cellFg(v: number, max: number): string {
-  if (!max || v === 0) return "#444";
+function cellFg(v: number, max: number, theme: Theme): string {
+  if (!max || v === 0) return theme === "light" ? "#999" : "#444";
   const t = Math.abs(v) / max;
-  // Black text on the brightest cells, white text on the dim ones
+  if (theme === "light") {
+    // Dark text on light cells, white text only on saturated peaks
+    return t > 0.65 ? "rgba(255,255,255,0.95)" : "#0a0a0a";
+  }
   return t > 0.6 ? "#000000" : "rgba(255,255,255,0.95)";
 }
 
@@ -67,11 +80,17 @@ function fmt(v: number): string {
 
 export function GEXDEXHeatmap({ ticker, contracts }: Props) {
   const [metric, setMetric] = useState<Metric>("GEX");
+  const [theme, setTheme] = useState<Theme>("dark");
   const [expiryFilter, setExpiryFilter] = useState<string>("all");
   const [hoverRow, setHoverRow] = useState<number | null>(null);
   const [hoverCol, setHoverCol] = useState<number | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; strike: number; col: number; gex: number; dex: number } | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+
+  // Theme tokens — applied across container, panels and cells
+  const T = theme === "light"
+    ? { bg: "#f5f5f5", panel: "#ffffff", border: "#d4d4d4", text: "#0a0a0a", muted: "#666", cellBorder: "rgba(0,0,0,0.18)" }
+    : { bg: C.bg,     panel: C.panel,    border: C.border,   text: C.text,    muted: C.muted, cellBorder: "#000000" };
 
   const expiries = useMemo(() => {
     const set = new Set<number>();
@@ -183,14 +202,14 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
   return (
     <div
       className="w-full h-full flex flex-col rounded-lg overflow-hidden"
-      style={{ background: C.bg, border: `1px solid ${C.border}`, fontFamily: FONT }}
+      style={{ background: T.bg, border: `1px solid ${T.border}`, fontFamily: FONT }}
     >
       {/* ── TOOLBAR ── */}
       <div
         className="flex items-center gap-3 px-4 py-2.5 shrink-0 flex-wrap"
-        style={{ borderBottom: `1px solid ${C.border}`, background: "#000" }}
+        style={{ borderBottom: `1px solid ${T.border}`, background: theme === "light" ? "#ffffff" : "#000" }}
       >
-        <span style={{ color: C.muted, fontSize: 10, letterSpacing: "0.2em" }} className="uppercase font-bold">
+        <span style={{ color: T.muted, fontSize: 10, letterSpacing: "0.2em" }} className="uppercase font-bold">
           GEX/DEX Heatmap · {ticker.symbol}
         </span>
 
@@ -227,7 +246,22 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
           </select>
         </div>
 
-        <div className="ml-auto flex items-center gap-2 text-[10px]" style={{ color: C.muted }}>
+        <div className="ml-auto flex items-center gap-2 text-[10px]" style={{ color: T.muted }}>
+          <div className="flex rounded overflow-hidden mr-2" style={{ border: `1px solid ${T.border}` }}>
+            {(["dark", "light"] as Theme[]).map((th) => (
+              <button
+                key={th}
+                onClick={() => setTheme(th)}
+                className="px-2.5 py-1 text-[10px] font-bold tracking-wider transition-colors"
+                style={{
+                  background: theme === th ? C.yellow : "transparent",
+                  color: theme === th ? "#000" : T.muted,
+                }}
+              >
+                {th === "dark" ? "● DARK" : "○ LIGHT"}
+              </button>
+            ))}
+          </div>
           <span>SPOT</span>
           <span style={{ color: C.yellow, fontWeight: 700 }}>${ticker.spot.toFixed(2)}</span>
           <span>·</span>
@@ -236,7 +270,7 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
       </div>
 
       {/* ── BODY: two synced heatmap panels ── */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-px" style={{ background: C.border }}>
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-px" style={{ background: T.border }}>
         <HeatPanel
           title="GEX · Gamma Exposure"
           chapLabel="CHAP: simple"
@@ -254,6 +288,8 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
           setSelected={setSelected}
           scrollRef={leftRef}
           accent={C.greenHi}
+          theme={theme}
+          T={T}
         />
         <HeatPanel
           title="DEX · Delta Exposure"
@@ -272,6 +308,8 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
           setSelected={setSelected}
           scrollRef={rightRef}
           accent={C.redHi}
+          theme={theme}
+          T={T}
         />
       </div>
 
@@ -316,7 +354,7 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
 function HeatPanel({
   title, chapLabel, rows, cellsKey, chapKey, max, spot,
   hoverRow, hoverCol, setHoverRow, setHoverCol, setTooltip,
-  selected, setSelected, scrollRef, accent,
+  selected, setSelected, scrollRef, accent, theme, T,
 }: {
   title: string;
   chapLabel: string;
@@ -334,10 +372,12 @@ function HeatPanel({
   setSelected: (n: number | null) => void;
   scrollRef: React.RefObject<HTMLDivElement>;
   accent: string;
+  theme: Theme;
+  T: { bg: string; panel: string; border: string; text: string; muted: string; cellBorder: string };
 }) {
   return (
-    <div className="flex flex-col min-h-0" style={{ background: C.panel }}>
-      <div className="px-3 py-2 flex items-center justify-between shrink-0" style={{ borderBottom: `1px solid ${C.border}` }}>
+    <div className="flex flex-col min-h-0" style={{ background: T.panel }}>
+      <div className="px-3 py-2 flex items-center justify-between shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
         <span style={{ color: accent, fontSize: 11, letterSpacing: "0.18em" }} className="uppercase font-bold">
           {title}
         </span>
@@ -348,13 +388,13 @@ function HeatPanel({
 
       <div ref={scrollRef} className="flex-1 overflow-auto">
         <table className="w-full border-collapse" style={{ fontSize: 10 }}>
-          <thead className="sticky top-0 z-10" style={{ background: C.panel }}>
-            <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+          <thead className="sticky top-0 z-10" style={{ background: T.panel }}>
+            <tr style={{ borderBottom: `1px solid ${T.border}` }}>
               <th
                 className="text-left px-2 py-1.5 font-bold uppercase tracking-wider sticky left-0 z-20"
                 style={{
-                  color: C.muted, fontSize: 9, background: C.panel,
-                  borderRight: `1px solid ${C.border}`,
+                  color: T.muted, fontSize: 9, background: T.panel,
+                  borderRight: `1px solid ${T.border}`,
                 }}
               >
                 Strike
@@ -366,9 +406,11 @@ function HeatPanel({
                   onMouseLeave={() => setHoverCol(null)}
                   className="px-1.5 py-1.5 text-right font-bold uppercase tracking-wider cursor-default"
                   style={{
-                    color: hoverCol === i ? accent : C.muted,
+                    color: hoverCol === i ? accent : T.muted,
                     fontSize: 9,
-                    background: hoverCol === i ? "rgba(255,255,255,0.04)" : C.panel,
+                    background: hoverCol === i
+                      ? (theme === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.04)")
+                      : T.panel,
                   }}
                 >
                   {p === 0 ? "MIN" : p === 100 ? "MAX" : `${p}%`}
@@ -378,7 +420,7 @@ function HeatPanel({
                 onMouseEnter={() => setHoverCol(-1)}
                 onMouseLeave={() => setHoverCol(null)}
                 className="px-2 py-1.5 text-right font-bold uppercase tracking-wider"
-                style={{ color: hoverCol === -1 ? accent : C.muted, fontSize: 9, borderLeft: `1px solid ${C.border}` }}
+                style={{ color: hoverCol === -1 ? accent : T.muted, fontSize: 9, borderLeft: `1px solid ${T.border}` }}
               >
                 CHAP
               </th>
@@ -401,19 +443,19 @@ function HeatPanel({
                     background: isSel
                       ? "rgba(250,204,21,0.08)"
                       : isHover
-                        ? "rgba(255,255,255,0.03)"
+                        ? (theme === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.03)")
                         : "transparent",
-                    borderBottom: `1px solid ${C.border}`,
+                    borderBottom: `1px solid ${T.border}`,
                   }}
                 >
                   <td
                     className="px-2 py-1 sticky left-0 z-10 font-bold tabular-nums"
                     style={{
-                      color: isSpot ? C.yellow : isSel ? accent : C.text,
+                      color: isSpot ? C.yellow : isSel ? accent : T.text,
                       background: isSel
                         ? "rgba(250,204,21,0.06)"
-                        : isHover ? "#0a0a0a" : C.panel,
-                      borderRight: `1px solid ${C.border}`,
+                        : isHover ? (theme === "light" ? "#f0f0f0" : "#0a0a0a") : T.panel,
+                      borderRight: `1px solid ${T.border}`,
                       fontSize: 11,
                     }}
                   >
@@ -429,9 +471,9 @@ function HeatPanel({
                       onMouseLeave={() => setTooltip(null)}
                       className="text-right px-1.5 py-1 tabular-nums transition-colors"
                       style={{
-                        background: cellBg(v, max),
-                        color: cellFg(v, max),
-                        border: "1px solid #000",
+                        background: cellBg(v, max, theme),
+                        color: cellFg(v, max, theme),
+                        border: `1px solid ${T.cellBorder}`,
                         outline: hoverCol === ci ? `1px solid ${accent}` : "none",
                         outlineOffset: -1,
                         fontWeight: 600,
@@ -447,10 +489,10 @@ function HeatPanel({
                     onMouseLeave={() => setTooltip(null)}
                     className="text-right px-2 py-1 tabular-nums"
                     style={{
-                      background: cellBg(r[chapKey], max * 1.2),
-                      color: cellFg(r[chapKey], max * 1.2),
-                      border: "1px solid #000",
-                      borderLeft: `2px solid ${C.border}`,
+                      background: cellBg(r[chapKey], max * 1.2, theme),
+                      color: cellFg(r[chapKey], max * 1.2, theme),
+                      border: `1px solid ${T.cellBorder}`,
+                      borderLeft: `2px solid ${T.border}`,
                       fontWeight: 700,
                     }}
                   >
