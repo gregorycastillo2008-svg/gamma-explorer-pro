@@ -132,10 +132,11 @@ Deno.serve(async (req) => {
 
     // Parallel: spot + expirations + HV
     const [spot, allExpirations, hv30] = await Promise.all([
-      fetchSpot(symbol).catch(() => 0),
-      fetchExpirations(symbol).catch(() => []),
-      fetchHV30(symbol).catch(() => 0),
+      fetchSpot(symbol).catch((e) => { console.error("spot err", e); return 0; }),
+      fetchExpirations(symbol).catch((e) => { console.error("exp err", e); return [] as string[]; }),
+      fetchHV30(symbol).catch((e) => { console.error("hv err", e); return 0; }),
     ]);
+    console.log("symbol", symbol, "spot", spot, "expirations", allExpirations.length, "hv30", hv30);
 
     // Determine target expiration (nearest if not provided)
     const expirations = allExpirations.slice(0, 30);
