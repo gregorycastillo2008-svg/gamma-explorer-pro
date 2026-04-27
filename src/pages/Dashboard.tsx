@@ -177,12 +177,30 @@ export default function Dashboard() {
   const checking = adminLoading || subLoading;
   const showPaywall = !checking && !hasAccess;
 
+  // Si el usuario no ha pagado (y no es admin) → SOLO el paywall, sin dashboard detrás.
+  if (showPaywall) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+        <Paywall email={user?.email ?? undefined} />
+      </div>
+    );
+  }
+
+  // Pantalla de carga mientras verificamos suscripción/admin (evita flash del dashboard).
+  if (checking || !user) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Cargando…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <div
-        className={`flex flex-1 ${showPaywall ? "blur-md scale-[1.02] pointer-events-none select-none" : ""} transition-all duration-500`}
-        aria-hidden={showPaywall}
-      >
+      <div className="flex flex-1 transition-all duration-500">
         <Sidebar
           active={section}
           onSelect={setSection}
@@ -220,7 +238,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {showPaywall && <Paywall email={user?.email ?? undefined} />}
+      
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
