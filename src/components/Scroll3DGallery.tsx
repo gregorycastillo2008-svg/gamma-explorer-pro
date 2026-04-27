@@ -20,7 +20,7 @@ export function Scroll3DGallery() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-4"
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-4 text-primary bg-primary-foreground"
           style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)", color: "#ffd700" }}
         >
           ✨ EXPERIENCIA INMERSIVA
