@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
-import { GexSatellite } from "@/components/GexSatellite";
+import { RadarMap } from "@/components/RadarMap";
 import { TestimonialsMarquee } from "@/components/TestimonialsMarquee";
 import { toast } from "sonner";
 
@@ -122,26 +122,37 @@ export default function Landing() {
         )}
       </AnimatePresence>
 
-      <header className="relative z-10 flex items-center justify-between py-6 pr-6">
-        <Link to="/" className="hover:scale-105 transition-transform pl-2">
-          <AllGammaLogo size="md" />
+      <header className="relative z-10 flex items-center justify-between py-5 px-8 bg-black/40 backdrop-blur-sm">
+        <Link to="/" className="hover:scale-105 transition-transform flex items-center gap-2.5">
+          <span className="h-8 w-8 rounded-lg bg-[#2563eb] flex items-center justify-center shadow-[0_0_18px_rgba(37,99,235,0.55)]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <polyline points="16 7 22 7 22 13" />
+            </svg>
+          </span>
+          <span className="font-bold text-white text-xl tracking-tight">GexRadar</span>
         </Link>
+        <nav className="hidden md:flex items-center gap-8 text-sm text-white/70">
+          <a href="#features" className="hover:text-white transition-colors">Features</a>
+          <a href="#capabilities" className="hover:text-white transition-colors">Capabilities</a>
+          <a href="#planes" className="hover:text-white transition-colors">Pricing</a>
+        </nav>
         <div className="flex items-center gap-3">
-          <a href="#planes"><Button variant="ghost">Planes</Button></a>
           {user ? (
-            <Link to="/dashboard"><Button>Ir al panel</Button></Link>
+            <Link to="/dashboard">
+              <Button className="bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg px-5 font-semibold">Get Access</Button>
+            </Link>
           ) : (
-            <>
-              <Link to="/auth"><Button variant="ghost">Entrar</Button></Link>
-              <Link to="/auth"><Button>Crear cuenta</Button></Link>
-            </>
+            <Link to="/auth">
+              <Button className="bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg px-5 font-semibold">Get Access</Button>
+            </Link>
           )}
         </div>
       </header>
 
-      <section className="relative z-10 container py-20 text-center opacity-75 text-7xl">
-        <div className="mb-8 flex items-center gap-6 -mt-32 opacity-60 -ml-[calc((100vw-100%)/2+2rem)] pl-0 justify-start w-screen max-w-none mt-[100px] mb-[300px] px-px" style={{ transform: "scale(0.55) translateY(-80px)", transformOrigin: "left center", filter: "blur(0.4px)" }}>
-          <GexSatellite size={460} speed={14} />
+      <section className="relative z-10 container py-20 text-center">
+        <div className="mb-12 flex items-center justify-center">
+          <RadarMap size={560} />
         </div>
 
 
