@@ -188,6 +188,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
   }, [ticker, contracts]);
 
   const max = Math.max(...data.map((d) => Math.abs(d[metric])), 1);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ strike: number; value: number; x: number; y: number } | null>(null);
 
   // Detect spot row index + max positive / max negative strikes
