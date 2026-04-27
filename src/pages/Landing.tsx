@@ -276,7 +276,7 @@ export default function Landing() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-call/10 text-call text-xs font-bold mb-4 border border-call/30">
             <Sparkles className="h-3 w-3" /> Todos los planes con 7 días de prueba
           </div>
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight">Elige tu <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>edge</span></h2>
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight">Elige tu <span className="bg-clip-text text-[#ff0000]" style={{ backgroundImage: "var(--gradient-primary)" }}>edge</span></h2>
           <p className="text-muted-foreground mt-3">Sin permanencia. Cancela cuando quieras. Aplica un código de descuento al pagar.</p>
         </motion.div>
 
