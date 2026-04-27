@@ -166,28 +166,32 @@ export function RadarMap({ size = 560 }: Props) {
                 )}
               </AnimatePresence>
 
-              {/* Persistent satellite drawing */}
-              <g
-                transform={`translate(${sx}, ${sy}) rotate(-15) scale(2.4)`}
-                opacity={lit ? 1 : 0.55}
-                style={{ transition: "opacity 0.3s" }}
-              >
-                {/* Solar panels */}
-                <rect x={-22} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.9} stroke="#00ffaa" strokeWidth={0.5} />
-                <line x1={-22} y1={0} x2={-10} y2={0} stroke="#001a14" strokeWidth={0.5} />
-                <line x1={-16} y1={-4} x2={-16} y2={4} stroke="#001a14" strokeWidth={0.5} />
-                <rect x={10} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.9} stroke="#00ffaa" strokeWidth={0.5} />
-                <line x1={10} y1={0} x2={22} y2={0} stroke="#001a14" strokeWidth={0.5} />
-                <line x1={16} y1={-4} x2={16} y2={4} stroke="#001a14" strokeWidth={0.5} />
-                {/* Arms */}
-                <line x1={-10} y1={0} x2={-5} y2={0} stroke="#00ffaa" strokeWidth={1} />
-                <line x1={5} y1={0} x2={10} y2={0} stroke="#00ffaa" strokeWidth={1} />
-                {/* Body */}
-                <rect x={-5} y={-5} width={10} height={10} rx={1.5} fill="#00ffaa" stroke="#003322" strokeWidth={0.8} />
-                {/* Antenna */}
-                <line x1={0} y1={-5} x2={0} y2={-11} stroke="#00ffaa" strokeWidth={1} />
-                <circle cx={0} cy={-12} r={1.8} fill="#00ffaa" />
-              </g>
+              {/* Satellite drawing — only visible while detected */}
+              {lit && (
+                <motion.g
+                  transform={`translate(${sx}, ${sy}) rotate(-15) scale(2.4)`}
+                  initial={{ opacity: 0, scale: 0.6 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {/* Solar panels */}
+                  <rect x={-22} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.9} stroke="#00ffaa" strokeWidth={0.5} />
+                  <line x1={-22} y1={0} x2={-10} y2={0} stroke="#001a14" strokeWidth={0.5} />
+                  <line x1={-16} y1={-4} x2={-16} y2={4} stroke="#001a14" strokeWidth={0.5} />
+                  <rect x={10} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.9} stroke="#00ffaa" strokeWidth={0.5} />
+                  <line x1={10} y1={0} x2={22} y2={0} stroke="#001a14" strokeWidth={0.5} />
+                  <line x1={16} y1={-4} x2={16} y2={4} stroke="#001a14" strokeWidth={0.5} />
+                  {/* Arms */}
+                  <line x1={-10} y1={0} x2={-5} y2={0} stroke="#00ffaa" strokeWidth={1} />
+                  <line x1={5} y1={0} x2={10} y2={0} stroke="#00ffaa" strokeWidth={1} />
+                  {/* Body */}
+                  <rect x={-5} y={-5} width={10} height={10} rx={1.5} fill="#00ffaa" stroke="#003322" strokeWidth={0.8} />
+                  {/* Antenna */}
+                  <line x1={0} y1={-5} x2={0} y2={-11} stroke="#00ffaa" strokeWidth={1} />
+                  <circle cx={0} cy={-12} r={1.8} fill="#00ffaa" />
+                </motion.g>
+              )}
             </g>
           );
         })}
