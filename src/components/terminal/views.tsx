@@ -12,6 +12,7 @@ import { VolatilityDashboard } from "@/components/volatility/VolatilityDashboard
 import { PriceGexChartContainer } from "@/components/chart/PriceGexChartContainer";
 import { IntegratedGEXChart } from "@/components/chart/IntegratedGEXChart";
 import { GreekLadder } from "@/components/greeks/GreekLadder";
+import { OptionsFlowHeatmap } from "./OptionsFlowHeatmap";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
