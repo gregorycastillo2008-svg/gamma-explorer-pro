@@ -140,7 +140,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
   const strikeRows: StrikeRow[] = useMemo(() => {
     if (!chain || !chain.contracts.length) return [];
     const spot = chain.spot;
-    const maxDte = dteFilter === "all" ? Infinity : parseInt(dteFilter, 10);
+    const maxDte = parseInt(dteFilter, 10);
     const filtered = chain.contracts.filter((c) => daysUntil(c.expiration) <= maxDte);
     const map = new Map<number, StrikeRow>();
     filtered.forEach((c) => {
