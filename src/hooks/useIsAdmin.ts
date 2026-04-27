@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export function useIsAdmin(userId?: string | null) {
   const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
