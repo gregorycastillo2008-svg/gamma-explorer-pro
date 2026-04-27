@@ -8,12 +8,9 @@ const corsHeaders = {
 };
 
 const VALID_PRICES = new Set([
-  "price_1TQreBCZRgBPwOB9AOgrMFJ5",
-  "price_1TQrefCZRgBPwOB99sCuvVv4",
-  "price_1TQrfQCZRgBPwOB9Sti7Teao",
-  "price_1TQrfrCZRgBPwOB9CddMvqzz",
-  "price_1TQrgfCZRgBPwOB9Xa1n2i6P",
-  "price_1TQrhICZRgBPwOB9YKQTn74Y",
+  "price_1TQrwlCZRgBPwOB9FoDolYiq", // Starter
+  "price_1TQrxOCZRgBPwOB9UbadcwFU", // Pro
+  "price_1TQry2CZRgBPwOB9bKH38XuV", // Elite
 ]);
 
 serve(async (req) => {
