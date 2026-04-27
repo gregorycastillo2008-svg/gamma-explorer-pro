@@ -46,11 +46,11 @@ export function DealerExposureBars({ rows, spot, symbol, mode: modeProp, lockMod
           spot *
           0.01;
         const dex = (r.callDelta * r.callOI + r.putDelta * r.putOI) * 100 * spot;
-        return { strike: r.strike, value: mode === "GEX" ? gex : dex, callSide: 0, putSide: 0 };
+        return { strike: r.strike, value: effectiveMode === "GEX" ? gex : dex, callSide: 0, putSide: 0 };
       })
       .filter((d) => Number.isFinite(d.value))
       .sort((a, b) => b.strike - a.strike);
-  }, [rows, mode, spot]);
+  }, [rows, effectiveMode, spot]);
 
   const maxAbs = Math.max(1, ...data.map((d) => Math.abs(d.value)));
 
@@ -61,26 +61,28 @@ export function DealerExposureBars({ rows, spot, symbol, mode: modeProp, lockMod
     >
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#1f1f1f]" style={{ background: "#0a0a0a" }}>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold tracking-[0.2em] text-white">DEALER EXPOSURE / STRIKE</span>
+          <span className="text-[10px] font-bold tracking-[0.2em] text-white">{title ?? "DEALER EXPOSURE / STRIKE"}</span>
           <span className="text-[9px] text-muted-foreground">·</span>
           <span className="text-[10px] font-bold text-foreground">{symbol}</span>
         </div>
-        <div className="flex gap-1">
-          {(["GEX", "DEX"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className="h-5 px-2 text-[9px] font-bold rounded-sm border"
-              style={{
-                background: mode === m ? "#10b981" : "#000",
-                color: mode === m ? "#000" : "#10b981",
-                borderColor: "#10b981",
-              }}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+        {!lockMode && (
+          <div className="flex gap-1">
+            {(["GEX", "DEX"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className="h-5 px-2 text-[9px] font-bold rounded-sm border"
+                style={{
+                  background: mode === m ? "#10b981" : "#000",
+                  color: mode === m ? "#000" : "#10b981",
+                  borderColor: "#10b981",
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Axis label */}
