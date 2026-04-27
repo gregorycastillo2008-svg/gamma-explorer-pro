@@ -134,7 +134,7 @@ export function GreeksView({ ticker, exposures, contracts }: Ctx) {
 
   return (
     <div className="h-full overflow-y-auto p-1">
-      <GreekLadder symbol={ticker.symbol} spot={ticker.spot} strikeStep={ticker.strikeStep} iv={atmIv} />
+      <GreekLadder symbol={ticker.symbol} />
 
       {/* Legacy aggregate ladder (dealer exposure) */}
       <div className="mt-4">
