@@ -242,14 +242,14 @@ export function VannaCharmSurfacePlot() {
     const onMove = (e: MouseEvent) => {
       if (!drag) return;
       azimRef.current -= (e.clientX - lx2) * 0.42;
-      elevRef.current = Math.max(5, Math.min(75, elevRef.current + (e.clientY - ly2) * 0.32));
+      elevRef.current = Math.max(-89, Math.min(89, elevRef.current + (e.clientY - ly2) * 0.32));
       lx2 = e.clientX; ly2 = e.clientY;
       setElev(Math.round(elevRef.current));
       setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
       updateCam();
     };
     const onWheel = (e: WheelEvent) => {
-      distRef.current = Math.max(3.5, Math.min(16, distRef.current + e.deltaY * 0.013));
+      distRef.current = Math.max(0.5, Math.min(80, distRef.current + e.deltaY * 0.02));
       e.preventDefault();
       updateCam();
     };
@@ -259,7 +259,7 @@ export function VannaCharmSurfacePlot() {
       if (!lt) return;
       const t = e.touches[0];
       azimRef.current -= (t.clientX - lt.clientX) * 0.42;
-      elevRef.current = Math.max(5, Math.min(75, elevRef.current + (t.clientY - lt.clientY) * 0.32));
+      elevRef.current = Math.max(-89, Math.min(89, elevRef.current + (t.clientY - lt.clientY) * 0.32));
       lt = t;
       setElev(Math.round(elevRef.current));
       setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
@@ -312,7 +312,7 @@ export function VannaCharmSurfacePlot() {
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", justifyContent: "center", marginTop: 8 }}>
         <span style={{ color: "#888", fontSize: 11 }}>🖱 drag: rotar &nbsp;|&nbsp; scroll: zoom</span>
         <label style={{ color: "#aaa", fontSize: 11 }}>
-          Elev <input type="range" min={5} max={75} value={elev} onChange={(e) => setElev(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#ddd" }}>{elev}°</span>
+          Elev <input type="range" min={-89} max={89} value={elev} onChange={(e) => setElev(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#ddd" }}>{elev}°</span>
         </label>
         <label style={{ color: "#aaa", fontSize: 11 }}>
           Az <input type="range" min={0} max={360} value={azim} onChange={(e) => setAzim(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#ddd" }}>{azim}°</span>
