@@ -423,8 +423,9 @@ function SurfaceTab({
   charmGrid: { strike: number; expiry: number; value: number }[];
 }) {
   return (
-    <div className="h-full">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 h-full">
       <VannaCharmSurfacePlot />
+      <VannaCharmTerrainPlot />
     </div>
   );
 }
