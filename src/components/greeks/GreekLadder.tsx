@@ -329,7 +329,7 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
         </div>
       </div>
 
-      {/* ═════ TABS (3D SURFACE | GREEK LADDER | DELTA EXPOSURE) ═════ */}
+      {/* ═════ TABS — uniform style ═════ */}
       <div
         className="flex items-center gap-1 px-3 pt-2"
         style={{ borderBottom: "1px solid #1f1f1f", background: "#000" }}
@@ -345,18 +345,25 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className="px-3 py-2 text-[10px] font-bold tracking-[0.2em] uppercase transition-colors relative"
+              className="relative px-3 py-2 text-[10px] font-bold tracking-[0.2em] uppercase transition-all"
               style={{
                 color: active ? "#10b981" : "#666",
-                background: active ? "rgba(16,185,129,0.06)" : "transparent",
-                borderTop: `1px solid ${active ? "#10b981" : "transparent"}`,
-                borderLeft: `1px solid ${active ? "#1f1f1f" : "transparent"}`,
-                borderRight: `1px solid ${active ? "#1f1f1f" : "transparent"}`,
-                borderBottom: active ? "1px solid #000" : "none",
+                background: active ? "rgba(16,185,129,0.08)" : "transparent",
+                border: `1px solid ${active ? "#10b981" : "transparent"}`,
+                borderBottom: active ? "1px solid #000" : "1px solid transparent",
+                borderTopLeftRadius: 4,
+                borderTopRightRadius: 4,
+                boxShadow: active ? "0 -2px 8px rgba(16,185,129,0.25)" : "none",
                 marginBottom: -1,
               }}
             >
               {t.label}
+              {active && (
+                <span
+                  className="absolute left-2 right-2 -top-px h-px"
+                  style={{ background: "#10b981", boxShadow: "0 0 6px #10b981" }}
+                />
+              )}
             </button>
           );
         })}
