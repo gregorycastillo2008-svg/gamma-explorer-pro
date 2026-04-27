@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeftRight, RefreshCw, Activity } from "lucide-react";
 import { DealerExposureBars, type DealerStrikeRow } from "./DealerExposureBars";
 import { GreeksSurface3D, type SurfacePoint } from "./GreeksSurface3D";
+import { StrikerDeltaGrid } from "./StrikerDeltaGrid";
 
 interface RawContract {
   ticker: string;
