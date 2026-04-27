@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem } from "lucide-react";
+import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem, Info, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
