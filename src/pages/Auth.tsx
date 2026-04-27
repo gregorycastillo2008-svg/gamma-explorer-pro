@@ -175,7 +175,7 @@ export default function Auth() {
               >
                 <Sparkles className="h-3 w-3" /> Acceso Premium
               </div>
-              <h2 className="text-2xl font-black bg-clip-text text-transparent"
+              <h2 className="text-2xl font-black bg-clip-text text-[#ff0000]"
                 style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
               >
                 Bienvenido de nuevo
