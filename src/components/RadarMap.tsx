@@ -73,7 +73,7 @@ export function RadarMap({ size = 560 }: Props) {
         }}
       />
 
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="relative">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="relative mx-[200px]">
         <defs>
           <radialGradient id="radarBg" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#001a14" stopOpacity="0.95" />
@@ -222,14 +222,14 @@ export function RadarMap({ size = 560 }: Props) {
 
       {/* Status overlays */}
       <div className="absolute top-3 left-3 font-mono text-[10px] text-[#00ffaa]/80 leading-tight">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 mx-[200px]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00ffaa] animate-pulse" />
-          <span className="font-bold tracking-widest">RADAR · ACTIVE</span>
+          <span className="font-bold tracking-widest mx-[400px]">RADAR · ACTIVE</span>
         </div>
         <div className="opacity-60 mt-1">SCAN 360° · 4s</div>
       </div>
-      <div className="absolute top-3 right-3 font-mono text-[10px] text-[#00ffaa]/80 leading-tight text-right">
-        <div className="font-bold tracking-widest">TGT: {sats.length}</div>
+      <div className="absolute top-3 right-3 font-mono text-[10px] text-[#00ffaa]/80 leading-tight text-right mx-[100px]">
+        <div className="font-bold tracking-widest mx-0 my-0">TGT: {sats.length}</div>
         <div className="opacity-60 mt-1">SIG: STRONG</div>
       </div>
     </div>
