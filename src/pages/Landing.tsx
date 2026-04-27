@@ -165,7 +165,7 @@ export default function Landing() {
               animate={{ opacity: 1, y: 0, rotateX: 0 }}
               exit={{ opacity: 0, y: -30, rotateX: 90 }}
               transition={{ duration: 0.6 }}
-              className="inline-block bg-clip-text text-transparent"
+              className="inline-block bg-clip-text text-[#ff0000]"
               style={{ backgroundImage: "var(--gradient-primary)" }}
             >
               {heroWords[wordIdx]}
