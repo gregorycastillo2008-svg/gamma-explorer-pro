@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useSubscription } from "@/hooks/useSubscription";
+import { allowedSections } from "@/lib/plans";
 import { useToast } from "@/hooks/use-toast";
 import {
   DEMO_TICKERS, getDemoTicker,
@@ -34,8 +36,14 @@ import { Label } from "@/components/ui/label";
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const { isAdmin } = useIsAdmin(user?.id);
+  const { tier, subscribed, loading: subLoading, refresh: refreshSub } = useSubscription(user?.id);
   const nav = useNavigate();
   const { toast } = useToast();
+
+  // Allowed sections by tier (admin = all access)
+  const allowed = isAdmin
+    ? undefined
+    : allowedSections(tier);
 
   const [section, setSection] = useState<Section>("overview");
   const [collapsed, setCollapsed] = useState(false);
