@@ -502,10 +502,10 @@ export default function Landing() {
                 </div>
                 <button
                   onClick={() => copyCode(d.code)}
-                  className="relative px-3 py-1.5 flex items-center gap-1 font-bold text-[10px] text-black hover:brightness-110 active:scale-95 transition-all"
+                  className="relative px-3 py-1.5 flex items-center gap-1 font-bold text-[10px] text-white hover:brightness-110 active:scale-95 transition-all"
                   style={{
-                    background: "linear-gradient(90deg, #ffd700, #fff5cc, #ffd700)",
-                    borderLeft: "1px solid rgba(255,215,0,0.5)",
+                    background: "linear-gradient(90deg, #1d4ed8, #3b82f6, #1d4ed8)",
+                    borderLeft: "1px solid rgba(255,255,255,0.25)",
                   }}
                 >
                   <Copy className="h-3 w-3" />
