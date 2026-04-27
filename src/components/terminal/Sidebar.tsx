@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 
 export type Section =
-  | "overview" | "oi-analytics" | "greeks" | "depth" | "levels"
+  | "overview" | "oi-analytics" | "gex-dex" | "greeks" | "depth" | "levels"
   | "hedge" | "vanna-charm" | "vega-theta"
   | "volatility" | "heatmap" | "regime" | "risk" | "anomaly"
   | "ai-bias";
@@ -11,6 +11,7 @@ export type Section =
 export const SECTIONS: { id: Section; label: string; icon: any; group: string }[] = [
   { id: "overview", label: "Overview", icon: Activity, group: "MAIN" },
   { id: "oi-analytics", label: "OI Analytics", icon: BarChart2, group: "MAIN" },
+  { id: "gex-dex", label: "GEX & DEX", icon: BarChart3, group: "MAIN" },
   { id: "greeks", label: "Greek Ladder", icon: Sigma, group: "MAIN" },
   { id: "depth", label: "Depth View", icon: Layers, group: "MAIN" },
   { id: "levels", label: "Level Scan", icon: Target, group: "MAIN" },
