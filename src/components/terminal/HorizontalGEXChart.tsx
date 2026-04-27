@@ -245,7 +245,8 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
               layout="vertical"
               data={rows}
               margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
-              barCategoryGap={1}
+              barCategoryGap={2}
+              barGap={-10}
               onMouseMove={(s: any) => setHover(s?.activeLabel ?? null)}
               onMouseLeave={() => setHover(null)}
             >
