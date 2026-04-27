@@ -200,7 +200,7 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
 export function StrikeChartView({ ticker, contracts, metric }: Props) {
   const data = useMemo(() => {
     const points = computeExposures(ticker.spot, contracts);
-    return points.slice().sort((a, b) => b.strike - a.strike);
+    return points.slice().sort((a, b) => a.strike - b.strike);
   }, [ticker, contracts]);
 
   const max = Math.max(...data.map((d) => Math.abs(d[metric])), 1);
