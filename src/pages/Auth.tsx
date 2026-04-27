@@ -166,16 +166,15 @@ export default function Auth() {
             }}
           >
             <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase mb-3"
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase mb-3 text-white"
                 style={{
                   background: "rgba(255,215,0,0.1)",
                   border: "1px solid rgba(255,215,0,0.4)",
-                  color: "#ffd700",
                 }}
               >
                 <Sparkles className="h-3 w-3" /> Acceso Premium
               </div>
-              <h2 className="text-2xl font-black bg-clip-text text-[#ff0000]"
+              <h2 className="text-2xl font-black bg-clip-text text-secondary-foreground"
                 style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
               >
                 Bienvenido de nuevo
@@ -185,11 +184,11 @@ export default function Auth() {
 
             <Tabs defaultValue="signin">
               <TabsList
-                className="grid grid-cols-2 w-full mb-6 rounded-full p-1"
-                style={{ background: "rgba(255,215,0,0.06)", border: "1px solid rgba(255,215,0,0.2)" }}
+                className="h-10 items-center justify-center grid grid-cols-2 w-full mb-6 rounded-full p-1 text-secondary-foreground bg-secondary-foreground"
+                style={{ border: "1px solid rgba(255,215,0,0.2)" }}
               >
-                <TabsTrigger value="signin" className="rounded-full data-[state=active]:bg-[#ffd700] data-[state=active]:text-black data-[state=active]:font-bold">Entrar</TabsTrigger>
-                <TabsTrigger value="signup" className="rounded-full data-[state=active]:bg-[#ffd700] data-[state=active]:text-black data-[state=active]:font-bold">Crear cuenta</TabsTrigger>
+                <TabsTrigger value="signin" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary">Entrar</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary">Crear cuenta</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
@@ -245,10 +244,10 @@ export default function Auth() {
 function FieldGold({ id, label, type, value, onChange, icon: Icon, minLength, placeholderWords }: any) {
   const demo = useTypewriter(placeholderWords ?? [""], { typeMs: 85, deleteMs: 40, pauseMs: 1300 });
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-xs font-semibold tracking-wide" style={{ color: "#d4af37" }}>{label}</Label>
+    <div className="space-y-1.5 text-secondary-foreground">
+      <Label htmlFor={id} className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-xs font-semibold tracking-wide text-secondary-foreground">{label}</Label>
       <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 z-10" style={{ color: "#d4af37" }} />
+        <Icon className="lucide lucide-lock absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 z-10 text-destructive-foreground" />
         <Input
           id={id}
           type={type}
@@ -256,8 +255,8 @@ function FieldGold({ id, label, type, value, onChange, icon: Icon, minLength, pl
           minLength={minLength}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="pl-10 rounded-full h-11 bg-black/40 focus:bg-black/60 transition-colors relative"
-          style={{ border: "1px solid rgba(255,215,0,0.3)", color: "#fff5cc" }}
+          className="flex w-full border border-input px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-10 rounded-full h-11 bg-black/40 focus:bg-black/60 transition-colors relative text-secondary-foreground"
+          style={{ border: "1px solid rgba(255,215,0,0.3)" }}
         />
         {/* Animated demo placeholder — only when empty */}
         {!value && (
@@ -287,7 +286,7 @@ function GoldButton({ busy, children }: { busy: boolean; children: React.ReactNo
     >
       <span className="flex items-center justify-center gap-2">
         {busy ? "..." : children}
-        {!busy && <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />}
+        {!busy && <ArrowRight className="lucide lucide-arrow-right h-4 w-4 group-hover:translate-x-1 transition-transform text-destructive" />}
       </span>
     </Button>
   );
