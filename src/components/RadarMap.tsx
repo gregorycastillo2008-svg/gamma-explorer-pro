@@ -15,10 +15,10 @@ export function RadarMap({ size = 560 }: Props) {
   const center = size / 2;
   const r = size / 2 - 10;
 
-  // Two satellites
+  // Two satellites: one on the left side, one on the right side of the radar
   const sats: Sat[] = [
-    { id: "GEXSATELIT-01", angle: -55, radiusFactor: 0.62 },
-    { id: "GEXSATELIT-02", angle: 130, radiusFactor: 0.5 },
+    { id: "GEXSATELIT-01", angle: 175, radiusFactor: 0.7 }, // left
+    { id: "GEXSATELIT-02", angle: 5, radiusFactor: 0.65 },  // right
   ];
 
   const SWEEP = 4;
@@ -204,17 +204,17 @@ export function RadarMap({ size = 560 }: Props) {
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
           >
             <div
-              className="px-6 py-3 rounded-md font-mono font-black tracking-[0.3em] text-[#00ffaa]"
+              className="px-3 py-1.5 rounded-md font-mono font-black tracking-[0.25em] text-[#00ffaa]"
               style={{
                 background: "rgba(0, 10, 6, 0.85)",
-                border: "1.5px solid #00ffaa",
-                boxShadow: "0 0 30px rgba(0,255,170,0.6), inset 0 0 20px rgba(0,255,170,0.15)",
-                fontSize: 22,
-                textShadow: "0 0 12px rgba(0,255,170,0.9)",
+                border: "1px solid #00ffaa",
+                boxShadow: "0 0 18px rgba(0,255,170,0.5), inset 0 0 12px rgba(0,255,170,0.15)",
+                fontSize: 11,
+                textShadow: "0 0 8px rgba(0,255,170,0.9)",
               }}
             >
               ▸ GEXSATELIT
-              <div className="text-[10px] tracking-[0.4em] opacity-75 mt-1 text-center">DETECTED · LOCKED</div>
+              <div className="text-[7px] tracking-[0.3em] opacity-75 mt-0.5 text-center">DETECTED · LOCKED</div>
             </div>
           </motion.div>
         )}
