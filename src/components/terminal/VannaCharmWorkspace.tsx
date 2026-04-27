@@ -59,13 +59,18 @@ export function VannaCharmWorkspace({ ticker, contracts }: Props) {
   const [tab, setTab] = useState<Tab>("heatmap");
   const [expiry, setExpiry] = useState<number | "all">("all");
 
-  const expiries = useMemo(
-    () => Array.from(new Set(contracts.map((c) => c.expiry))).sort((a, b) => a - b),
+  const filteredContracts = useMemo(
+    () => contracts.filter((c) => c.expiry <= 3),
     [contracts]
   );
 
-  const vannaGrid = useMemo(() => buildGrid(ticker.spot, contracts, "vanna"), [ticker.spot, contracts]);
-  const charmGrid = useMemo(() => buildGrid(ticker.spot, contracts, "charm"), [ticker.spot, contracts]);
+  const expiries = useMemo(
+    () => Array.from(new Set(filteredContracts.map((c) => c.expiry))).sort((a, b) => a - b),
+    [filteredContracts]
+  );
+
+  const vannaGrid = useMemo(() => buildGrid(ticker.spot, filteredContracts, "vanna"), [ticker.spot, filteredContracts]);
+  const charmGrid = useMemo(() => buildGrid(ticker.spot, filteredContracts, "charm"), [ticker.spot, filteredContracts]);
 
   return (
     <div className="h-full w-full flex flex-col bg-black font-mono">
