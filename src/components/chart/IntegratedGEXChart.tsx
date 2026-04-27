@@ -390,7 +390,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
             <GEXBarsPanel rows={strikeRows} spot={chain.spot} />
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
-              {dteFilter === "all" ? "Loading GEX…" : `Sin opciones reales para ≤${dteFilter}D`}
+              {`Sin opciones reales para ≤${dteFilter}D`}
             </div>
           )}
         </div>
