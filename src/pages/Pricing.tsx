@@ -88,8 +88,13 @@ export default function Pricing() {
           })}
         </div>
 
-        <div className="text-center mt-8">
-          <Button variant="ghost" onClick={() => nav("/dashboard")}>Back to dashboard</Button>
+        <div className="text-center mt-8 flex gap-3 justify-center">
+          {canAccessDashboard && (
+            <Button variant="ghost" onClick={() => nav("/dashboard")}>Back to dashboard</Button>
+          )}
+          {user && (
+            <Button variant="outline" onClick={signOut}>Sign out</Button>
+          )}
         </div>
       </div>
     </div>
