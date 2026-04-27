@@ -166,7 +166,7 @@ export function Volatility3DSurface(_: Props) {
     const onMove = (e: MouseEvent) => {
       if (!drag) return;
       azimRef.current -= (e.clientX - lx) * 0.45;
-      elevRef.current = Math.max(5, Math.min(80, elevRef.current + (e.clientY - ly) * 0.35));
+      elevRef.current = Math.max(-89, Math.min(89, elevRef.current + (e.clientY - ly) * 0.35));
       lx = e.clientX; ly = e.clientY;
       setElev(Math.round(elevRef.current));
       setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
