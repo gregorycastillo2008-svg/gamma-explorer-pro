@@ -242,7 +242,7 @@ export function VannaCharmSurfacePlot() {
     const onMove = (e: MouseEvent) => {
       if (!drag) return;
       azimRef.current -= (e.clientX - lx2) * 0.42;
-      elevRef.current = Math.max(5, Math.min(75, elevRef.current + (e.clientY - ly2) * 0.32));
+      elevRef.current = Math.max(-89, Math.min(89, elevRef.current + (e.clientY - ly2) * 0.32));
       lx2 = e.clientX; ly2 = e.clientY;
       setElev(Math.round(elevRef.current));
       setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
