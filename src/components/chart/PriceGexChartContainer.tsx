@@ -21,16 +21,16 @@ const DTE_OPTIONS: { value: DteOpt; label: string }[] = [
 
 export function PriceGexChartContainer({ defaultSymbol = "QQQ" }: Props) {
   const [symbol, setSymbol] = useState(SYMBOLS.includes(defaultSymbol) ? defaultSymbol : "QQQ");
-  const [dte, setDte] = useState<DteOpt>(3);
+  const [dte, setDte] = useState<DteOpt>("3");
 
   const { ticker, contracts, status, source } = useOptionsData(symbol);
   const livePrice = ticker.spot;
 
-  // Filter contracts to <= selected DTE (in days)
-  const filtered = useMemo(
-    () => contracts.filter((c) => c.expiry <= dte),
-    [contracts, dte],
-  );
+  // Filter contracts to <= selected DTE (max 3 days regardless)
+  const filtered = useMemo(() => {
+    const max = dte === "all" ? 3 : parseInt(dte, 10);
+    return contracts.filter((c) => c.expiry <= max);
+  }, [contracts, dte]);
 
   const snapshot: GexSnapshot = useMemo(() => {
     const points = computeExposures(livePrice, filtered.length ? filtered : contracts);
