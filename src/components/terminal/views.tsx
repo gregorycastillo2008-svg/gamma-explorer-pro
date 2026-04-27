@@ -6,6 +6,7 @@ import { GexExposureTabs, HeatmapGridView, StrikeChartView, SurfaceView } from "
 import { TerminalTabs } from "./TerminalTabs";
 import { FloatingStatBar } from "./FloatingStatBar";
 import { ThirdOrderGreeksPanel } from "./ThirdOrderGreeksPanel";
+import { GexDexDashboard } from "./GexDexDashboard";
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -276,6 +277,15 @@ export function GexDexView({ ticker, contracts }: Ctx) {
                     <SurfaceView ticker={ticker} contracts={filtered} metric="netGex" />
                   </div>
                 </Panel>
+              ),
+            },
+            {
+              key: "dexdash",
+              label: "DEX DASHBOARD",
+              content: (
+                <div className="h-full p-1">
+                  <GexDexDashboard ticker={ticker} contracts={filtered} />
+                </div>
               ),
             },
           ]}
