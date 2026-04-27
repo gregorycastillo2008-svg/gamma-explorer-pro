@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
+import { GexSatellite } from "@/components/GexSatellite";
+import { TestimonialsMarquee } from "@/components/TestimonialsMarquee";
 import { toast } from "sonner";
 
 const features = [
@@ -138,14 +140,10 @@ export default function Landing() {
       </header>
 
       <section className="relative z-10 container py-20 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 border border-primary/20"
-        >
-          <BadgeCheck className="h-4 w-4" />
-          Plataforma verificada · análisis institucional en tiempo real
-        </motion.div>
+        <div className="flex justify-center mb-8">
+          <GexSatellite size={240} speed={14} />
+        </div>
+
 
         <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 max-w-5xl mx-auto leading-[1.05]">
           {"Análisis de ".split("").map((c, i) => (
