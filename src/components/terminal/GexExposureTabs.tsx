@@ -206,7 +206,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
         <div className="pl-2">Positive ★</div>
       </div>
       {/* Chart area: flex-1 so all rows distribute evenly to fill available height — no scroll */}
-      <div className="flex-1 min-h-0 relative flex flex-col">
+      <div className="flex-1 min-h-0 relative flex flex-col gap-[2px]">
         {/* SPOT horizontal cyan line — positioned proportionally */}
         {spotIdx >= 0 && data.length > 0 && (
           <div
