@@ -46,11 +46,7 @@ export function GammaBackgroundDark() {
       const barW = w / BARS;
       const maxBar = h * 0.85; // much taller bars
 
-      // Zero line
-      ctx.strokeStyle = "rgba(255,215,0,0.18)";
-      ctx.setLineDash([4, 6]);
-      ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(w, midY); ctx.stroke();
-      ctx.setLineDash([]);
+      // Zero line removed for cleaner background
 
       const values: number[] = [];
       for (let i = 0; i < BARS; i++) {
