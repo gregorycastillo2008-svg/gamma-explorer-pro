@@ -1,23 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { PriceChart } from "./PriceChart";
-import { GEXOverlay } from "./GEXOverlay";
+import { PriceGexChart } from "./PriceGexChart";
 import { LiveMetricsSidebar } from "./LiveMetricsSidebar";
 import { generateGexSnapshot } from "@/lib/gexSimData";
 
-const SYMBOLS = ["SPY", "QQQ", "AAPL", "TSLA", "NVDA"];
-const BASE_PRICES: Record<string, number> = { SPY: 609.23, QQQ: 542.10, AAPL: 232.15, TSLA: 412.88, NVDA: 145.67 };
+const SYMBOLS = ["SPY", "QQQ", "AAPL", "TSLA", "NVDA", "SPX"];
+const BASE_PRICES: Record<string, number> = { SPY: 609.23, QQQ: 542.10, AAPL: 232.15, TSLA: 412.88, NVDA: 145.67, SPX: 6092.35 };
 
-interface Props {
-  defaultSymbol?: string;
-}
+interface Props { defaultSymbol?: string; }
 
 export function PriceGexChartContainer({ defaultSymbol = "SPY" }: Props) {
-  const [symbol, setSymbol] = useState(defaultSymbol);
+  const [symbol, setSymbol] = useState(SYMBOLS.includes(defaultSymbol) ? defaultSymbol : "SPY");
   const basePrice = BASE_PRICES[symbol] ?? 100;
   const [livePrice, setLivePrice] = useState(basePrice);
   const [tick, setTick] = useState(0);
 
-  // Simulate live price drift
   useEffect(() => {
     setLivePrice(basePrice);
     const id = setInterval(() => {
@@ -34,7 +30,7 @@ export function PriceGexChartContainer({ defaultSymbol = "SPY" }: Props) {
 
   return (
     <div className="flex gap-3 w-full">
-      <div className="flex-1 min-w-0 space-y-3">
+      <div className="flex-1 min-w-0">
         <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-lg p-3">
           <div className="flex items-baseline justify-between mb-2">
             <div>
@@ -44,21 +40,14 @@ export function PriceGexChartContainer({ defaultSymbol = "SPY" }: Props) {
                 {livePrice >= basePrice ? "+" : ""}{((livePrice - basePrice) / basePrice * 100).toFixed(3)}%
               </span>
             </div>
-            <div className="text-[10px] text-muted-foreground font-mono">PRICE + GAMMA EXPOSURE</div>
+            <div className="text-[10px] text-muted-foreground font-mono">PRICE + GAMMA EXPOSURE (integrated)</div>
           </div>
-          <PriceChart
+          <PriceGexChart
             symbol={symbol}
             basePrice={basePrice}
             currentPrice={livePrice}
-            zeroGamma={snapshot.keyLevels.zeroGamma}
-            majorPositive={snapshot.keyLevels.majorPositive}
-            majorNegative={snapshot.keyLevels.majorNegative}
+            snapshot={snapshot}
           />
-        </div>
-
-        <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-lg p-3">
-          <div className="text-[10px] font-bold tracking-wider text-cyan-400 mb-1.5 uppercase">GEX by Strike (±4%)</div>
-          <GEXOverlay snapshot={snapshot} currentPrice={livePrice} />
         </div>
       </div>
 
