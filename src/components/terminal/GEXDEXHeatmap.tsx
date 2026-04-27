@@ -425,6 +425,7 @@ function HeatPanel({
                       style={{
                         background: cellBg(v, max),
                         color: cellFg(v, max),
+                        border: "1px solid #000",
                         outline: hoverCol === ci ? `1px solid ${accent}` : "none",
                         outlineOffset: -1,
                         fontWeight: 600,
@@ -442,7 +443,8 @@ function HeatPanel({
                     style={{
                       background: cellBg(r[chapKey], max * 1.2),
                       color: cellFg(r[chapKey], max * 1.2),
-                      borderLeft: `1px solid ${C.border}`,
+                      border: "1px solid #000",
+                      borderLeft: `2px solid ${C.border}`,
                       fontWeight: 700,
                     }}
                   >
