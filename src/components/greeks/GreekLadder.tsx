@@ -207,6 +207,49 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
   const totalPutOI = chain?.contracts.filter((c) => c.side === "put").reduce((s, c) => s + c.oi, 0) ?? 0;
   const pcRatio = totalCallOI > 0 ? totalPutOI / totalCallOI : 0;
 
+  // Dealer exposure rows (combining calls + puts at each strike, ±12 around ATM)
+  const dealerRows: DealerStrikeRow[] = useMemo(() => {
+    if (!chain || !chain.contracts.length) return [];
+    const spot = chain.spot;
+    const dteN = chain.selectedExpiration ? daysBetween(chain.selectedExpiration) : 7;
+    const byStrike = new Map<number, DealerStrikeRow>();
+    chain.contracts.forEach((c) => {
+      const ivUse = c.iv > 0 ? c.iv : 0.25;
+      const calc = calculateAllGreeks({ spot, strike: c.strike, dte: dteN, iv: ivUse, rate: 0.045, isCall: c.side === "call" });
+      const g = (!c.gamma ? calc.gamma : c.gamma);
+      const d = (!c.delta ? calc.delta : c.delta);
+      const cur = byStrike.get(c.strike) ?? { strike: c.strike, callOI: 0, putOI: 0, callGamma: 0, putGamma: 0, callDelta: 0, putDelta: 0 };
+      if (c.side === "call") { cur.callOI = c.oi; cur.callGamma = g; cur.callDelta = d; }
+      else { cur.putOI = c.oi; cur.putGamma = g; cur.putDelta = d; }
+      byStrike.set(c.strike, cur);
+    });
+    const arr = Array.from(byStrike.values()).sort((a, b) => Math.abs(a.strike - spot) - Math.abs(b.strike - spot)).slice(0, 25);
+    return arr.sort((a, b) => b.strike - a.strike);
+  }, [chain]);
+
+  // Surface points: strike × DTE × gamma (across all expirations available, sample first 6)
+  const surfacePoints: SurfacePoint[] = useMemo(() => {
+    if (!chain) return [];
+    // Build a synthetic surface using BS over spot/strike/dte grid
+    const spot = chain.spot;
+    const ivBase = chain.contracts.find((c) => c.iv > 0)?.iv ?? 0.25;
+    const strikes = Array.from(new Set(chain.contracts.map((c) => c.strike)))
+      .sort((a, b) => Math.abs(a - spot) - Math.abs(b - spot))
+      .slice(0, 15)
+      .sort((a, b) => a - b);
+    const dtes = (chain.expirations ?? []).slice(0, 6).map((e) => daysBetween(e));
+    if (!dtes.length) dtes.push(7, 14, 30, 60);
+    const pts: SurfacePoint[] = [];
+    strikes.forEach((s) => {
+      dtes.forEach((d) => {
+        const g = calculateAllGreeks({ spot, strike: s, dte: d, iv: ivBase, rate: 0.045, isCall: true });
+        pts.push({ strike: s, dte: Math.round(d), value: g.gamma });
+      });
+    });
+    return pts;
+  }, [chain]);
+
+
   return (
     <div
       className="overflow-hidden font-mono"
