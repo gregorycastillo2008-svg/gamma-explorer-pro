@@ -73,7 +73,7 @@ export function Topbar({
     <header className="border-b border-border bg-[#0a0a0a] flex items-center px-4 gap-4 shrink-0 h-14 overflow-x-auto">
       {/* LEFT — Brand + Ticker + Spot */}
       <div className="flex items-center gap-3 shrink-0">
-        <span className="font-black text-base tracking-[0.2em] bg-gradient-to-r from-[#b8860b] via-[#ffd700] to-[#fff5cc] bg-clip-text text-[#ff0000]">
+        <span className="font-black text-base tracking-[0.2em] bg-gradient-to-r from-[#b8860b] via-[#ffd700] to-[#fff5cc] bg-clip-text text-primary">
           GEXSATELIT
         </span>
         <span className="text-primary font-mono font-bold text-base tabular-nums">
