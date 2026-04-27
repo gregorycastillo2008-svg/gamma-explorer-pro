@@ -469,8 +469,8 @@ export default function Landing() {
             >
               <motion.div
                 className="absolute -inset-0.5 rounded-full pointer-events-none"
-                style={{ background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)", filter: "blur(8px)", opacity: 0.4 }}
-                animate={{ opacity: [0.25, 0.6, 0.25] }}
+                style={{ background: "linear-gradient(90deg, #1e3a8a, #3b82f6, #ffffff, #3b82f6, #1e3a8a)", filter: "blur(8px)", opacity: 0.45 }}
+                animate={{ opacity: [0.3, 0.65, 0.3] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
               />
               <div
