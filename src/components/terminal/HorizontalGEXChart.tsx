@@ -304,27 +304,55 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
                 }}
               />
 
+              {/* RED first → renders BEHIND (puts, left side) */}
               <Bar
-                dataKey="shares"
+                dataKey="putShares"
+                barSize={10}
+                radius={[2, 0, 0, 2]}
+                onClick={(d: any) => setSelected(d?.strike ?? null)}
+                cursor="pointer"
+                isAnimationActive={false}
+              >
+                {rows.map((r, i) => {
+                  const isWall = r.strike === putWall;
+                  const isHover = hover === r.strike;
+                  const isSel = selected === r.strike;
+                  const intensity = Math.abs(r.putShares) / maxAbs;
+                  return (
+                    <Cell
+                      key={`p-${i}`}
+                      fill={C.red}
+                      fillOpacity={isHover || isSel ? 0.95 : isWall ? 0.9 : 0.55 + intensity * 0.3}
+                      stroke={isSel ? C.yellow : isWall ? C.red : "transparent"}
+                      strokeWidth={isSel ? 1.5 : isWall ? 1 : 0}
+                      style={isWall || isSel ? { filter: `drop-shadow(0 0 6px ${isSel ? C.yellow : C.red})` } : undefined}
+                    />
+                  );
+                })}
+              </Bar>
+
+              {/* GREEN second → renders ON TOP (calls, right side) */}
+              <Bar
+                dataKey="callShares"
+                barSize={10}
                 radius={[0, 2, 2, 0]}
                 onClick={(d: any) => setSelected(d?.strike ?? null)}
                 cursor="pointer"
+                isAnimationActive={false}
               >
                 {rows.map((r, i) => {
-                  const isAbove = r.aboveSpot;
-                  const fill = isAbove ? C.green : C.red;
-                  const isWall = r.strike === callWall || r.strike === putWall;
+                  const isWall = r.strike === callWall;
                   const isHover = hover === r.strike;
                   const isSel = selected === r.strike;
-                  const intensity = Math.abs(r.shares) / maxAbs;
+                  const intensity = Math.abs(r.callShares) / maxAbs;
                   return (
                     <Cell
-                      key={i}
-                      fill={fill}
-                      fillOpacity={isHover || isSel ? 0.95 : isWall ? 0.85 : 0.55 + intensity * 0.3}
-                      stroke={isSel ? C.yellow : isWall ? fill : "transparent"}
+                      key={`c-${i}`}
+                      fill={C.green}
+                      fillOpacity={isHover || isSel ? 0.95 : isWall ? 0.9 : 0.55 + intensity * 0.3}
+                      stroke={isSel ? C.yellow : isWall ? C.green : "transparent"}
                       strokeWidth={isSel ? 1.5 : isWall ? 1 : 0}
-                      style={isWall || isSel ? { filter: `drop-shadow(0 0 6px ${isSel ? C.yellow : fill})` } : undefined}
+                      style={isWall || isSel ? { filter: `drop-shadow(0 0 6px ${isSel ? C.yellow : C.green})` } : undefined}
                     />
                   );
                 })}
