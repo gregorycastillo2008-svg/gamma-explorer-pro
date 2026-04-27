@@ -165,7 +165,7 @@ export default function Landing() {
               animate={{ opacity: 1, y: 0, rotateX: 0 }}
               exit={{ opacity: 0, y: -30, rotateX: 90 }}
               transition={{ duration: 0.6 }}
-              className="inline-block bg-clip-text text-transparent"
+              className="inline-block bg-clip-text text-[#ff0000]"
               style={{ backgroundImage: "var(--gradient-primary)" }}
             >
               {heroWords[wordIdx]}
@@ -223,7 +223,7 @@ export default function Landing() {
           viewport={{ once: true }}
           className="text-4xl md:text-5xl font-black tracking-tight text-center mb-3"
         >
-          Lo que dicen los <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>traders</span>
+          Lo que dicen los <span className="bg-clip-text text-[#ff0000]" style={{ backgroundImage: "var(--gradient-primary)" }}>traders</span>
         </motion.h2>
         <p className="text-center text-muted-foreground mb-10">Pasa el cursor sobre un comentario para verlo completo · se detiene la animación</p>
 
@@ -276,7 +276,7 @@ export default function Landing() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-call/10 text-call text-xs font-bold mb-4 border border-call/30">
             <Sparkles className="h-3 w-3" /> Todos los planes con 7 días de prueba
           </div>
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight">Elige tu <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>edge</span></h2>
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight">Elige tu <span className="bg-clip-text text-[#ff0000]" style={{ backgroundImage: "var(--gradient-primary)" }}>edge</span></h2>
           <p className="text-muted-foreground mt-3">Sin permanencia. Cancela cuando quieras. Aplica un código de descuento al pagar.</p>
         </motion.div>
 
@@ -446,7 +446,7 @@ export default function Landing() {
                   transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.6, repeatDelay: 0.4 }}
                 />
                 <div className="pl-3 pr-2 py-1.5 flex items-center gap-1.5 relative">
-                  <span className="font-mono font-black tracking-widest text-xs bg-clip-text text-transparent"
+                  <span className="font-mono font-black tracking-widest text-xs bg-clip-text text-[#ff0000]"
                     style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
                   >
                     {d.code}
