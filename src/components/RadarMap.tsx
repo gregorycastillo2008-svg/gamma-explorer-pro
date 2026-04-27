@@ -172,12 +172,31 @@ export function RadarMap({ size = 560 }: Props) {
           )}
         </g>
 
-        {/* Label for satellite */}
-        <g transform={`translate(${satX + 14}, ${satY - 14})`}>
-          <rect x={0} y={-12} width={88} height={28} rx={3} fill="#000" fillOpacity={0.7} stroke="#00ffaa" strokeOpacity={0.6} strokeWidth={1} />
-          <text x={6} y={0} fontFamily="monospace" fontSize={9} fill="#00ffaa" fontWeight="bold">SAT-001</text>
-          <text x={6} y={11} fontFamily="monospace" fontSize={8} fill="#00ffaa" fillOpacity={0.7}>GEX · LOCKED</text>
-        </g>
+        {/* Label for satellite — appears with the pulse */}
+        {pulse && (
+          <motion.g
+            transform={`translate(${satX + 16}, ${satY - 22})`}
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {/* Connector line from blip to label */}
+            <line x1={-12} y1={20} x2={2} y2={6} stroke="#00ffaa" strokeWidth={1} strokeOpacity={0.7} />
+            {/* Label box with corner brackets */}
+            <rect x={0} y={-8} width={120} height={36} rx={2} fill="#000" fillOpacity={0.85} stroke="#00ffaa" strokeWidth={1.2} />
+            {/* Corner brackets */}
+            <path d="M 0 -4 L 0 -8 L 4 -8" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
+            <path d="M 116 -8 L 120 -8 L 120 -4" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
+            <path d="M 0 24 L 0 28 L 4 28" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
+            <path d="M 116 28 L 120 28 L 120 24" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
+            <text x={6} y={6} fontFamily="monospace" fontSize={11} fill="#00ffaa" fontWeight="bold" letterSpacing={1.2}>
+              GEXSATELIT
+            </text>
+            <text x={6} y={20} fontFamily="monospace" fontSize={8} fill="#00ffaa" fillOpacity={0.75} letterSpacing={0.8}>
+              ◉ LOCKED · 0.42 AU
+            </text>
+          </motion.g>
+        )}
 
         {/* Range text */}
         <text x={center + 6} y={center - 4} fontFamily="monospace" fontSize={8} fill="#00ffaa" fillOpacity={0.5}>0</text>
