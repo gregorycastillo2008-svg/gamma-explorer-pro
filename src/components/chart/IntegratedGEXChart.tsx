@@ -172,6 +172,26 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
     }));
   }, [strikeRows]);
 
+  // Gamma exposure interpolated AT the current live spot price
+  const gammaAtSpot = useMemo(() => {
+    const livePrice = price?.spot ?? chain?.spot ?? 0;
+    if (!livePrice || strikeRows.length === 0) return 0;
+    // Find the two strikes bracketing spot and linearly interpolate net GEX
+    const sorted = [...strikeRows].sort((a, b) => a.strike - b.strike);
+    let lower = sorted[0];
+    let upper = sorted[sorted.length - 1];
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i].strike <= livePrice && sorted[i + 1].strike >= livePrice) {
+        lower = sorted[i]; upper = sorted[i + 1]; break;
+      }
+    }
+    const lNet = lower.callGEX - lower.putGEX;
+    const uNet = upper.callGEX - upper.putGEX;
+    if (lower.strike === upper.strike) return lNet;
+    const t = (livePrice - lower.strike) / (upper.strike - lower.strike);
+    return lNet + (uNet - lNet) * t;
+  }, [strikeRows, price, chain]);
+
   const expirationsSorted = useMemo(() => (chain?.expirations ?? []).slice(0, 2), [chain]);
 
   return (
@@ -203,6 +223,12 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
         </div>
         <div className="flex items-center gap-3 text-[10px]">
           <span className="text-muted-foreground">PRICE + GAMMA EXPOSURE</span>
+          <span className="flex items-center gap-1 text-foreground">
+            <span className="text-muted-foreground">γ@spot:</span>
+            <span className={`font-mono font-bold tabular-nums ${gammaAtSpot >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {gammaAtSpot >= 0 ? "+" : ""}{fmtBn(gammaAtSpot)}
+            </span>
+          </span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Call GEX</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Put GEX</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> OI %</span>
