@@ -181,12 +181,11 @@ const Td = ({ children, r, bold, tone }: any) => {
 
 // ─────── DEPTH VIEW — GEX/DEX por strike, filtro DTE 1/2/3 ───────
 export function DepthView({ ticker, contracts }: Ctx) {
-  const [dte, setDte] = useState<"1" | "2" | "3" | "all">("all");
+  const [dte, setDte] = useState<"1" | "2" | "3">("3");
   const [hover, setHover] = useState<number | null>(null);
 
-  // Filter contracts by DTE bucket (≤ N days)
+  // Filter contracts by DTE bucket (≤ N days, max 3)
   const filtered = useMemo(() => {
-    if (dte === "all") return contracts;
     const max = parseInt(dte, 10);
     return contracts.filter((c) => c.expiry <= max);
   }, [contracts, dte]);
