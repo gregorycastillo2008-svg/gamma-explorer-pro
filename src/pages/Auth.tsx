@@ -187,8 +187,8 @@ export default function Auth() {
                 className="h-10 items-center justify-center grid grid-cols-2 w-full mb-6 rounded-full p-1 text-secondary-foreground bg-secondary-foreground"
                 style={{ border: "1px solid rgba(255,215,0,0.2)" }}
               >
-                <TabsTrigger value="signin" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary">Entrar</TabsTrigger>
-                <TabsTrigger value="signup" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary">Crear cuenta</TabsTrigger>
+                <TabsTrigger value="signin" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary text-white">Entrar</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary text-white">Crear cuenta</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
