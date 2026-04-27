@@ -79,7 +79,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="gold-theme relative min-h-screen overflow-hidden" style={{ background: "#000" }}>
+    <div className="gold-theme relative min-h-screen overflow-hidden my-0" style={{ background: "#000" }}>
       {/* Animated gamma chart background — taller bars, vivid */}
       <div className="fixed inset-0 opacity-55 pointer-events-none">
         <GammaBackgroundDark />
