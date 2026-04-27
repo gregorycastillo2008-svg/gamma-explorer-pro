@@ -105,7 +105,7 @@ export default function Landing() {
             >
               <div className="absolute -inset-2 rounded-2xl bg-[#2563eb]/50 blur-xl animate-pulse" />
               <a href="#planes" onClick={() => setShowPlansBubble(false)}>
-                <div className="relative flex items-center gap-2 px-4 py-3 rounded-2xl cursor-pointer hover:scale-105 transition-transform text-white bg-[#135acd] border-0 font-extrabold font-mono"
+                <div className="relative flex items-center gap-2 px-4 py-3 rounded-2xl cursor-pointer hover:scale-105 transition-transform text-white border-0 font-extrabold font-mono bg-[#135acd]/[0.11]"
                   style={{ boxShadow: "0 10px 40px -5px rgba(37,99,235,0.7)" }}>
                   <Sparkles className="h-5 w-5 text-white animate-pulse" />
                   <div className="text-left">
@@ -134,9 +134,9 @@ export default function Landing() {
           <span className="font-bold text-white text-xl tracking-tight">GEX SATELIT</span>
         </Link>
         <nav className="hidden md:flex items-center gap-8 text-sm text-white/70">
-          <a href="#features" className="hover:text-white transition-colors">Features</a>
-          <a href="#capabilities" className="hover:text-white transition-colors">Capabilities</a>
-          <a href="#planes" className="hover:text-white transition-colors">Pricing</a>
+          <a href="#features" className="hover:text-white transition-colors font-mono text-base">Features</a>
+          <a href="#capabilities" className="hover:text-white transition-colors text-base font-mono">Capabilities</a>
+          <a href="#planes" className="hover:text-white transition-colors text-base font-mono">Pricing</a>
         </nav>
         <div className="flex items-center gap-3">
           <a href="#planes">
