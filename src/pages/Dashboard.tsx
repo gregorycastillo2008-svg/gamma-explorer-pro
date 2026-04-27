@@ -238,7 +238,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {showPaywall && <Paywall email={user?.email ?? undefined} />}
+      
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
