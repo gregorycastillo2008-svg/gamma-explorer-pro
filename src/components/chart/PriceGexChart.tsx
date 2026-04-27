@@ -48,9 +48,11 @@ export function PriceGexChart({ symbol, basePrice, currentPrice, snapshot }: Pro
   const gexW = innerW * 0.38;
   const priceW = innerW - gexW;
 
-  // Y range: union of candles + strikes within ±4% of spot
-  const priceRange = currentPrice * 0.04;
-  const strikes = snapshot.gexByStrike.filter((s) => Math.abs(s.strike - currentPrice) <= priceRange);
+  // Y range: union of candles + strikes within ±8% of spot (show all gamma)
+  const priceRange = currentPrice * 0.08;
+  const strikes = snapshot.gexByStrike.filter(
+    (s) => Math.abs(s.strike - currentPrice) <= priceRange && (Math.abs(s.callGEX) > 0 || Math.abs(s.putGEX) > 0),
+  );
   const allLow = Math.min(...candles.map((c) => c.low), ...strikes.map((s) => s.strike));
   const allHigh = Math.max(...candles.map((c) => c.high), ...strikes.map((s) => s.strike));
   const padY = (allHigh - allLow) * 0.05;
