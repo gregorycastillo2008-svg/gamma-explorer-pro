@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeftRight, RefreshCw, Activity } from "lucide-react";
 import { DealerExposureBars, type DealerStrikeRow } from "./DealerExposureBars";
 import { GreeksSurface3D, type SurfacePoint } from "./GreeksSurface3D";
+import { StrikerDeltaGrid } from "./StrikerDeltaGrid";
 
 interface RawContract {
   ticker: string;
@@ -472,19 +473,9 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
         </div>
       )}
 
-      {/* ═════ STRIKER DELTA tab — Delta Exposure per Strike ═════ */}
-      {activeTab === "striker" && chain && dealerRows.length > 0 && (
-        <div className="p-3 border-t border-[#1f1f1f]" style={{ background: "#000" }}>
-          <DealerExposureBars
-            rows={dealerRows}
-            spot={chain.spot}
-            symbol={symbol}
-            mode="DEX"
-            lockMode
-            fullBleed
-            title="STRIKER · DELTA EXPOSURE PER STRIKE"
-          />
-        </div>
+      {/* ═════ STRIKER DELTA tab — Grid Strike × DTE Heatmap ═════ */}
+      {activeTab === "striker" && chain && (
+        <StrikerDeltaGrid chain={chain} symbol={symbol} />
       )}
 
       {/* ═════ FOOTER INSIGHTS ═════ */}
