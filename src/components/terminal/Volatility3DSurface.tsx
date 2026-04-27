@@ -90,6 +90,7 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
     renderer.setSize(W, H);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x0a0a0a, 1);
+    rendererRef.current = renderer;
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.055);
