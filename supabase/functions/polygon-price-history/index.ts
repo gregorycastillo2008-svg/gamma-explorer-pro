@@ -1,4 +1,5 @@
-// Polygon price history (aggregates) for the integrated chart.
+// Real-time price history for the integrated chart.
+// Uses Yahoo Finance (free, no API key) with Polygon fallback.
 // GET ?symbol=QQQ&timeframe=1D|5D|1M|3M|6M|1Y
 // Returns: { symbol, timeframe, points: [{ time, value }], spot, change, changePct }
 
@@ -8,55 +9,60 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const INDEX_SYMBOLS: Record<string, string> = {
-  SPX: "I:SPX", NDX: "I:NDX", RUT: "I:RUT", VIX: "I:VIX", DJX: "I:DJI", XSP: "I:SPX",
-};
-
-function rangeFor(tf: string): { mult: number; span: string; from: number; to: number } {
-  const now = Date.now();
-  const day = 86_400_000;
+function yahooParams(tf: string): { range: string; interval: string } {
   switch (tf) {
-    case "1D": return { mult: 5, span: "minute", from: now - 1 * day, to: now };
-    case "5D": return { mult: 30, span: "minute", from: now - 7 * day, to: now };
-    case "1M": return { mult: 1, span: "hour", from: now - 31 * day, to: now };
-    case "3M": return { mult: 1, span: "day", from: now - 95 * day, to: now };
-    case "6M": return { mult: 1, span: "day", from: now - 190 * day, to: now };
-    case "1Y": return { mult: 1, span: "day", from: now - 370 * day, to: now };
-    default:   return { mult: 1, span: "day", from: now - 95 * day, to: now };
+    case "1D": return { range: "1d",  interval: "5m" };
+    case "5D": return { range: "5d",  interval: "30m" };
+    case "1M": return { range: "1mo", interval: "1h" };
+    case "3M": return { range: "3mo", interval: "1d" };
+    case "6M": return { range: "6mo", interval: "1d" };
+    case "1Y": return { range: "1y",  interval: "1d" };
+    default:   return { range: "3mo", interval: "1d" };
   }
+}
+
+async function fetchYahoo(symbol: string, tf: string) {
+  const { range, interval } = yahooParams(tf);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`;
+  const r = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      "Accept": "application/json",
+    },
+  });
+  if (!r.ok) throw new Error(`Yahoo ${r.status}`);
+  const j = await r.json();
+  const result = j?.chart?.result?.[0];
+  if (!result) throw new Error("Yahoo: no result");
+  const ts: number[] = result.timestamp || [];
+  const closes: (number | null)[] = result.indicators?.quote?.[0]?.close || [];
+  const meta = result.meta || {};
+  const points = ts
+    .map((t, i) => ({ time: t, value: closes[i] }))
+    .filter((p) => p.value != null && Number.isFinite(p.value)) as { time: number; value: number }[];
+  const spot = Number(meta.regularMarketPrice ?? (points.length ? points[points.length - 1].value : 0));
+  const prevClose = Number(meta.chartPreviousClose ?? meta.previousClose ?? (points.length ? points[0].value : spot));
+  const change = spot - prevClose;
+  const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
+  return { points, spot, change, changePct };
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const url = new URL(req.url);
+  const symbol = (url.searchParams.get("symbol") || "QQQ").toUpperCase();
+  const timeframe = url.searchParams.get("timeframe") || "3M";
+
   try {
-    const url = new URL(req.url);
-    const symbol = (url.searchParams.get("symbol") || "QQQ").toUpperCase();
-    const timeframe = url.searchParams.get("timeframe") || "3M";
-    const apiKey = Deno.env.get("POLYGON_API_KEY");
-    if (!apiKey) throw new Error("POLYGON_API_KEY missing");
-
-    const polySym = INDEX_SYMBOLS[symbol] ?? symbol;
-    const { mult, span, from, to } = rangeFor(timeframe);
-
-    const aggUrl = `https://api.polygon.io/v2/aggs/ticker/${encodeURIComponent(polySym)}/range/${mult}/${span}/${from}/${to}?adjusted=true&sort=asc&limit=50000&apiKey=${apiKey}`;
-    const r = await fetch(aggUrl);
-    if (!r.ok) throw new Error(`Polygon ${r.status}`);
-    const j = await r.json();
-    const results: any[] = j.results || [];
-    const points = results.map((b) => ({ time: Math.floor(b.t / 1000), value: b.c }));
-    const spot = points.length ? points[points.length - 1].value : 0;
-    const open = points.length ? points[0].value : spot;
-    const change = spot - open;
-    const changePct = open > 0 ? (change / open) * 100 : 0;
-
+    const { points, spot, change, changePct } = await fetchYahoo(symbol, timeframe);
     return new Response(
-      JSON.stringify({ symbol, timeframe, points, spot, change, changePct }),
+      JSON.stringify({ symbol, timeframe, points, spot, change, changePct, source: "yahoo" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e: any) {
     return new Response(
-      JSON.stringify({ error: e?.message ?? "fetch error", points: [] }),
+      JSON.stringify({ error: e?.message ?? "fetch error", points: [], spot: 0, change: 0, changePct: 0 }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
