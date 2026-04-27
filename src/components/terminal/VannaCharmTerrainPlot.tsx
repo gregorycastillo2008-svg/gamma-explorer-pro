@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { Surface3DTooltip, type TooltipData } from "./Surface3DTooltip";
 
 const N = 90;
 const SX = 5.6;
@@ -89,12 +90,15 @@ export function VannaCharmTerrainPlot() {
   const [elev, setElev] = useState(26);
   const [azim, setAzim] = useState(200);
   const [showPlane, setShowPlane] = useState(true);
+  const [tip, setTip] = useState<TooltipData | null>(null);
 
   const elevRef = useRef(26);
   const azimRef = useRef(200);
   const distRef = useRef(9.0);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const planeRef = useRef<THREE.Mesh | null>(null);
+  const surfaceRef = useRef<THREE.Mesh | null>(null);
+  const markerRef = useRef<THREE.Mesh | null>(null);
 
   function updateCam() {
     const cam = cameraRef.current;
@@ -170,7 +174,18 @@ export function VannaCharmTerrainPlot() {
       vertexColors: true, side: THREE.DoubleSide,
       shininess: 55, specular: new THREE.Color(0.35, 0.35, 0.25),
     });
-    scene.add(new THREE.Mesh(geo, mat));
+    const surfaceMesh = new THREE.Mesh(geo, mat);
+    surfaceRef.current = surfaceMesh;
+    scene.add(surfaceMesh);
+
+    // Hover marker
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.95 }),
+    );
+    marker.visible = false;
+    markerRef.current = marker;
+    scene.add(marker);
 
     // Mesh lines (light over black)
     const lm = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.12, transparent: true });
@@ -270,6 +285,48 @@ export function VannaCharmTerrainPlot() {
       setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
       updateCam();
     };
+
+    // Hover raycaster
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let lastHover = 0;
+    const onHover = (e: MouseEvent) => {
+      if (drag) { setTip(null); if (markerRef.current) markerRef.current.visible = false; return; }
+      const now = performance.now();
+      if (now - lastHover < 16) return;
+      lastHover = now;
+      const rect = canvas.getBoundingClientRect();
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const surf = surfaceRef.current;
+      if (!surf) return;
+      const hits = raycaster.intersectObject(surf);
+      if (hits.length > 0) {
+        const pt = hits[0].point;
+        if (markerRef.current) {
+          markerRef.current.position.copy(pt);
+          markerRef.current.visible = true;
+        }
+        // Map back: x in mm 0..0.08, y(z-axis on screen) in mm 0..0.08, value in μm 10.5..14
+        const xMM = ((pt.x / SX) + 0.5) * 0.08;
+        const yMM = (0.5 - (pt.z / SZ)) * 0.08;
+        const zUM = ((pt.y + 0.4) / SY) * (14 - 10.5) + 10.5;
+        setTip({
+          value: zUM,
+          x: xMM,
+          y: yMM,
+          xLabel: "X (mm)",
+          yLabel: "Y (mm)",
+          zLabel: "Z (μm)",
+          position: { x: e.clientX, y: e.clientY },
+        });
+      } else {
+        if (markerRef.current) markerRef.current.visible = false;
+        setTip(null);
+      }
+    };
+    const onLeave = () => { setTip(null); if (markerRef.current) markerRef.current.visible = false; };
     const onWheel = (e: WheelEvent) => {
       distRef.current = Math.max(0.5, Math.min(80, distRef.current + e.deltaY * 0.02));
       e.preventDefault();
@@ -292,6 +349,8 @@ export function VannaCharmTerrainPlot() {
     canvas.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     window.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mousemove", onHover);
+    canvas.addEventListener("mouseleave", onLeave);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("touchstart", onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -313,6 +372,8 @@ export function VannaCharmTerrainPlot() {
       canvas.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mousemove", onHover);
+      canvas.removeEventListener("mouseleave", onLeave);
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("touchstart", onTouchStart);
       canvas.removeEventListener("touchmove", onTouchMove);
@@ -343,6 +404,7 @@ export function VannaCharmTerrainPlot() {
           <input type="checkbox" checked={showPlane} onChange={(e) => setShowPlane(e.target.checked)} style={{ verticalAlign: "middle" }} /> Ref plane
         </label>
       </div>
+      {tip && <Surface3DTooltip data={tip} type="terrain" />}
     </div>
   );
 }
