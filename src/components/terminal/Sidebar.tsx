@@ -52,14 +52,11 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
       )}
     >
       <div className="h-14 flex items-center px-3 border-b border-sidebar-border">
-        <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0 text-base bg-black text-black" style={{ background: "var(--gradient-primary)" }} title="GEXSATELIT">
+        <div className="h-8 w-8 flex items-center justify-center shrink-0 text-base" title="GEXSATELIT">
           🛰️
         </div>
         {!collapsed && (
-          <span
-            className="ml-2 font-black tracking-wider text-sm bg-clip-text text-white"
-            style={{ backgroundImage: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)" }}
-          >
+          <span className="ml-2 font-black tracking-wider text-sm text-white">
             GEXSATELIT
           </span>
         )}
@@ -89,7 +86,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
                 >
                   {isActive && <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary" />}
                   <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && <span className="truncate text-white bg-black">{s.label}</span>}
+                  {!collapsed && <span className="truncate text-white">{s.label}</span>}
                 </button>
               );
             })}
@@ -123,12 +120,12 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
             className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary hover:bg-sidebar-accent rounded"
             title={collapsed ? "Upgrade" : undefined}
           >
-            <Sigma className="h-4 w-4 shrink-0 border-primary text-[#ff0000]" />
-            {!collapsed && <span>{tier ? "Manage plan" : "Upgrade"}</span>}
+            <Sigma className="h-4 w-4 shrink-0 text-white" />
+            {!collapsed && <span className="text-white">{tier ? "Manage plan" : "Upgrade"}</span>}
           </button>
         )}
         {!collapsed && email && (
-          <div className="px-2 py-1.5 text-xs truncate text-[#ff0000] font-semibold border-2 opacity-80">{email}</div>
+          <div className="px-2 py-1.5 text-xs truncate text-white font-semibold opacity-80">{email}</div>
         )}
         <button
           onClick={onSignOut}
