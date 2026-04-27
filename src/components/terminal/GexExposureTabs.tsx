@@ -184,11 +184,7 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
 export function StrikeChartView({ ticker, contracts, metric }: Props) {
   const data = useMemo(() => {
     const points = computeExposures(ticker.spot, contracts);
-    // Take 10 strikes above spot and 10 below (sorted desc so highest is on top)
-    const sortedAsc = points.slice().sort((a, b) => a.strike - b.strike);
-    const above = sortedAsc.filter((p) => p.strike > ticker.spot).slice(0, 10);
-    const below = sortedAsc.filter((p) => p.strike <= ticker.spot).slice(-10);
-    return [...above, ...below].sort((a, b) => b.strike - a.strike);
+    return points.slice().sort((a, b) => b.strike - a.strike);
   }, [ticker, contracts]);
 
   const max = Math.max(...data.map((d) => Math.abs(d[metric])), 1);
