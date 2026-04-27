@@ -40,25 +40,13 @@ export function GammaBackgroundDark() {
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, w, h);
 
-      // Subtle grid
-      ctx.strokeStyle = "rgba(255,255,255,0.04)";
-      ctx.lineWidth = 1;
-      for (let y = 0; y < h; y += 50) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-      }
-      for (let x = 0; x < w; x += 50) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-      }
+      // Grid removed — pure black background only
 
       const midY = h / 2;
       const barW = w / BARS;
       const maxBar = h * 0.85; // much taller bars
 
-      // Zero line
-      ctx.strokeStyle = "rgba(255,215,0,0.18)";
-      ctx.setLineDash([4, 6]);
-      ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(w, midY); ctx.stroke();
-      ctx.setLineDash([]);
+      // Zero line removed for cleaner background
 
       const values: number[] = [];
       for (let i = 0; i < BARS; i++) {
