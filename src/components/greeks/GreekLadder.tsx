@@ -96,12 +96,6 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
     try {
       const params = new URLSearchParams({ symbol });
       if (expiration) params.set("expiration", expiration);
-      const { data, error } = await supabase.functions.invoke("polygon-options-chain", {
-        method: "GET" as any,
-        // edge invoke doesn't support query string directly — fall back to fetch
-      } as any).catch(() => ({ data: null, error: null } as any));
-
-      // Use direct fetch since invoke ignores query params on GET in some clients
       const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/polygon-options-chain?${params.toString()}`;
       const r = await fetch(url, {
         headers: {
