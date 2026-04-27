@@ -446,7 +446,7 @@ export default function Landing() {
                   transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.6, repeatDelay: 0.4 }}
                 />
                 <div className="pl-3 pr-2 py-1.5 flex items-center gap-1.5 relative">
-                  <span className="font-mono font-black tracking-widest text-xs bg-clip-text text-transparent"
+                  <span className="font-mono font-black tracking-widest text-xs bg-clip-text text-[#ff0000]"
                     style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
                   >
                     {d.code}
