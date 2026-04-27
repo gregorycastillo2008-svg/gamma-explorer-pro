@@ -12,9 +12,9 @@ interface Props {
 
 export function Panel({ title, subtitle, right, children, className, noPad }: Props) {
   return (
-    <div className={cn("rounded-md border border-border bg-card overflow-hidden", className)}>
+    <div className={cn("rounded-md border border-border bg-card overflow-hidden flex flex-col", className)}>
       {(title || right) && (
-        <div className="h-9 px-3 flex items-center justify-between border-b border-border bg-secondary/40">
+        <div className="h-9 shrink-0 px-3 flex items-center justify-between border-b border-border bg-secondary/40">
           <div className="flex items-baseline gap-2">
             {title && <span className="text-[11px] font-bold tracking-widest uppercase text-foreground">{title}</span>}
             {subtitle && <span className="text-[10px] text-muted-foreground">{subtitle}</span>}
