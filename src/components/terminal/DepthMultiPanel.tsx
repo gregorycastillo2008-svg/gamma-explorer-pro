@@ -188,6 +188,11 @@ function DepthPanel({
             className="flex-1 overflow-y-auto px-1 py-1 relative"
             onMouseLeave={() => setTooltip(null)}
           >
+            {rows.length === 0 && (
+              <div className="h-full flex items-center justify-center text-[10px]" style={{ color: MUTED }}>
+                Sin opciones reales en este rango DTE
+              </div>
+            )}
             {rows.map((r) => {
               const isSpot = Math.abs(r.strike - spot) < ticker.strikeStep / 2;
               const isFlip = flip != null && Math.abs(r.strike - flip) < ticker.strikeStep / 2;
