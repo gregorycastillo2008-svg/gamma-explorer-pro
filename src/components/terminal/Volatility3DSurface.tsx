@@ -83,6 +83,8 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
 
   useEffect(() => { elevRef.current = elev; updateCam(); }, [elev]);
   useEffect(() => { azimRef.current = azim; updateCam(); }, [azim]);
+  useEffect(() => { if (dataPtsRef.current) dataPtsRef.current.visible = showDataPts; }, [showDataPts]);
+  useEffect(() => { if (refPlaneRef.current) refPlaneRef.current.visible = showRefPlane; }, [showRefPlane]);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
