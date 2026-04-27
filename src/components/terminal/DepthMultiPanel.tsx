@@ -25,23 +25,15 @@ interface PanelConfig {
 export function DepthMultiPanel({ ticker, contracts }: Props) {
   const [hoverStrike, setHoverStrike] = useState<number | null>(null);
 
-  // Build DTE options dynamically from ticker expiries
-  const dteOptions: PanelConfig[] = useMemo(() => {
-    const opts: PanelConfig[] = [{ key: "all", label: "ALL", filter: () => true }];
-    for (const e of ticker.expiries) {
-      opts.push({
-        key: `${e}dte`,
-        label: `${e} DTE`,
-        filter: (c) => c.expiry === e,
-      });
-    }
-    return opts;
-  }, [ticker.expiries]);
+  // Solo 1/2/3 DTE — muestra contratos REALES cuya expiración cae dentro del rango
+  const dteOptions: PanelConfig[] = useMemo(() => [
+    { key: "1dte", label: "1 DTE", filter: (c) => c.expiry <= 1 },
+    { key: "2dte", label: "2 DTE", filter: (c) => c.expiry <= 2 },
+    { key: "3dte", label: "3 DTE", filter: (c) => c.expiry <= 3 },
+  ], []);
 
-  const [leftKey, setLeftKey] = useState<string>(dteOptions[0]?.key ?? "all");
-  const [rightKey, setRightKey] = useState<string>(
-    dteOptions[1]?.key ?? dteOptions[0]?.key ?? "all"
-  );
+  const [leftKey, setLeftKey] = useState<string>("1dte");
+  const [rightKey, setRightKey] = useState<string>("3dte");
 
   const leftCfg = dteOptions.find((o) => o.key === leftKey) ?? dteOptions[0];
   const rightCfg = dteOptions.find((o) => o.key === rightKey) ?? dteOptions[0];
@@ -196,6 +188,11 @@ function DepthPanel({
             className="flex-1 overflow-y-auto px-1 py-1 relative"
             onMouseLeave={() => setTooltip(null)}
           >
+            {rows.length === 0 && (
+              <div className="h-full flex items-center justify-center text-[10px]" style={{ color: MUTED }}>
+                Sin opciones reales en este rango DTE
+              </div>
+            )}
             {rows.map((r) => {
               const isSpot = Math.abs(r.strike - spot) < ticker.strikeStep / 2;
               const isFlip = flip != null && Math.abs(r.strike - flip) < ticker.strikeStep / 2;
