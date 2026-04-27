@@ -368,6 +368,9 @@ export function VannaCharmSurfacePlot() {
         <label style={{ color: "#aaa", fontSize: 11 }}>
           <input type="checkbox" checked={showPts} onChange={(e) => setShowPts(e.target.checked)} style={{ verticalAlign: "middle" }} /> Data pts
         </label>
+        <label style={{ color: "#aaa", fontSize: 11 }}>
+          <input type="checkbox" checked={showPlane} onChange={(e) => setShowPlane(e.target.checked)} style={{ verticalAlign: "middle" }} /> Ref plane
+        </label>
       </div>
     </div>
   );
