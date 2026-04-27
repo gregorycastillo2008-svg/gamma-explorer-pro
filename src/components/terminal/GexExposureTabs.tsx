@@ -102,7 +102,7 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
   }, []);
 
   return (
-    <div ref={heatRef} className="bg-black rounded overflow-auto h-full overscroll-contain" style={{ scrollbarColor: "#1a1a1a #000" }}>
+    <div ref={heatRef} className="terminal-scrollbar bg-black rounded overflow-y-scroll overflow-x-auto h-full overscroll-contain pr-1" style={{ scrollbarColor: "hsl(var(--primary)) hsl(var(--background))", scrollbarWidth: "auto" }}>
       <table className="w-full font-jetbrains text-[11px]" style={{ borderCollapse: "collapse" }}>
         <thead className="sticky top-0 z-20">
           <tr>
@@ -251,8 +251,8 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
 
       <div
         ref={scrollRef}
-        className="flex-1 h-full min-h-0 relative overflow-y-auto overscroll-contain touch-pan-y [scrollbar-gutter:stable]"
-        style={{ scrollbarColor: "#3a3a3a #000", scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" as any }}
+        className="terminal-scrollbar flex-1 h-full min-h-0 relative overflow-y-scroll overscroll-contain touch-pan-y pr-1 [scrollbar-gutter:stable]"
+        style={{ scrollbarColor: "hsl(var(--primary)) hsl(var(--background))", scrollbarWidth: "auto", WebkitOverflowScrolling: "touch" as any }}
       >
         <div className="grid grid-cols-[72px_1fr] relative min-h-max">
           {/* LEFT: strike price column */}
