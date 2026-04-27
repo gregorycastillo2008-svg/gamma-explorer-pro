@@ -9,6 +9,7 @@ import { ThirdOrderGreeksPanel } from "./ThirdOrderGreeksPanel";
 
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { VolatilityDashboard } from "@/components/volatility/VolatilityDashboard";
+import { PriceGexChartContainer } from "@/components/chart/PriceGexChartContainer";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
   const netDex = exposures.reduce((s, p) => s + p.dex, 0);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col gap-4 overflow-y-auto">
       <TerminalTabs
         layoutId="overview-master-tab-bg"
         tabs={[
@@ -89,6 +90,9 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
           },
         ]}
       />
+
+      {/* Price + GEX live chart */}
+      <PriceGexChartContainer defaultSymbol={ticker.symbol} />
     </div>
   );
 }
