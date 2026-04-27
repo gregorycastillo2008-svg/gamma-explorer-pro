@@ -308,17 +308,19 @@ export function VannaCharmTerrainPlot() {
           markerRef.current.position.copy(pt);
           markerRef.current.visible = true;
         }
-        // Map back: x in mm 0..0.08, y(z-axis on screen) in mm 0..0.08, value in μm 10.5..14
-        const xMM = ((pt.x / SX) + 0.5) * 0.08;
-        const yMM = (0.5 - (pt.z / SZ)) * 0.08;
-        const zUM = ((pt.y + 0.4) / SY) * (14 - 10.5) + 10.5;
+        // Map to options market data: Moneyness, DTE, Charm
+        const u = (pt.x / SX) + 0.5;        // 0..1
+        const v = 0.5 - (pt.z / SZ);        // 0..1
+        const norm = Math.max(0, Math.min(1, (pt.y + 0.4) / SY));
+        const moneyness = 0.85 + u * 0.30;  // 0.85..1.15
+        const dte = Math.round(1 + v * 59); // 1..60d
+        const charmVal = (norm - 0.5) * 150_000_000; // ±75M
+        const spot = 47;
         setTip({
-          value: zUM,
-          x: xMM,
-          y: yMM,
-          xLabel: "X (mm)",
-          yLabel: "Y (mm)",
-          zLabel: "Z (μm)",
+          strike: Math.round(100 * moneyness * spot),
+          moneyness: moneyness * 100,
+          dte,
+          value: charmVal,
           position: { x: e.clientX, y: e.clientY },
         });
       } else {
@@ -404,7 +406,7 @@ export function VannaCharmTerrainPlot() {
           <input type="checkbox" checked={showPlane} onChange={(e) => setShowPlane(e.target.checked)} style={{ verticalAlign: "middle" }} /> Ref plane
         </label>
       </div>
-      {tip && <Surface3DTooltip data={tip} type="terrain" />}
+      {tip && <Surface3DTooltip data={tip} type="charm" />}
     </div>
   );
 }
