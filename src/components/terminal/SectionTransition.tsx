@@ -50,7 +50,7 @@ export function SectionTransition({ sectionKey, children }: Props) {
   const label = SECTION_LABELS[sectionKey] ?? sectionKey.toUpperCase();
 
   return (
-    <div className="relative">
+    <div className="relative h-full">
       <AnimatePresence>
         {loading && (
           <motion.div
@@ -184,6 +184,7 @@ export function SectionTransition({ sectionKey, children }: Props) {
         initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
         animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
         transition={{ duration: 0.45, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        className="h-full"
       >
         {children}
       </motion.div>
