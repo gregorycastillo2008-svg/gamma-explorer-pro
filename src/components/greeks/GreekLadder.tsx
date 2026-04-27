@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { calculateAllGreeks } from "@/lib/greeks/greekCalculations";
 import { classifyGreekIntensity, INTENSITY_CONFIGS, formatGreekValue } from "@/lib/greeks/greekClassification";
 import { GreekTooltip, type GreekType } from "./GreekTooltip";
