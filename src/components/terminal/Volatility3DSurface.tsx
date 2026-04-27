@@ -52,16 +52,20 @@ function surfaceFn(u: number, v: number) {
   return base + peak + drop + wave;
 }
 
-export function Volatility3DSurface(_: Props) {
+export function Volatility3DSurface({ spot = 100, symbol }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [elev, setElev] = useState(32);
   const [azim, setAzim] = useState(220);
+  const [tip, setTip] = useState<TooltipData | null>(null);
 
   const elevRef = useRef(32);
   const azimRef = useRef(220);
   const distRef = useRef(7.5);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const meshRef = useRef<THREE.Mesh | null>(null);
+  const markerRef = useRef<THREE.Mesh | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
   function updateCam() {
     const cam = cameraRef.current;
