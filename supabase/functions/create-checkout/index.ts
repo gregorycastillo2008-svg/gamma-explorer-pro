@@ -8,12 +8,9 @@ const corsHeaders = {
 };
 
 const VALID_PRICES = new Set([
-  "price_1TQreBCZRgBPwOB9AOgrMFJ5",
-  "price_1TQrefCZRgBPwOB99sCuvVv4",
-  "price_1TQrfQCZRgBPwOB9Sti7Teao",
-  "price_1TQrfrCZRgBPwOB9CddMvqzz",
-  "price_1TQrgfCZRgBPwOB9Xa1n2i6P",
-  "price_1TQrhICZRgBPwOB9YKQTn74Y",
+  "price_1TQrwlCZRgBPwOB9FoDolYiq", // Starter
+  "price_1TQrxOCZRgBPwOB9UbadcwFU", // Pro
+  "price_1TQry2CZRgBPwOB9bKH38XuV", // Elite
 ]);
 
 serve(async (req) => {
@@ -46,8 +43,12 @@ serve(async (req) => {
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       payment_method_types: ["card"],
+      subscription_data: {
+        trial_period_days: 7,
+      },
+      allow_promotion_codes: true,
       success_url: `${origin}/dashboard?checkout=success`,
-      cancel_url: `${origin}/pricing?checkout=cancel`,
+      cancel_url: `${origin}/dashboard?checkout=cancel`,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

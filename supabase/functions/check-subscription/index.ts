@@ -8,12 +8,9 @@ const corsHeaders = {
 };
 
 const PRICE_TO_TIER: Record<string, { tier: string; interval: string }> = {
-  price_1TQreBCZRgBPwOB9AOgrMFJ5: { tier: "basic", interval: "month" },
-  price_1TQrefCZRgBPwOB99sCuvVv4: { tier: "basic", interval: "year" },
-  price_1TQrfQCZRgBPwOB9Sti7Teao: { tier: "pro", interval: "month" },
-  price_1TQrfrCZRgBPwOB9CddMvqzz: { tier: "pro", interval: "year" },
-  price_1TQrgfCZRgBPwOB9Xa1n2i6P: { tier: "elite", interval: "month" },
-  price_1TQrhICZRgBPwOB9YKQTn74Y: { tier: "elite", interval: "year" },
+  price_1TQrwlCZRgBPwOB9FoDolYiq: { tier: "starter", interval: "month" },
+  price_1TQrxOCZRgBPwOB9UbadcwFU: { tier: "pro", interval: "month" },
+  price_1TQry2CZRgBPwOB9bKH38XuV: { tier: "elite", interval: "month" },
 };
 
 serve(async (req) => {
@@ -45,21 +42,21 @@ serve(async (req) => {
       });
     }
 
+    // Aceptamos active O trialing (7 días de prueba)
     const subs = await stripe.subscriptions.list({
       customer: customers.data[0].id,
-      status: "active",
-      limit: 1,
+      status: "all",
+      limit: 10,
     });
-
-    if (subs.data.length === 0) {
+    const sub = subs.data.find((s) => s.status === "active" || s.status === "trialing");
+    if (!sub) {
       return new Response(JSON.stringify({ subscribed: false, tier: null, interval: null, subscription_end: null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const sub = subs.data[0];
     const priceId = sub.items.data[0].price.id;
-    const meta = PRICE_TO_TIER[priceId] ?? { tier: "basic", interval: "month" };
+    const meta = PRICE_TO_TIER[priceId] ?? { tier: "starter", interval: "month" };
 
     return new Response(JSON.stringify({
       subscribed: true,

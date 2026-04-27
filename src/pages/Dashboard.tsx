@@ -28,6 +28,7 @@ import { VannaCharmWorkspace } from "@/components/terminal/VannaCharmWorkspace";
 import { OiAnalyticsWorkspace } from "@/components/terminal/OiAnalyticsWorkspace";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { SectionTransition } from "@/components/terminal/SectionTransition";
+import { Paywall } from "@/components/Paywall";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -40,10 +41,9 @@ export default function Dashboard() {
   const nav = useNavigate();
   const { toast } = useToast();
 
-  // Allowed sections by tier (admin = all access)
-  const allowed = isAdmin
-    ? undefined
-    : allowedSections(tier);
+  // Admin → acceso total. Sin plan → mostrar dashboard borroso + paywall.
+  const hasAccess = isAdmin || subscribed;
+  const allowed = isAdmin ? undefined : allowedSections(tier);
 
   const [section, setSection] = useState<Section>("overview");
   const [collapsed, setCollapsed] = useState(false);
@@ -59,21 +59,20 @@ export default function Dashboard() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("checkout") === "success") {
-      toast({ title: "Welcome!", description: "Activating your subscription..." });
+      toast({ title: "¡Bienvenido!", description: "Activando tu suscripción..." });
       const tries = [1500, 4000, 8000];
       tries.forEach((ms) => setTimeout(() => refreshSub(), ms));
       window.history.replaceState({}, "", "/dashboard");
     }
   }, []);
 
-  // If current section not allowed for this tier, fall back to first allowed (or pricing)
+  // Si la sección actual no está permitida para este tier, caer a la primera permitida
   useEffect(() => {
     if (adminLoading || subLoading) return;
-    if (isAdmin) return;
-    if (!allowed) return;
-    if (allowed.length === 0) { nav("/pricing"); return; }
+    if (isAdmin || !subscribed) return;
+    if (!allowed || allowed.length === 0) return;
     if (!allowed.includes(section)) setSection(allowed[0]);
-  }, [allowed, section, isAdmin, adminLoading, subLoading, nav]);
+  }, [allowed, section, isAdmin, subscribed, adminLoading, subLoading]);
 
   const openManagePlan = async () => {
     if (!subscribed) { nav("/pricing"); return; }
@@ -174,43 +173,54 @@ export default function Dashboard() {
     }
   };
 
+  // Mientras carga el estado de admin/sub, no decidimos nada (evita parpadeo del paywall).
+  const checking = adminLoading || subLoading;
+  const showPaywall = !checking && !hasAccess;
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <Sidebar
-        active={section}
-        onSelect={setSection}
-        collapsed={collapsed}
-        onToggle={() => setCollapsed(!collapsed)}
-        isAdmin={isAdmin}
-        email={user?.email ?? undefined}
-        onSignOut={signOut}
-        allowed={allowed}
-        tier={isAdmin ? "admin" : tier}
-        onUpgrade={openManagePlan}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Topbar
-          ticker={ticker}
-          watchlist={watchlist}
-          active={active}
-          onActive={setActive}
-          onAdd={() => setAddOpen(true)}
-          onRemove={removeTicker}
-          expiry={expiry}
-          onExpiry={setExpiry}
-          status={status}
-          source={source}
-          fetchedAt={fetchedAt}
-          priceChangePct={priceChangePct}
-          onReload={reload}
-          levels={levels}
+      <div
+        className={`flex flex-1 ${showPaywall ? "blur-md scale-[1.02] pointer-events-none select-none" : ""} transition-all duration-500`}
+        aria-hidden={showPaywall}
+      >
+        <Sidebar
+          active={section}
+          onSelect={setSection}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(!collapsed)}
+          isAdmin={isAdmin}
+          email={user?.email ?? undefined}
+          onSignOut={signOut}
+          allowed={allowed}
+          tier={isAdmin ? "admin" : tier}
+          onUpgrade={openManagePlan}
         />
-        <main className="flex-1 overflow-hidden p-1">
-          <SectionTransition sectionKey={`${section}-${active}`}>
-            {renderView()}
-          </SectionTransition>
-        </main>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Topbar
+            ticker={ticker}
+            watchlist={watchlist}
+            active={active}
+            onActive={setActive}
+            onAdd={() => setAddOpen(true)}
+            onRemove={removeTicker}
+            expiry={expiry}
+            onExpiry={setExpiry}
+            status={status}
+            source={source}
+            fetchedAt={fetchedAt}
+            priceChangePct={priceChangePct}
+            onReload={reload}
+            levels={levels}
+          />
+          <main className="flex-1 overflow-hidden p-1">
+            <SectionTransition sectionKey={`${section}-${active}`}>
+              {renderView()}
+            </SectionTransition>
+          </main>
+        </div>
       </div>
+
+      {showPaywall && <Paywall email={user?.email ?? undefined} />}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
