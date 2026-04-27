@@ -80,11 +80,17 @@ function fmt(v: number): string {
 
 export function GEXDEXHeatmap({ ticker, contracts }: Props) {
   const [metric, setMetric] = useState<Metric>("GEX");
+  const [theme, setTheme] = useState<Theme>("dark");
   const [expiryFilter, setExpiryFilter] = useState<string>("all");
   const [hoverRow, setHoverRow] = useState<number | null>(null);
   const [hoverCol, setHoverCol] = useState<number | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; strike: number; col: number; gex: number; dex: number } | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+
+  // Theme tokens — applied across container, panels and cells
+  const T = theme === "light"
+    ? { bg: "#f5f5f5", panel: "#ffffff", border: "#d4d4d4", text: "#0a0a0a", muted: "#666", cellBorder: "rgba(0,0,0,0.18)" }
+    : { bg: C.bg,     panel: C.panel,    border: C.border,   text: C.text,    muted: C.muted, cellBorder: "#000000" };
 
   const expiries = useMemo(() => {
     const set = new Set<number>();
@@ -240,7 +246,22 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
           </select>
         </div>
 
-        <div className="ml-auto flex items-center gap-2 text-[10px]" style={{ color: C.muted }}>
+        <div className="ml-auto flex items-center gap-2 text-[10px]" style={{ color: T.muted }}>
+          <div className="flex rounded overflow-hidden mr-2" style={{ border: `1px solid ${T.border}` }}>
+            {(["dark", "light"] as Theme[]).map((th) => (
+              <button
+                key={th}
+                onClick={() => setTheme(th)}
+                className="px-2.5 py-1 text-[10px] font-bold tracking-wider transition-colors"
+                style={{
+                  background: theme === th ? C.yellow : "transparent",
+                  color: theme === th ? "#000" : T.muted,
+                }}
+              >
+                {th === "dark" ? "● DARK" : "○ LIGHT"}
+              </button>
+            ))}
+          </div>
           <span>SPOT</span>
           <span style={{ color: C.yellow, fontWeight: 700 }}>${ticker.spot.toFixed(2)}</span>
           <span>·</span>
@@ -249,7 +270,7 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
       </div>
 
       {/* ── BODY: two synced heatmap panels ── */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-px" style={{ background: C.border }}>
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-px" style={{ background: T.border }}>
         <HeatPanel
           title="GEX · Gamma Exposure"
           chapLabel="CHAP: simple"
