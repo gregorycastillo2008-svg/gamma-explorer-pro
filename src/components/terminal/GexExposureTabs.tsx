@@ -85,8 +85,24 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
     return { strikes: strikeSet, expiries: expSet, grid: perExp, max: mx, peakPos: pPos, peakNeg: pNeg };
   }, [ticker, contracts, metric]);
 
+  const heatRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = heatRef.current;
+    if (!el) return;
+    const handleWheel = (event: WheelEvent) => {
+      const canScrollY = el.scrollHeight > el.clientHeight;
+      const canScrollX = el.scrollWidth > el.clientWidth;
+      if (!canScrollY && !canScrollX) return;
+      event.preventDefault();
+      event.stopPropagation();
+      el.scrollBy({ top: event.deltaY, left: event.deltaX, behavior: "auto" });
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
+
   return (
-    <div className="bg-black rounded overflow-auto h-full" style={{ scrollbarColor: "#1a1a1a #000" }}>
+    <div ref={heatRef} className="bg-black rounded overflow-auto h-full overscroll-contain" style={{ scrollbarColor: "#1a1a1a #000" }}>
       <table className="w-full font-jetbrains text-[11px]" style={{ borderCollapse: "collapse" }}>
         <thead className="sticky top-0 z-20">
           <tr>
