@@ -55,6 +55,25 @@ export default function Dashboard() {
 
   useEffect(() => { if (!loading && !user) nav("/auth"); }, [user, loading, nav]);
 
+  // If current section not allowed for this tier, fall back to first allowed (or pricing)
+  useEffect(() => {
+    if (isAdmin || subLoading) return;
+    if (!allowed) return;
+    if (allowed.length === 0) { nav("/pricing"); return; }
+    if (!allowed.includes(section)) setSection(allowed[0]);
+  }, [allowed, section, isAdmin, subLoading, nav]);
+
+  const openManagePlan = async () => {
+    if (!subscribed) { nav("/pricing"); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke("customer-portal");
+      if (error) throw error;
+      if (data?.url) window.open(data.url, "_blank");
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
     supabase.from("watchlist").select("ticker").order("created_at").then(({ data }) => {
