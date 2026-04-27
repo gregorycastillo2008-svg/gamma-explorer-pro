@@ -5,6 +5,8 @@ import { classifyGreekIntensity, INTENSITY_CONFIGS, formatGreekValue } from "@/l
 import { GreekTooltip, type GreekType } from "./GreekTooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeftRight, RefreshCw, Activity } from "lucide-react";
+import { DealerExposureBars, type DealerStrikeRow } from "./DealerExposureBars";
+import { GreeksSurface3D, type SurfacePoint } from "./GreeksSurface3D";
 
 interface RawContract {
   ticker: string;
