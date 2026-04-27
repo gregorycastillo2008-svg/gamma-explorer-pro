@@ -328,9 +328,51 @@ export function VannaCharmSurfacePlot() {
       e.preventDefault();
     };
 
+    // Raycaster hover for tooltip (Vanna)
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let lastHover = 0;
+    const SX_LOC = 5.0, SZ_LOC = 5.0, SY_LOC = 3.2;
+    const onHover = (e: MouseEvent) => {
+      if (drag) return;
+      const now = performance.now();
+      if (now - lastHover < 16) return;
+      lastHover = now;
+      const rect = canvas.getBoundingClientRect();
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(surfaceMesh);
+      if (hits.length > 0) {
+        const pt = hits[0].point;
+        marker.visible = true;
+        marker.position.copy(pt);
+        const u = (pt.x / SX_LOC) + 0.5;
+        const v = (pt.z / SZ_LOC) + 0.5;
+        const moneyness = 0.85 + u * 0.30;
+        const dte = Math.round(1 + v * 59);
+        const norm = Math.max(0, Math.min(1, (pt.y + 0.3) / SY_LOC));
+        const vannaVal = (norm - 0.5) * 200_000_000;
+        setTip({
+          strike: Math.round(100 * moneyness * 47),
+          moneyness: moneyness * 100,
+          dte,
+          value: vannaVal,
+          oiPct: Math.round(norm * 100),
+          position: { x: e.clientX, y: e.clientY },
+        });
+      } else {
+        marker.visible = false;
+        setTip(null);
+      }
+    };
+    const onLeave = () => { marker.visible = false; setTip(null); };
+
     canvas.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     window.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mousemove", onHover);
+    canvas.addEventListener("mouseleave", onLeave);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("touchstart", onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", onTouchMove, { passive: false });
