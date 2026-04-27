@@ -495,10 +495,10 @@ function Metric({ label, value, color }: { label: string; value: string; color: 
 }
 
 function NumCell({ value, color, prefix = "", suffix = "", digits = 2, format }: { value: number; color: string; prefix?: string; suffix?: string; digits?: number; format?: "int" }) {
-  if (!value) return <td className="text-right px-2 py-1 text-muted-foreground" style={{ borderLeft: "1px solid #111" }}>—</td>;
+  if (!value) return <td className="text-right px-2 py-1 border-solid text-muted-foreground" style={{ borderLeft: "1px solid #111" }}>—</td>;
   const formatted = format === "int" ? value.toLocaleString() : value.toFixed(digits);
   return (
-    <td className="text-right px-2 py-1 tabular-nums bg-[#18c96d]/[0.42] font-sans opacity-75" style={{ color, borderLeft: "1px solid #111", fontSize: 10 }}>
+    <td className="text-right px-2 py-1 tabular-nums font-sans opacity-75 border-4 bg-[#289a3d] text-white" style={{ color, borderLeft: "1px solid #111", fontSize: 10 }}>
       {prefix}{formatted}{suffix}
     </td>
   );
@@ -506,7 +506,7 @@ function NumCell({ value, color, prefix = "", suffix = "", digits = 2, format }:
 
 function Insight({ label, strike, value, note, color }: { label: string; strike: number; value: string; note: string; color: string }) {
   return (
-    <div className="flex flex-col gap-0.5 px-2 py-1 rounded" style={{ background: "rgba(255,255,255,0.02)", borderLeft: `2px solid ${color}` }}>
+    <div className="flex flex-col gap-0.5 px-2 py-1 border-solid rounded" style={{ background: "rgba(255,255,255,0.02)", borderLeft: `2px solid ${color}` }}>
       <div className="flex items-baseline justify-between">
         <span className="text-[8px] tracking-widest text-muted-foreground font-bold">{label}</span>
         <span className="text-[10px] font-bold text-foreground">${strike}</span>
