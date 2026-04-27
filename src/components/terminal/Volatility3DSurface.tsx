@@ -173,7 +173,7 @@ export function Volatility3DSurface(_: Props) {
       updateCam();
     };
     const onWheel = (e: WheelEvent) => {
-      distRef.current = Math.max(3.5, Math.min(15, distRef.current + e.deltaY * 0.012));
+      distRef.current = Math.max(0.5, Math.min(80, distRef.current + e.deltaY * 0.02));
       e.preventDefault();
       updateCam();
     };
