@@ -144,7 +144,21 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
       vertexColors: true, side: THREE.DoubleSide,
       shininess: 80, specular: new THREE.Color(0.5, 0.5, 0.5),
     });
-    scene.add(new THREE.Mesh(geo, mat));
+    const surfaceMesh = new THREE.Mesh(geo, mat);
+    scene.add(surfaceMesh);
+    meshRef.current = surfaceMesh;
+
+    // Hover marker (glowing sphere)
+    const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.95 });
+    const marker = new THREE.Mesh(markerGeo, markerMat);
+    marker.visible = false;
+    scene.add(marker);
+    const glowGeo = new THREE.SphereGeometry(0.13, 16, 16);
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.25 });
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    marker.add(glow);
+    markerRef.current = marker;
 
     const lmat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.22, transparent: true });
     for (let j = 0; j < N; j += 4) {
