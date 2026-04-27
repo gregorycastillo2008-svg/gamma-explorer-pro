@@ -13,7 +13,7 @@ export function AllGammaLogo({ size = "md", showText = true }: AllGammaLogoProps
       {showText && (
         <div className="relative">
           <motion.span
-            className={`${dims.text} font-black tracking-tight bg-clip-text text-[#ff0000] inline-block font-serif text-5xl mx-0 my-0 px-0 py-0 mr-[100px]`}
+            className={`${dims.text} font-black tracking-tight bg-clip-text inline-block font-serif text-5xl mx-0 my-0 px-0 py-0 mr-[100px] text-white`}
             style={{
               backgroundImage: "linear-gradient(90deg, #b8860b 0%, #ffd700 25%, #fff5cc 50%, #ffd700 75%, #b8860b 100%)",
               backgroundSize: "200% 100%",
