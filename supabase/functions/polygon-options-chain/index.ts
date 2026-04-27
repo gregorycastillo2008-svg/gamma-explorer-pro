@@ -1,6 +1,6 @@
-// Real options chain data from Polygon for Greek Ladder.
-// Returns per-contract: strike, bid, ask, last, IV, OI, volume, side, expiration.
-// Plus session metrics: spot, HV30, IV rank approximation, put/call skew, list of expirations.
+// Real options chain data for Greek Ladder.
+// Source: CBOE delayed quotes (free, ~15min delayed) — provides bid/ask/IV/OI/Volume/Greeks per contract.
+// Optional: Polygon for spot/HV if POLYGON_API_KEY tier allows.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,164 +32,152 @@ interface ChainResult {
   symbol: string;
   spot: number;
   timestamp: string;
+  source: string;
   expirations: string[];
   selectedExpiration: string;
   hv30: number;
-  ivRank: number; // 0..100 (approx)
-  skew: number; // putIV - callIV at ATM
+  ivRank: number;
+  skew: number;
   contracts: Contract[];
 }
 
-// In-memory cache keyed by symbol|expiration
 const cache = new Map<string, { ts: number; data: ChainResult }>();
 const TTL_MS = 30_000;
 
-async function fetchSpot(symbol: string): Promise<number> {
-  const isIdx = INDEX_SYMBOLS.has(symbol);
-  const ticker = isIdx ? `I:${symbol}` : symbol;
-  const url = isIdx
-    ? `https://api.polygon.io/v3/snapshot/indices?ticker.any_of=${ticker}&apiKey=${POLYGON_KEY}`
-    : `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${POLYGON_KEY}`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`spot ${r.status}`);
-  const j = await r.json();
-  if (isIdx) {
-    return j?.results?.[0]?.value ?? j?.results?.[0]?.session?.close ?? 0;
-  }
-  const t = j?.ticker;
-  return t?.day?.c || t?.lastTrade?.p || t?.prevDay?.c || 0;
+function parseOcc(occ: string): { ymd: string; cp: "C" | "P"; strike: number } | null {
+  const m = occ.match(/(\d{6})([CP])(\d{8})$/);
+  if (!m) return null;
+  return { ymd: m[1], cp: m[2] as "C" | "P", strike: parseInt(m[3], 10) / 1000 };
+}
+function ymdToIso(ymd: string): string {
+  const yy = parseInt(ymd.slice(0, 2), 10);
+  const mm = ymd.slice(2, 4);
+  const dd = ymd.slice(4, 6);
+  return `${2000 + yy}-${mm}-${dd}`;
+}
+function ymdToDays(ymd: string, now: Date): number {
+  const yy = parseInt(ymd.slice(0, 2), 10);
+  const mm = parseInt(ymd.slice(2, 4), 10) - 1;
+  const dd = parseInt(ymd.slice(4, 6), 10);
+  const exp = new Date(Date.UTC(2000 + yy, mm, dd, 21, 0, 0));
+  return Math.max(0, Math.round((exp.getTime() - now.getTime()) / 86_400_000));
 }
 
-async function fetchChainSnapshot(symbol: string, expiration?: string): Promise<any[]> {
-  // Fetch snapshot v3 (includes greeks, IV, OI, last quote)
-  const params = new URLSearchParams({
-    "apiKey": POLYGON_KEY,
-    "limit": "250",
+async function fetchCboe(symbol: string) {
+  const cboeSymbol = INDEX_SYMBOLS.has(symbol) ? `_${symbol}` : symbol;
+  const r = await fetch(`https://cdn.cboe.com/api/global/delayed_quotes/options/${cboeSymbol}.json`, {
+    headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
   });
-  if (expiration) params.set("expiration_date", expiration);
-  const u = `https://api.polygon.io/v3/snapshot/options/${symbol}?${params.toString()}`;
-  const out: any[] = [];
-  let url: string | null = u;
-  let pages = 0;
-  while (url && pages < 4) {
-    const r = await fetch(url);
-    if (!r.ok) break;
-    const j = await r.json();
-    if (Array.isArray(j?.results)) out.push(...j.results);
-    url = j?.next_url ? `${j.next_url}&apiKey=${POLYGON_KEY}` : null;
-    pages++;
-  }
-  return out;
+  if (!r.ok) throw new Error(`cboe ${r.status}`);
+  const json = await r.json();
+  const d = json?.data;
+  if (!d?.options) throw new Error("no options");
+  return d;
 }
 
-async function fetchExpirations(symbol: string): Promise<string[]> {
-  // Reference contracts to list expirations
-  const today = new Date().toISOString().slice(0, 10);
-  const url = `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&expired=false&expiration_date.gte=${today}&limit=1000&apiKey=${POLYGON_KEY}`;
-  const r = await fetch(url);
-  if (!r.ok) return [];
-  const j = await r.json();
-  const set = new Set<string>();
-  (j?.results ?? []).forEach((c: any) => c?.expiration_date && set.add(c.expiration_date));
-  return [...set].sort();
-}
-
-async function fetchHV30(symbol: string): Promise<number> {
-  // Daily aggregates last ~45 trading days
+async function fetchHV30Polygon(symbol: string): Promise<number> {
+  if (!POLYGON_KEY) return 0;
   const end = new Date();
   const start = new Date(Date.now() - 70 * 86400_000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   const url = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${fmt(start)}/${fmt(end)}?adjusted=true&sort=asc&apiKey=${POLYGON_KEY}`;
-  const r = await fetch(url);
-  if (!r.ok) return 0;
-  const j = await r.json();
-  const closes: number[] = (j?.results ?? []).map((b: any) => b.c).filter((x: number) => x > 0);
-  if (closes.length < 21) return 0;
-  const recent = closes.slice(-31);
-  const rets: number[] = [];
-  for (let i = 1; i < recent.length; i++) rets.push(Math.log(recent[i] / recent[i - 1]));
-  const mean = rets.reduce((s, r) => s + r, 0) / rets.length;
-  const variance = rets.reduce((s, r) => s + (r - mean) ** 2, 0) / (rets.length - 1);
-  return Math.sqrt(variance) * Math.sqrt(252);
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return 0;
+    const j = await r.json();
+    const closes: number[] = (j?.results ?? []).map((b: any) => b.c).filter((x: number) => x > 0);
+    if (closes.length < 21) return 0;
+    const recent = closes.slice(-31);
+    const rets: number[] = [];
+    for (let i = 1; i < recent.length; i++) rets.push(Math.log(recent[i] / recent[i - 1]));
+    const mean = rets.reduce((s, r) => s + r, 0) / rets.length;
+    const variance = rets.reduce((s, r) => s + (r - mean) ** 2, 0) / (rets.length - 1);
+    return Math.sqrt(variance) * Math.sqrt(252);
+  } catch { return 0; }
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    if (!POLYGON_KEY) throw new Error("POLYGON_API_KEY not configured");
-
     const url = new URL(req.url);
-    const symbol = (url.searchParams.get("symbol") || "SPY").toUpperCase();
-    const expirationParam = url.searchParams.get("expiration") || undefined;
-    const cacheKey = `${symbol}|${expirationParam ?? "auto"}`;
-    const cached = cache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < TTL_MS) {
-      return new Response(JSON.stringify(cached.data), {
+    const symbol = (url.searchParams.get("symbol") || "SPY").toUpperCase().trim();
+    if (!/^[A-Z]{1,6}$/.test(symbol)) {
+      return new Response(JSON.stringify({ error: "invalid symbol" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const expirationParam = url.searchParams.get("expiration") || "";
+    const cacheKey = `${symbol}|${expirationParam}`;
+    const hit = cache.get(cacheKey);
+    if (hit && Date.now() - hit.ts < TTL_MS) {
+      return new Response(JSON.stringify(hit.data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Parallel: spot + expirations + HV
-    const [spot, allExpirations, hv30] = await Promise.all([
-      fetchSpot(symbol).catch((e) => { console.error("spot err", e); return 0; }),
-      fetchExpirations(symbol).catch((e) => { console.error("exp err", e); return [] as string[]; }),
-      fetchHV30(symbol).catch((e) => { console.error("hv err", e); return 0; }),
+    const [cboe, hv30] = await Promise.all([
+      fetchCboe(symbol),
+      fetchHV30Polygon(symbol),
     ]);
-    console.log("symbol", symbol, "spot", spot, "expirations", allExpirations.length, "hv30", hv30);
 
-    // Determine target expiration (nearest if not provided)
-    const expirations = allExpirations.slice(0, 30);
+    const spot = Number(cboe.current_price) || 0;
+    const now = new Date();
+
+    // Group contracts by expiration
+    const byExp = new Map<string, Contract[]>();
+    const expDaysMap = new Map<string, number>();
+
+    for (const o of cboe.options) {
+      const p = parseOcc(o.option);
+      if (!p) continue;
+      const days = ymdToDays(p.ymd, now);
+      if (days < 0 || days > 400) continue;
+      const expIso = ymdToIso(p.ymd);
+      expDaysMap.set(expIso, days);
+      const c: Contract = {
+        ticker: o.option,
+        strike: p.strike,
+        expiration: expIso,
+        side: p.cp === "C" ? "call" : "put",
+        bid: Number(o.bid) || 0,
+        ask: Number(o.ask) || 0,
+        last: Number(o.last_trade_price) || 0,
+        iv: Number(o.iv) || 0,
+        oi: Number(o.open_interest) || 0,
+        volume: Number(o.volume) || 0,
+        delta: Number(o.delta) || 0,
+        gamma: Number(o.gamma) || 0,
+        theta: Number(o.theta) || 0,
+        vega: Number(o.vega) || 0,
+      };
+      if (!byExp.has(expIso)) byExp.set(expIso, []);
+      byExp.get(expIso)!.push(c);
+    }
+
+    // Sorted list of expirations (ASC)
+    const expirations = [...byExp.keys()].sort();
     const selectedExpiration =
-      expirationParam && expirations.includes(expirationParam)
+      expirationParam && byExp.has(expirationParam)
         ? expirationParam
         : expirations[0] ?? "";
-
-    const raw = selectedExpiration
-      ? await fetchChainSnapshot(symbol, selectedExpiration)
-      : [];
-    console.log("raw contracts", raw.length, "selectedExp", selectedExpiration);
 
     // Window strikes around spot ±15%
     const lo = spot * 0.85;
     const hi = spot * 1.15;
+    const contracts = (byExp.get(selectedExpiration) ?? [])
+      .filter((c) => c.strike >= lo && c.strike <= hi)
+      .sort((a, b) => a.strike - b.strike);
 
-    const contracts: Contract[] = raw
-      .map((c: any) => {
-        const det = c?.details ?? {};
-        const greeks = c?.greeks ?? {};
-        const lq = c?.last_quote ?? {};
-        const lt = c?.last_trade ?? {};
-        const strike = det?.strike_price ?? 0;
-        return {
-          ticker: det?.ticker ?? "",
-          strike,
-          expiration: det?.expiration_date ?? selectedExpiration,
-          side: (det?.contract_type ?? "call") as "call" | "put",
-          bid: lq?.bid ?? 0,
-          ask: lq?.ask ?? 0,
-          last: lt?.price ?? 0,
-          iv: c?.implied_volatility ?? 0,
-          oi: c?.open_interest ?? 0,
-          volume: c?.day?.volume ?? 0,
-          delta: greeks?.delta ?? 0,
-          gamma: greeks?.gamma ?? 0,
-          theta: greeks?.theta ?? 0,
-          vega: greeks?.vega ?? 0,
-        };
-      })
-      .filter((c) => c.strike >= lo && c.strike <= hi && c.strike > 0);
-
-    // Skew at ATM (closest strike)
-    const calls = contracts.filter((c) => c.side === "call");
-    const puts = contracts.filter((c) => c.side === "put");
+    // Skew at ATM
+    const calls = contracts.filter((c) => c.side === "call" && c.iv > 0);
+    const puts = contracts.filter((c) => c.side === "put" && c.iv > 0);
     const closest = (arr: Contract[]) =>
       arr.reduce((b, c) => (Math.abs(c.strike - spot) < Math.abs(b.strike - spot) ? c : b), arr[0]);
     const atmCall = calls.length ? closest(calls) : null;
     const atmPut = puts.length ? closest(puts) : null;
     const skew = atmPut && atmCall ? (atmPut.iv - atmCall.iv) : 0;
 
-    // IV Rank approximation: where ATM IV stands vs hv30 (capped 0..100)
     const atmIV = atmCall ? atmCall.iv : 0;
     const ivRank = hv30 > 0 ? Math.max(0, Math.min(100, ((atmIV - hv30) / hv30) * 50 + 50)) : 50;
 
@@ -197,6 +185,7 @@ Deno.serve(async (req) => {
       symbol,
       spot,
       timestamp: new Date().toISOString(),
+      source: "cboe",
       expirations,
       selectedExpiration,
       hv30,
@@ -210,6 +199,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    console.error("chain error", e);
     return new Response(JSON.stringify({ error: (e as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
