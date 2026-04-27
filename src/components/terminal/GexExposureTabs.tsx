@@ -201,7 +201,8 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
       className="relative bg-black rounded border border-border p-2 h-full flex flex-col overflow-hidden"
       onMouseLeave={() => setHover(null)}
     >
-      <div className="font-jetbrains text-[9px] text-muted-foreground uppercase tracking-wider mb-1.5 grid grid-cols-2 gap-2 shrink-0">
+      <div className="font-jetbrains text-[9px] text-muted-foreground uppercase tracking-wider mb-1.5 grid grid-cols-[64px_1fr_1fr] gap-1 shrink-0">
+        <div className="text-right pr-2">Strike</div>
         <div className="text-right pr-2">Negative ★</div>
         <div className="pl-2">Positive ★</div>
       </div>
