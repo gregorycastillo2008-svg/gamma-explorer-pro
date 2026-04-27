@@ -69,6 +69,7 @@ export function VannaCharmSurfacePlot() {
   useEffect(() => { elevRef.current = elev; updateCam(); }, [elev]);
   useEffect(() => { azimRef.current = azim; updateCam(); }, [azim]);
   useEffect(() => { if (dotsGroupRef.current) dotsGroupRef.current.visible = showPts; }, [showPts]);
+  useEffect(() => { if (planeGroupRef.current) planeGroupRef.current.visible = showPlane; }, [showPlane]);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
