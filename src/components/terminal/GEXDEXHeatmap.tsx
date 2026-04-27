@@ -354,7 +354,7 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
 function HeatPanel({
   title, chapLabel, rows, cellsKey, chapKey, max, spot,
   hoverRow, hoverCol, setHoverRow, setHoverCol, setTooltip,
-  selected, setSelected, scrollRef, accent,
+  selected, setSelected, scrollRef, accent, theme, T,
 }: {
   title: string;
   chapLabel: string;
@@ -372,10 +372,12 @@ function HeatPanel({
   setSelected: (n: number | null) => void;
   scrollRef: React.RefObject<HTMLDivElement>;
   accent: string;
+  theme: Theme;
+  T: { bg: string; panel: string; border: string; text: string; muted: string; cellBorder: string };
 }) {
   return (
-    <div className="flex flex-col min-h-0" style={{ background: C.panel }}>
-      <div className="px-3 py-2 flex items-center justify-between shrink-0" style={{ borderBottom: `1px solid ${C.border}` }}>
+    <div className="flex flex-col min-h-0" style={{ background: T.panel }}>
+      <div className="px-3 py-2 flex items-center justify-between shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
         <span style={{ color: accent, fontSize: 11, letterSpacing: "0.18em" }} className="uppercase font-bold">
           {title}
         </span>
