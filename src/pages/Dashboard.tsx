@@ -48,7 +48,7 @@ export default function Dashboard() {
   const [section, setSection] = useState<Section>("overview");
   const [collapsed, setCollapsed] = useState(false);
   const [watchlist, setWatchlist] = useState<string[]>([]);
-  const [active, setActive] = useState("SPX");
+  const [active, setActive] = useState("QQQ");
   const [expiry, setExpiry] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
   const [newTicker, setNewTicker] = useState("");
@@ -90,7 +90,7 @@ export default function Dashboard() {
     supabase.from("watchlist").select("ticker").order("created_at").then(({ data }) => {
       const list = data?.map((r) => r.ticker) ?? [];
       if (list.length === 0) {
-        const defaults = ["SPX", "SPY", "QQQ"];
+        const defaults = ["QQQ", "SPX", "SPY"];
         Promise.all(defaults.map((t) =>
           supabase.from("watchlist").insert({ user_id: user.id, ticker: t })
         )).then(() => setWatchlist(defaults));
