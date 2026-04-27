@@ -266,7 +266,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
             {spotIdx >= 0 && data.length > 0 && (
               <div
                 className="pointer-events-none absolute left-0 right-0 z-20"
-                style={{ top: `${(spotIdx + 0.5) * 22}px` }}
+                style={{ top: `${(spotIdx + 0.5) * 26}px` }}
               >
                 <div
                   className="h-px"
