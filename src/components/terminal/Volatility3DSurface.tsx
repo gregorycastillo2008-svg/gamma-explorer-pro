@@ -57,6 +57,8 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [elev, setElev] = useState(32);
   const [azim, setAzim] = useState(220);
+  const [showDataPts, setShowDataPts] = useState(true);
+  const [showRefPlane, setShowRefPlane] = useState(true);
   const [tip, setTip] = useState<TooltipData | null>(null);
 
   const elevRef = useRef(32);
@@ -66,6 +68,8 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
   const meshRef = useRef<THREE.Mesh | null>(null);
   const markerRef = useRef<THREE.Mesh | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const dataPtsRef = useRef<THREE.Group | null>(null);
+  const refPlaneRef = useRef<THREE.Mesh | null>(null);
 
   function updateCam() {
     const cam = cameraRef.current;
