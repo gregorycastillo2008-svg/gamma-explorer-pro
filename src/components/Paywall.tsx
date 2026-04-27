@@ -47,9 +47,7 @@ export function Paywall({ email }: PaywallProps) {
         </div>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium mb-4">
-            <Sparkles className="w-3.5 h-3.5" /> Todos los planes con 7 días de prueba
-          </div>
+
           <h1 className="text-4xl md:text-5xl font-bold mb-3">
             Elige tu <span className="text-primary">edge</span>
           </h1>

@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
+import { GexSatellite } from "@/components/GexSatellite";
+import { TestimonialsMarquee } from "@/components/TestimonialsMarquee";
 import { toast } from "sonner";
 
 const features = [
@@ -138,14 +140,10 @@ export default function Landing() {
       </header>
 
       <section className="relative z-10 container py-20 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 border border-primary/20"
-        >
-          <BadgeCheck className="h-4 w-4" />
-          Plataforma verificada · análisis institucional en tiempo real
-        </motion.div>
+        <div className="flex justify-center mb-8">
+          <GexSatellite size={240} speed={14} />
+        </div>
+
 
         <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 max-w-5xl mx-auto leading-[1.05]">
           {"Análisis de ".split("").map((c, i) => (
@@ -215,52 +213,9 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Testimonials with animated stars */}
-      <section className="relative z-10 container pb-16">
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-4xl md:text-5xl font-black tracking-tight text-center mb-3"
-        >
-          Lo que dicen los <span className="bg-clip-text text-[#ff0000]" style={{ backgroundImage: "var(--gradient-primary)" }}>traders</span>
-        </motion.h2>
-        <p className="text-center text-muted-foreground mb-10">Pasa el cursor sobre un comentario para verlo completo · se detiene la animación</p>
+      {/* Testimonials marquee — 15 reviews, infinite scroll */}
+      <TestimonialsMarquee />
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {testimonials.map((t, i) => (
-            <motion.div
-              key={t.name}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.12 }}
-              animate={{ y: [0, -8, 0] }}
-              {...{ transition: { y: { duration: 3 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 } } } as any}
-              whileHover={{ scale: 1.05, y: 0, zIndex: 10 }}
-              className="group"
-            >
-              <Card className="p-5 h-full bg-card/80 backdrop-blur-sm hover:border-primary/60 transition-colors cursor-pointer relative overflow-hidden"
-                style={{ boxShadow: "var(--shadow-card)" }}>
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/0 group-hover:from-primary/10 group-hover:to-transparent transition-all" />
-                <div className="relative">
-                  <StarRow n={t.rating} />
-                  <p className="text-sm mt-3 text-foreground/90 leading-relaxed">"{t.text}"</p>
-                  <div className="mt-4 pt-3 border-t border-border/50">
-                    <div className="font-bold text-sm">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.role}</div>
-                  </div>
-                  <div className="max-h-0 group-hover:max-h-20 overflow-hidden transition-all duration-500">
-                    <div className="mt-3 text-xs text-primary font-semibold flex items-center gap-1">
-                      <Sparkles className="h-3 w-3" /> {t.extra}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </section>
 
       {/* 3D scroll-driven gallery */}
       <Scroll3DGallery />
@@ -273,9 +228,6 @@ export default function Landing() {
           viewport={{ once: true }}
           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-call/10 text-call text-xs font-bold mb-4 border border-call/30">
-            <Sparkles className="h-3 w-3" /> Todos los planes con 7 días de prueba
-          </div>
           <h2 className="text-4xl md:text-5xl font-black tracking-tight">Elige tu <span className="bg-clip-text text-[#ff0000]" style={{ backgroundImage: "var(--gradient-primary)" }}>edge</span></h2>
           <p className="text-muted-foreground mt-3">Sin permanencia. Cancela cuando quieras. Aplica un código de descuento al pagar.</p>
         </motion.div>
