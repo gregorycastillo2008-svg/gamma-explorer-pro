@@ -57,7 +57,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         </div>
         {!collapsed && (
           <span
-            className="ml-2 font-black tracking-wider text-sm bg-clip-text text-primary"
+            className="ml-2 font-black tracking-wider text-sm bg-clip-text text-white"
             style={{ backgroundImage: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)" }}
           >
             GEXSATELIT
@@ -89,7 +89,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
                 >
                   {isActive && <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary" />}
                   <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && <span className="truncate">{s.label}</span>}
+                  {!collapsed && <span className="truncate text-white bg-black">{s.label}</span>}
                 </button>
               );
             })}
@@ -123,7 +123,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
             className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary hover:bg-sidebar-accent rounded"
             title={collapsed ? "Upgrade" : undefined}
           >
-            <Sigma className="h-4 w-4 shrink-0" />
+            <Sigma className="h-4 w-4 shrink-0 border-primary text-[#ff0000]" />
             {!collapsed && <span>{tier ? "Manage plan" : "Upgrade"}</span>}
           </button>
         )}

@@ -176,7 +176,7 @@ export function GreeksView({ ticker, exposures, contracts }: Ctx) {
 const Th = ({ children, r }: any) => <th className={`py-2 px-3 font-semibold text-[10px] uppercase tracking-wider ${r ? "text-right" : ""}`}>{children}</th>;
 const Td = ({ children, r, bold, tone }: any) => {
   const c = tone === "call" ? "text-call" : tone === "put" ? "text-put" : "";
-  return <td className={`py-1.5 px-3 ${r ? "text-right" : ""} ${bold ? "font-semibold" : ""} ${c}`}>{children}</td>;
+  return <td className={`py-1.5 px-3 ${r ? "text-right" : ""} ${bold ? "font-semibold text-white/0 bg-[#2db975]" : ""} ${c}`}>{children}</td>;
 };
 
 // ─────── DEPTH VIEW ───────
