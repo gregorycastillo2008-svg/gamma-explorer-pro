@@ -345,6 +345,14 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
         <label style={{ color: "#777", fontSize: 11, fontFamily: "monospace" }}>
           Az <input type="range" min={0} max={360} value={azim} onChange={(e) => setAzim(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#aaa" }}>{azim}°</span>
         </label>
+        <label style={{ color: "#aaa", fontSize: 11, fontFamily: "monospace", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <input type="checkbox" checked={showDataPts} onChange={(e) => setShowDataPts(e.target.checked)} />
+          Data pts
+        </label>
+        <label style={{ color: "#aaa", fontSize: 11, fontFamily: "monospace", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <input type="checkbox" checked={showRefPlane} onChange={(e) => setShowRefPlane(e.target.checked)} />
+          Ref plane
+        </label>
       </div>
 
       <div style={{ display: "flex", justifyContent: "center", marginTop: 8, gap: 0, alignItems: "center" }}>
