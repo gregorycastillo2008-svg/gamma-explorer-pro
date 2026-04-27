@@ -47,12 +47,14 @@ export function VannaCharmSurfacePlot() {
   const [elev, setElev] = useState(28);
   const [azim, setAzim] = useState(215);
   const [showPts, setShowPts] = useState(true);
+  const [showPlane, setShowPlane] = useState(true);
 
   const elevRef = useRef(28);
   const azimRef = useRef(215);
   const distRef = useRef(8.0);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const dotsGroupRef = useRef<THREE.Group | null>(null);
+  const planeGroupRef = useRef<THREE.Group | null>(null);
 
   function updateCam() {
     const cam = cameraRef.current;
@@ -67,6 +69,7 @@ export function VannaCharmSurfacePlot() {
   useEffect(() => { elevRef.current = elev; updateCam(); }, [elev]);
   useEffect(() => { azimRef.current = azim; updateCam(); }, [azim]);
   useEffect(() => { if (dotsGroupRef.current) dotsGroupRef.current.visible = showPts; }, [showPts]);
+  useEffect(() => { if (planeGroupRef.current) planeGroupRef.current.visible = showPlane; }, [showPlane]);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -179,6 +182,51 @@ export function VannaCharmSurfacePlot() {
       axLine([-2.6, bY, t * 1.1], [-2.65, bY, t * 1.1]);
       if (t >= 0) axLine([-2.6, t * 0.8, -2.5], [-2.65, t * 0.8, -2.5]);
     }
+
+    // Wall grid box (cuadritos like terrain plot)
+    const wallGrid = (pts: THREE.Vector3[], col = 0x556677, op = 0.35) => {
+      const g = new THREE.BufferGeometry().setFromPoints(pts);
+      scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: col, opacity: op, transparent: true })));
+    };
+    {
+      const bY2 = -0.30, tY = SY - 0.3, bX = -SX / 2, eX = SX / 2, bZ = -SZ / 2, eZ = SZ / 2;
+      // back wall vertical
+      for (let k = 0; k <= 8; k++) {
+        const x = bX + k * (SX / 8);
+        wallGrid([new THREE.Vector3(x, bY2, bZ), new THREE.Vector3(x, tY, bZ)]);
+      }
+      // back wall horizontal + side wall horizontal
+      for (let k = 0; k <= 6; k++) {
+        const y = bY2 + k * ((tY - bY2) / 6);
+        wallGrid([new THREE.Vector3(bX, y, bZ), new THREE.Vector3(eX, y, bZ)]);
+        wallGrid([new THREE.Vector3(bX, y, bZ), new THREE.Vector3(bX, y, eZ)]);
+      }
+      // side wall vertical
+      for (let k = 0; k <= 8; k++) {
+        const z = bZ + k * (SZ / 8);
+        wallGrid([new THREE.Vector3(bX, bY2, z), new THREE.Vector3(bX, tY, z)]);
+      }
+    }
+
+    // Reference plane (translucent) — toggleable
+    const planeGroup = new THREE.Group();
+    planeGroupRef.current = planeGroup;
+    {
+      const refY = 0.5 * SY - 0.3;
+      const planeGeo = new THREE.PlaneGeometry(SX, SZ, 1, 1);
+      planeGeo.rotateX(-Math.PI / 2);
+      const planeMat = new THREE.MeshPhongMaterial({
+        color: 0x8899cc, transparent: true, opacity: 0.32, side: THREE.DoubleSide, shininess: 5,
+      });
+      const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+      planeMesh.position.y = refY;
+      planeGroup.add(planeMesh);
+      const pBorder = new THREE.EdgesGeometry(planeGeo);
+      const borderLine = new THREE.LineSegments(pBorder, new THREE.LineBasicMaterial({ color: 0x5577bb, opacity: 0.7, transparent: true }));
+      borderLine.position.y = refY;
+      planeGroup.add(borderLine);
+    }
+    scene.add(planeGroup);
 
     const makeLabel = (text: string, color = "#cccccc", sz = 24) => {
       const cv = document.createElement("canvas");
@@ -319,6 +367,9 @@ export function VannaCharmSurfacePlot() {
         </label>
         <label style={{ color: "#aaa", fontSize: 11 }}>
           <input type="checkbox" checked={showPts} onChange={(e) => setShowPts(e.target.checked)} style={{ verticalAlign: "middle" }} /> Data pts
+        </label>
+        <label style={{ color: "#aaa", fontSize: 11 }}>
+          <input type="checkbox" checked={showPlane} onChange={(e) => setShowPlane(e.target.checked)} style={{ verticalAlign: "middle" }} /> Ref plane
         </label>
       </div>
     </div>
