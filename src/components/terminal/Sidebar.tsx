@@ -64,7 +64,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         {groups.map((g) => (
           <div key={g} className="mb-3">
             {!collapsed && <div className="px-3 mb-1 text-[10px] font-bold tracking-widest text-sidebar-foreground/50">{g}</div>}
-            {SECTIONS.filter((s) => s.group === g).map((s) => {
+            {visibleSections.filter((s) => s.group === g).map((s) => {
               const Icon = s.icon;
               const isActive = active === s.id;
               return (
