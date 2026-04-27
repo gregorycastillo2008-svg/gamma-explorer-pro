@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useSubscription } from "@/hooks/useSubscription";
+import { allowedSections } from "@/lib/plans";
 import { useToast } from "@/hooks/use-toast";
 import {
   DEMO_TICKERS, getDemoTicker,
@@ -34,8 +36,14 @@ import { Label } from "@/components/ui/label";
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const { isAdmin } = useIsAdmin(user?.id);
+  const { tier, subscribed, loading: subLoading, refresh: refreshSub } = useSubscription(user?.id);
   const nav = useNavigate();
   const { toast } = useToast();
+
+  // Allowed sections by tier (admin = all access)
+  const allowed = isAdmin
+    ? undefined
+    : allowedSections(tier);
 
   const [section, setSection] = useState<Section>("overview");
   const [collapsed, setCollapsed] = useState(false);
@@ -46,6 +54,36 @@ export default function Dashboard() {
   const [newTicker, setNewTicker] = useState("");
 
   useEffect(() => { if (!loading && !user) nav("/auth"); }, [user, loading, nav]);
+
+  // Refresh subscription if returning from successful checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "success") {
+      toast({ title: "Welcome!", description: "Activating your subscription..." });
+      const tries = [1500, 4000, 8000];
+      tries.forEach((ms) => setTimeout(() => refreshSub(), ms));
+      window.history.replaceState({}, "", "/dashboard");
+    }
+  }, []);
+
+  // If current section not allowed for this tier, fall back to first allowed (or pricing)
+  useEffect(() => {
+    if (isAdmin || subLoading) return;
+    if (!allowed) return;
+    if (allowed.length === 0) { nav("/pricing"); return; }
+    if (!allowed.includes(section)) setSection(allowed[0]);
+  }, [allowed, section, isAdmin, subLoading, nav]);
+
+  const openManagePlan = async () => {
+    if (!subscribed) { nav("/pricing"); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke("customer-portal");
+      if (error) throw error;
+      if (data?.url) window.open(data.url, "_blank");
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -145,6 +183,9 @@ export default function Dashboard() {
         isAdmin={isAdmin}
         email={user?.email ?? undefined}
         onSignOut={signOut}
+        allowed={allowed}
+        tier={isAdmin ? "admin" : tier}
+        onUpgrade={openManagePlan}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar

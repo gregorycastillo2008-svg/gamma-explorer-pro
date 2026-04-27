@@ -34,10 +34,15 @@ interface Props {
   isAdmin: boolean;
   email?: string;
   onSignOut: () => void;
+  allowed?: Section[];
+  tier?: string | null;
+  onUpgrade?: () => void;
 }
 
-export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email, onSignOut }: Props) {
-  const groups = Array.from(new Set(SECTIONS.map((s) => s.group)));
+export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email, onSignOut, allowed, tier, onUpgrade }: Props) {
+  const allowSet = allowed ? new Set(allowed) : null;
+  const visibleSections = allowSet ? SECTIONS.filter((s) => allowSet.has(s.id)) : SECTIONS;
+  const groups = Array.from(new Set(visibleSections.map((s) => s.group)));
   return (
     <aside
       className={cn(
@@ -59,7 +64,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         {groups.map((g) => (
           <div key={g} className="mb-3">
             {!collapsed && <div className="px-3 mb-1 text-[10px] font-bold tracking-widest text-sidebar-foreground/50">{g}</div>}
-            {SECTIONS.filter((s) => s.group === g).map((s) => {
+            {visibleSections.filter((s) => s.group === g).map((s) => {
               const Icon = s.icon;
               const isActive = active === s.id;
               return (
@@ -99,6 +104,21 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
       </nav>
 
       <div className="border-t border-sidebar-border p-2">
+        {!collapsed && (
+          <div className="px-2 py-1.5 text-[10px] text-sidebar-foreground/70 truncate">
+            {tier ? `Plan: ${tier.toUpperCase()}` : "No plan"}
+          </div>
+        )}
+        {onUpgrade && (
+          <button
+            onClick={onUpgrade}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-primary hover:bg-sidebar-accent rounded"
+            title={collapsed ? "Upgrade" : undefined}
+          >
+            <Sigma className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>{tier ? "Manage plan" : "Upgrade"}</span>}
+          </button>
+        )}
         {!collapsed && email && (
           <div className="px-2 py-1.5 text-xs text-sidebar-foreground/70 truncate">{email}</div>
         )}
