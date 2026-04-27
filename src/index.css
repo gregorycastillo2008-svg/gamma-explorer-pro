@@ -183,7 +183,7 @@ All colors MUST be HSL.
 .altaris-scroll::-webkit-scrollbar-track { background: hsl(var(--background)); }
 .altaris-scroll::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 10px; }
 
-.terminal-scrollbar::-webkit-scrollbar { width: 14px; height: 10px; }
+.terminal-scrollbar::-webkit-scrollbar { width: 14px; height: 0; }
 .terminal-scrollbar::-webkit-scrollbar-track {
   background: hsl(var(--background));
   border-left: 1px solid hsl(var(--border));
