@@ -179,44 +179,169 @@ const Td = ({ children, r, bold, tone }: any) => {
   return <td className={`py-1.5 px-3 ${r ? "text-right" : ""} ${bold ? "font-semibold text-white bg-[#2db975]" : ""} ${c}`}>{children}</td>;
 };
 
-// ─────── DEPTH VIEW ───────
-export function DepthView({ ticker, exposures }: Ctx) {
-  const max = Math.max(...exposures.map((p) => Math.max(p.callOI, p.putOI)));
+// ─────── DEPTH VIEW — GEX/DEX por strike, filtro DTE 1/2/3 ───────
+export function DepthView({ ticker, contracts }: Ctx) {
+  const [dte, setDte] = useState<"1" | "2" | "3" | "all">("all");
+  const [hover, setHover] = useState<number | null>(null);
+
+  // Filter contracts by DTE bucket (≤ N days)
+  const filtered = useMemo(() => {
+    if (dte === "all") return contracts;
+    const max = parseInt(dte, 10);
+    return contracts.filter((c) => c.expiry <= max);
+  }, [contracts, dte]);
+
+  // Compute exposures per strike from filtered contracts
+  const data = useMemo(() => computeExposures(ticker.spot, filtered), [filtered, ticker.spot]);
+
+  // Find max |GEX| call (positive) and max |GEX| put (negative) for marker lines
+  const callMax = useMemo(() => {
+    let best: typeof data[0] | null = null;
+    for (const d of data) if (d.callGex > 0 && (!best || d.callGex > best.callGex)) best = d;
+    return best;
+  }, [data]);
+  const putMax = useMemo(() => {
+    let best: typeof data[0] | null = null;
+    for (const d of data) if (d.putGex < 0 && (!best || d.putGex < best.putGex)) best = d;
+    return best;
+  }, [data]);
+
+  const maxAbs = Math.max(1, ...data.map((d) => Math.max(Math.abs(d.callGex), Math.abs(d.putGex))));
+  const totalGex = data.reduce((s, d) => s + Math.abs(d.netGex), 0) || 1;
+
   return (
-    <Panel title="Order Book Depth" subtitle="Hover bars to inspect strike & OI">
-      <div className="space-y-[3px]">
-        {exposures.slice().reverse().map((p) => {
-          const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
-          const tip = `Strike $${p.strike} · Put ${formatNumber(p.putOI, 0)} · Call ${formatNumber(p.callOI, 0)}`;
-          return (
-            <div
-              key={p.strike}
-              title={tip}
-              className={`grid grid-cols-2 items-center gap-1 group cursor-default ${isSpot ? "ring-1 ring-primary/40 rounded-sm" : ""}`}
-            >
-              <div className="flex justify-end h-3.5">
+    <Panel title="GEX / DEX por Strike" subtitle={`${ticker.symbol} · spot $${ticker.spot}`} noPad>
+      {/* DTE filter row */}
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/40 flex-wrap">
+        <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase mr-1">DTE</span>
+        {(["all", "1", "2", "3"] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setDte(v)}
+            className="px-2.5 py-1 text-[10px] font-bold rounded-sm border transition-colors"
+            style={{
+              background: dte === v ? "rgba(16,185,129,0.15)" : "transparent",
+              color: dte === v ? "#10b981" : "#888",
+              borderColor: dte === v ? "#10b981" : "#2a2a2a",
+            }}
+          >
+            {v === "all" ? "ALL" : `${v}D`}
+          </button>
+        ))}
+      </div>
+
+      <div className="relative">
+        {/* Header */}
+        <div className="grid grid-cols-[1fr_60px_1fr] items-center gap-1 px-3 py-1.5 text-[9px] tracking-widest font-bold text-muted-foreground border-b border-border/40 uppercase">
+          <span className="text-right">PUTS · GEX</span>
+          <span className="text-center">STRIKE</span>
+          <span>CALLS · GEX +</span>
+        </div>
+
+        <div className="relative">
+          {data.slice().reverse().map((p) => {
+            const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
+            const isCallMax = callMax && p.strike === callMax.strike;
+            const isPutMax = putMax && p.strike === putMax.strike;
+            const callPct = (Math.abs(p.callGex) / maxAbs) * 100;
+            const putPct = (Math.abs(p.putGex) / maxAbs) * 100;
+            const sharePct = ((Math.abs(p.netGex) / totalGex) * 100).toFixed(2);
+            const isHover = hover === p.strike;
+            return (
+              <div
+                key={p.strike}
+                onMouseEnter={() => setHover(p.strike)}
+                onMouseLeave={() => setHover((h) => (h === p.strike ? null : h))}
+                className="relative grid grid-cols-[1fr_60px_1fr] items-center gap-1 px-3 py-[3px] hover:bg-white/5 transition-colors"
+              >
+                {/* Max-GEX marker lines (no yellow) */}
+                {isCallMax && (
+                  <div className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none">
+                    <div className="absolute left-0 right-0 top-1/2 h-px" style={{ background: "#10b981", boxShadow: "0 0 8px #10b981" }} />
+                  </div>
+                )}
+                {isPutMax && (
+                  <div className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none">
+                    <div className="absolute left-0 right-0 top-1/2 h-px" style={{ background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />
+                  </div>
+                )}
+
+                {/* Put bar — right-aligned, going left */}
+                <div className="flex justify-end h-3.5">
+                  <div
+                    className="h-full rounded-l-sm transition-all"
+                    style={{
+                      width: `${putPct}%`,
+                      background: "linear-gradient(90deg, hsl(0 95% 35%), hsl(0 100% 58%))",
+                      boxShadow: isPutMax ? "0 0 10px #ef4444" : "0 0 4px hsl(0 100% 55% / 0.4)",
+                    }}
+                  />
+                </div>
+
+                {/* Strike label */}
                 <div
-                  className="h-full rounded-l-sm transition-all duration-150 group-hover:brightness-125"
-                  style={{
-                    width: `${(p.putOI / max) * 100}%`,
-                    background: "linear-gradient(90deg, hsl(0 95% 35%), hsl(0 100% 58%))",
-                    boxShadow: "0 0 6px hsl(0 100% 55% / 0.45)",
-                  }}
-                />
+                  className="text-center font-mono text-[11px] font-bold tabular-nums"
+                  style={{ color: isSpot ? "#06b6d4" : isCallMax ? "#10b981" : isPutMax ? "#ef4444" : "#e5e7eb" }}
+                >
+                  ${p.strike}
+                  {isSpot && <span className="ml-1 text-[8px] text-cyan-400">●</span>}
+                </div>
+
+                {/* Call bar — left-aligned, going right */}
+                <div className="flex h-3.5">
+                  <div
+                    className="h-full rounded-r-sm transition-all"
+                    style={{
+                      width: `${callPct}%`,
+                      background: "linear-gradient(90deg, hsl(140 100% 50%), hsl(140 95% 35%))",
+                      boxShadow: isCallMax ? "0 0 10px #10b981" : "0 0 4px hsl(140 100% 50% / 0.4)",
+                    }}
+                  />
+                </div>
+
+                {/* Hover tooltip */}
+                {isHover && (
+                  <div
+                    className="absolute z-30 left-1/2 -translate-x-1/2 -top-2 -translate-y-full px-3 py-2 rounded-md font-mono text-[10px] pointer-events-none"
+                    style={{
+                      background: "rgba(0,0,0,0.95)",
+                      border: "1px solid #10b981",
+                      boxShadow: "0 6px 20px rgba(16,185,129,0.3)",
+                      minWidth: 180,
+                    }}
+                  >
+                    <div className="font-bold text-white mb-1 tracking-wider">${p.strike} · {ticker.symbol}</div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px]">
+                      <span className="text-muted-foreground">CALL GEX</span><span className="text-emerald-400 text-right">{formatNumber(p.callGex)}</span>
+                      <span className="text-muted-foreground">PUT GEX</span><span className="text-red-400 text-right">{formatNumber(p.putGex)}</span>
+                      <span className="text-muted-foreground">NET GEX</span><span className={`text-right ${p.netGex >= 0 ? "text-emerald-400" : "text-red-400"}`}>{formatNumber(p.netGex)}</span>
+                      <span className="text-muted-foreground">DEX</span><span className="text-cyan-400 text-right">{formatNumber(p.dex)}</span>
+                      <span className="text-muted-foreground">CALL OI</span><span className="text-emerald-300 text-right">{formatNumber(p.callOI, 0)}</span>
+                      <span className="text-muted-foreground">PUT OI</span><span className="text-red-300 text-right">{formatNumber(p.putOI, 0)}</span>
+                      <span className="text-muted-foreground">% del total</span><span className="text-amber-300 text-right">{sharePct}%</span>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="flex h-3.5">
-                <div
-                  className="h-full rounded-r-sm transition-all duration-150 group-hover:brightness-125"
-                  style={{
-                    width: `${(p.callOI / max) * 100}%`,
-                    background: "linear-gradient(90deg, hsl(140 100% 50%), hsl(140 95% 35%))",
-                    boxShadow: "0 0 6px hsl(140 100% 50% / 0.45)",
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 px-3 py-2 border-t border-border/40 text-[9px] font-mono text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-px" style={{ background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
+            <span>Call wall (max GEX)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-px" style={{ background: "#ef4444", boxShadow: "0 0 6px #ef4444" }} />
+            <span>Put wall (min GEX)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            <span>Spot</span>
+          </div>
+        </div>
       </div>
     </Panel>
   );
