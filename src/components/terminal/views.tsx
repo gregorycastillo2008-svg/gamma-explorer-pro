@@ -279,6 +279,15 @@ export function GexDexView({ ticker, contracts }: Ctx) {
                 </Panel>
               ),
             },
+            {
+              key: "dexdash",
+              label: "DEX DASHBOARD",
+              content: (
+                <div className="h-full p-1">
+                  <GexDexDashboard ticker={ticker} contracts={filtered} />
+                </div>
+              ),
+            },
           ]}
         />
       </div>
