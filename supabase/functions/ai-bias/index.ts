@@ -1,5 +1,6 @@
-// Claude (Anthropic) bias forecaster — receives real market data and returns
-// structured JSON prediction. In-memory cache keyed by symbol+day (30 min TTL).
+// Bias forecaster usando Lovable AI Gateway con el modelo más potente disponible.
+// Recibe datos reales de mercado y devuelve predicción JSON estructurada.
+// Cache en memoria por símbolo+día (30 min TTL).
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,9 +38,15 @@ interface Prediction {
   cached?: boolean;
 }
 
-// In-memory cache (30 min)
 const cache = new Map<string, { ts: number; data: Prediction }>();
 const TTL_MS = 30 * 60 * 1000;
+
+// Modelo más potente disponible en Lovable AI Gateway
+const MODEL = "openai/gpt-5.2";
+
+function buildSystemPrompt(): string {
+  return `Eres el analista cuantitativo más avanzado del mundo, experto en Gamma Exposure (GEX), market microstructure, dealer hedging flows y volatility surface dynamics. Analizas datos reales de opciones y produces predicciones direccionales calibradas con razonamiento profundo. Siempre respondes con JSON válido sin markdown ni texto extra.`;
+}
 
 function buildPrompt(md: MarketData, targetDay: string): string {
   const distFlipPct = ((md.spotPrice - md.gammaFlip) / md.gammaFlip * 100).toFixed(2);
@@ -47,9 +54,7 @@ function buildPrompt(md: MarketData, targetDay: string): string {
     `- $${s.strike}: ${(s.netGEX / 1e9).toFixed(2)}B (Call OI: ${s.callOI.toLocaleString()}, Put OI: ${s.putOI.toLocaleString()})`
   ).join("\n");
 
-  return `Eres un analista cuantitativo experto en Gamma Exposure y market microstructure.
-
-Analiza estos DATOS REALES DE MERCADO y predice el sesgo direccional para ${targetDay}.
+  return `Analiza estos DATOS REALES DE MERCADO y predice el sesgo direccional para ${targetDay}.
 
 ═══════════════════════════════════════════════════════════════════════════
 DATOS ACTUALES (${new Date(md.timestamp).toLocaleString()}) — ${md.symbol}
@@ -107,9 +112,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -129,58 +134,58 @@ Deno.serve(async (req) => {
       });
     }
 
-    const prompt = buildPrompt(marketData, targetDay);
-
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
-        messages: [{ role: "user", content: prompt }],
+        model: MODEL,
+        messages: [
+          { role: "system", content: buildSystemPrompt() },
+          { role: "user", content: buildPrompt(marketData, targetDay) },
+        ],
+        response_format: { type: "json_object" },
+        reasoning: { effort: "high" },
       }),
     });
 
     if (!resp.ok) {
       const txt = await resp.text();
-      console.error("Anthropic error:", resp.status, txt);
+      console.error("Lovable AI error:", resp.status, txt);
       if (resp.status === 429) {
-        return new Response(JSON.stringify({ error: "Anthropic rate limit. Try again shortly." }), {
+        return new Response(JSON.stringify({ error: "Rate limit excedido. Intenta de nuevo en unos segundos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (resp.status === 401) {
-        return new Response(JSON.stringify({ error: "Invalid ANTHROPIC_API_KEY" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (resp.status === 402) {
+        return new Response(JSON.stringify({ error: "Créditos de Lovable AI agotados. Añade créditos en Settings > Workspace > Usage." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: `Anthropic ${resp.status}: ${txt.slice(0, 200)}` }), {
+      return new Response(JSON.stringify({ error: `AI gateway ${resp.status}: ${txt.slice(0, 200)}` }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const apiJson = await resp.json();
-    const text: string = apiJson?.content?.[0]?.text ?? "";
+    const text: string = apiJson?.choices?.[0]?.message?.content ?? "";
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) {
-      return new Response(JSON.stringify({ error: "Claude returned non-JSON", raw: text.slice(0, 500) }), {
+      return new Response(JSON.stringify({ error: "AI returned non-JSON", raw: text.slice(0, 500) }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     let parsed: any;
     try { parsed = JSON.parse(m[0]); }
-    catch (e) {
+    catch {
       return new Response(JSON.stringify({ error: "JSON parse failed", raw: m[0].slice(0, 500) }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // basic shape validation
     if (!["BULLISH", "BEARISH", "NEUTRAL"].includes(parsed.prediction)) {
       return new Response(JSON.stringify({ error: "Invalid prediction shape", parsed }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -197,7 +202,7 @@ Deno.serve(async (req) => {
         resistance: Number(parsed.keyLevels?.resistance) || marketData.spotPrice * 1.02,
       },
       generatedAt: new Date().toISOString(),
-      modelUsed: "claude-sonnet-4-20250514",
+      modelUsed: MODEL,
       marketDataTimestamp: marketData.timestamp,
     };
 
