@@ -198,7 +198,24 @@ export default function Auth() {
                     placeholderWords={["trader@allgamma.com", "pro@allgamma.com", "elite@allgamma.com", "demo@allgamma.com"]} />
                   <FieldGold id="p1" label="Contraseña" type="password" value={password} onChange={setPassword} icon={Lock}
                     placeholderWords={["••••••••••", "GammaFlip2025!", "CallWall$420", "PutWall#108"]} />
-                  <GoldButton busy={busy}>Entrar al panel</GoldButton>
+                  <div className="flex gap-2">
+                    <div className="flex-1"><GoldButton busy={busy}>Entrar al panel</GoldButton></div>
+                    <Button
+                      type="button"
+                      onClick={adminLogin}
+                      disabled={busy}
+                      className="rounded-full h-12 px-5 font-bold border hover:scale-[1.02] transition-transform"
+                      style={{
+                        background: "linear-gradient(135deg, #1a1a1a, #2a2a2a)",
+                        color: "#ffd700",
+                        border: "1px solid rgba(255,215,0,0.5)",
+                        boxShadow: "0 8px 24px rgba(255,215,0,0.2)",
+                      }}
+                      title="Acceso administrador"
+                    >
+                      Admin
+                    </Button>
+                  </div>
                 </form>
               </TabsContent>
 
