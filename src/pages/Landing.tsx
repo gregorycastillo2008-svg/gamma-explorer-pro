@@ -54,7 +54,7 @@ function StarRow({ n }: { n: number }) {
           animate={{ rotate: [0, 12, -12, 0], scale: [1, 1.15, 1] }}
           transition={{ duration: 2, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
         >
-          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+          <Star className="h-4 w-4 fill-blue-500 text-blue-500" />
         </motion.div>
       ))}
     </div>
@@ -85,8 +85,8 @@ export default function Landing() {
       <div className="fixed inset-0 opacity-50 pointer-events-none">
         <GammaBackgroundDark />
       </div>
-      {/* Soft gold vignette */}
-      <div className="fixed inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at top, rgba(255,215,0,0.06), transparent 60%)" }} />
+      {/* Soft blue vignette */}
+      <div className="fixed inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at top, rgba(59,130,246,0.08), transparent 60%)" }} />
 
       {/* Floating "Ver Planes" CTA bubble — eliminado */}
       <header className="relative z-10 flex items-center justify-between py-5 px-8 bg-black/40 backdrop-blur-sm">
@@ -446,15 +446,15 @@ export default function Landing() {
         className="fixed bottom-0 left-0 right-0 z-40 px-3 py-3 backdrop-blur-xl"
         style={{
           background: "linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.92))",
-          borderTop: "1px solid rgba(255,215,0,0.35)",
-          boxShadow: "0 -10px 30px -5px rgba(255,215,0,0.18)",
+          borderTop: "1px solid rgba(59,130,246,0.45)",
+          boxShadow: "0 -10px 30px -5px rgba(59,130,246,0.25)",
         }}
       >
         <div className="container flex items-center gap-3 overflow-x-auto justify-center flex-wrap">
-          <div className="gap-1.5 text-[10px] font-black tracking-widest uppercase shrink-0 rounded-full text-[#ff0000] flex items-start justify-start font-mono"
-            style={{ color: "#ffd700" }}
+          <div className="gap-1.5 text-[10px] font-black tracking-widest uppercase shrink-0 rounded-full flex items-start justify-start font-mono"
+            style={{ color: "#ffffff" }}
           >
-            <Sparkles className="h-3 w-3 animate-pulse" /> Códigos activos
+            <Sparkles className="h-3 w-3 animate-pulse text-blue-400" /> Códigos activos
           </div>
           {[
             { code: "GAMMA30", off: "-30%", note: "primer mes" },
@@ -469,43 +469,43 @@ export default function Landing() {
             >
               <motion.div
                 className="absolute -inset-0.5 rounded-full pointer-events-none"
-                style={{ background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)", filter: "blur(8px)", opacity: 0.4 }}
-                animate={{ opacity: [0.25, 0.6, 0.25] }}
+                style={{ background: "linear-gradient(90deg, #1e3a8a, #3b82f6, #ffffff, #3b82f6, #1e3a8a)", filter: "blur(8px)", opacity: 0.45 }}
+                animate={{ opacity: [0.3, 0.65, 0.3] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
               />
               <div
                 className="relative flex items-center rounded-full overflow-hidden"
                 style={{
-                  background: "linear-gradient(135deg, rgba(20,15,5,0.95), rgba(40,30,8,0.95))",
-                  border: "1px solid rgba(255,215,0,0.5)",
-                  boxShadow: "inset 0 1px 0 rgba(255,215,0,0.25)",
+                  background: "linear-gradient(135deg, rgba(8,12,30,0.95), rgba(15,30,70,0.95))",
+                  border: "1px solid rgba(59,130,246,0.55)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)",
                 }}
               >
                 <motion.div
                   className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(115deg, transparent 40%, rgba(255,215,0,0.4) 50%, transparent 60%)" }}
+                  style={{ background: "linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%)" }}
                   animate={{ x: ["-120%", "120%"] }}
                   transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.6, repeatDelay: 0.4 }}
                 />
                 <div className="pl-3 pr-2 py-1.5 flex items-center gap-1.5 relative">
-                  <span className="font-mono font-black tracking-widest text-xs bg-clip-text text-[#ff0000]"
-                    style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
+                  <span className="font-mono font-black tracking-widest text-xs bg-clip-text text-transparent"
+                    style={{ backgroundImage: "linear-gradient(90deg, #ffffff, #93c5fd, #3b82f6)" }}
                   >
                     {d.code}
                   </span>
                   <span className="text-[10px] font-bold px-1.5 rounded-full"
-                    style={{ background: "rgba(0,255,120,0.15)", color: "#00ff78", border: "1px solid rgba(0,255,120,0.4)" }}
+                    style={{ background: "rgba(59,130,246,0.18)", color: "#ffffff", border: "1px solid rgba(59,130,246,0.55)" }}
                   >
                     {d.off}
                   </span>
-                  <span className="text-[10px] hidden md:inline" style={{ color: "rgba(255,215,0,0.55)" }}>· {d.note}</span>
+                  <span className="text-[10px] hidden md:inline" style={{ color: "rgba(255,255,255,0.6)" }}>· {d.note}</span>
                 </div>
                 <button
                   onClick={() => copyCode(d.code)}
-                  className="relative px-3 py-1.5 flex items-center gap-1 font-bold text-[10px] text-black hover:brightness-110 active:scale-95 transition-all"
+                  className="relative px-3 py-1.5 flex items-center gap-1 font-bold text-[10px] text-white hover:brightness-110 active:scale-95 transition-all"
                   style={{
-                    background: "linear-gradient(90deg, #ffd700, #fff5cc, #ffd700)",
-                    borderLeft: "1px solid rgba(255,215,0,0.5)",
+                    background: "linear-gradient(90deg, #1d4ed8, #3b82f6, #1d4ed8)",
+                    borderLeft: "1px solid rgba(255,255,255,0.25)",
                   }}
                 >
                   <Copy className="h-3 w-3" />

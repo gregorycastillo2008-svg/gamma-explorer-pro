@@ -121,17 +121,17 @@ All colors MUST be HSL.
     font-variant-numeric: tabular-nums;
   }
 
-  /* Gold theme override — apply on a wrapper to recolor "primary" tokens to gold */
+  /* Blue/white theme override — apply on a wrapper to recolor "primary" tokens to blue */
   .gold-theme {
-    --primary: 45 100% 55%;
-    --primary-foreground: 0 0% 5%;
-    --primary-glow: 50 100% 70%;
-    --ring: 45 100% 55%;
-    --accent: 45 60% 12%;
-    --accent-foreground: 45 100% 70%;
-    --gradient-primary: linear-gradient(90deg, hsl(40 70% 40%), hsl(48 100% 60%), hsl(50 100% 85%), hsl(48 100% 60%), hsl(40 70% 40%));
-    --shadow-elegant: 0 10px 40px -12px hsl(45 100% 55% / 0.35);
-    --shadow-glow: 0 0 30px hsl(45 100% 55% / 0.25);
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 213 94% 78%;
+    --ring: 217 91% 60%;
+    --accent: 217 60% 12%;
+    --accent-foreground: 0 0% 100%;
+    --gradient-primary: linear-gradient(90deg, hsl(220 70% 40%), hsl(217 91% 60%), hsl(0 0% 100%), hsl(217 91% 60%), hsl(220 70% 40%));
+    --shadow-elegant: 0 10px 40px -12px hsl(217 91% 60% / 0.35);
+    --shadow-glow: 0 0 30px hsl(217 91% 60% / 0.25);
   }
 
   /* ───── Subtle live KPI animations (no number changes) ───── */
