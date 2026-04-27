@@ -64,6 +64,7 @@ function StarRow({ n }: { n: number }) {
 export default function Landing() {
   const { user } = useAuth();
   const [showPlansBubble, setShowPlansBubble] = useState(true);
+  const [showInfo, setShowInfo] = useState(false);
 
   // animated word in hero
   const heroWords = ["Gamma Exposure", "Dealer Flow", "Volatility Edge", "Market Bias"];
