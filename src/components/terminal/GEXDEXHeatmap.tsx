@@ -28,33 +28,33 @@ const PCT_COLS = [0, 10, 20, 30, 40, 70, 80, 95, 100, 115] as const;
 
 type Metric = "GEX" | "DEX";
 
-// ── Continuous heat gradient: more magnitude → more saturated green / red ──
-// Uses gamma-corrected interpolation from black (0) to peak color so faint
-// cells fade smoothly into the background.
+// ── Continuous heat gradient: bright neon peaks, faint floor for low volume ──
+// Peaks: neon emerald #00ff88 (positive) / neon red #ff2244 (negative).
+// Min floor (~0.18) keeps low-volume cells dim but always readable.
 function cellBg(v: number, max: number): string {
   if (!max || v === 0) return "#000000";
   const t = Math.min(1, Math.abs(v) / max);
-  // Gamma 0.55 boosts mid-range so small values are visible without flooding the table
-  const a = Math.pow(t, 0.55);
+  // Gamma 0.45 lifts mid/low values; floor 0.18 guarantees visibility.
+  const a = 0.18 + 0.82 * Math.pow(t, 0.45);
   if (v > 0) {
-    // Peak emerald #10b981 = rgb(16, 185, 129)
-    const r = Math.round(16  * a);
-    const g = Math.round(185 * a);
-    const b = Math.round(129 * a);
+    // Neon emerald peak rgb(0, 255, 136)
+    const r = Math.round(0   * a);
+    const g = Math.round(255 * a);
+    const b = Math.round(136 * a);
     return `rgb(${r},${g},${b})`;
   }
-  // Peak crimson #dc2626 = rgb(220, 38, 38)
-  const r = Math.round(220 * a);
-  const g = Math.round(38  * a);
-  const b = Math.round(38  * a);
+  // Neon red peak rgb(255, 34, 68)
+  const r = Math.round(255 * a);
+  const g = Math.round(34  * a);
+  const b = Math.round(68  * a);
   return `rgb(${r},${g},${b})`;
 }
 
 function cellFg(v: number, max: number): string {
-  if (!max || v === 0) return "#333";
+  if (!max || v === 0) return "#444";
   const t = Math.abs(v) / max;
-  // Bright text only when background is dark; dark text on saturated cells
-  return t > 0.55 ? "#000000" : "rgba(255,255,255,0.92)";
+  // Black text on the brightest cells, white text on the dim ones
+  return t > 0.6 ? "#000000" : "rgba(255,255,255,0.95)";
 }
 
 function fmt(v: number): string {
