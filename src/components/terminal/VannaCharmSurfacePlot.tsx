@@ -429,6 +429,7 @@ export function VannaCharmSurfacePlot() {
           <input type="checkbox" checked={showPlane} onChange={(e) => setShowPlane(e.target.checked)} style={{ verticalAlign: "middle" }} /> Ref plane
         </label>
       </div>
+      {tip && <Surface3DTooltip data={tip} type="vanna" />}
     </div>
   );
 }
