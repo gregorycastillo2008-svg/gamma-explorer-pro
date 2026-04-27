@@ -44,9 +44,11 @@ export default function Admin() {
   const [ticker, setTicker] = useState("SPX");
   const [metric, setMetric] = useState<Metric>("netGex");
 
-  useEffect(() => {
-    if (!authLoading && !user) nav("/auth", { replace: true });
-  }, [user, authLoading, nav]);
+  // Admin login form state (only shown when not authenticated)
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -61,8 +63,82 @@ export default function Admin() {
     }).catch((error) => console.error("Admin data:", error));
   }, [isAdmin]);
 
+  // If signed in but NOT admin → kick them out so admin UI never leaks.
+  useEffect(() => {
+    if (!authLoading && !adminLoading && user && !isAdmin) {
+      void supabase.auth.signOut();
+    }
+  }, [authLoading, adminLoading, user, isAdmin]);
+
+  const submitLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    setLoginBusy(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginEmail.trim(),
+      password: loginPassword,
+    });
+    setLoginBusy(false);
+    if (error) {
+      setLoginError(error.message || "Credenciales inválidas");
+    }
+  };
+
   if (authLoading || (user && adminLoading)) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Cargando panel admin…</div>;
+  }
+
+  // Not signed in → dedicated admin login (email + password)
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+        <Card className="w-full max-w-md p-8" style={{ boxShadow: "var(--shadow-elegant)" }}>
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="h-12 w-12 rounded-2xl flex items-center justify-center mb-3" style={{ background: "var(--gradient-primary)" }}>
+              <Shield className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <h1 className="text-xl font-bold">Acceso administrador</h1>
+            <p className="text-xs text-muted-foreground mt-1">Solo personal autorizado de GEXSATELIT.</p>
+          </div>
+          <form onSubmit={submitLogin} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</label>
+              <Input
+                type="email"
+                required
+                autoFocus
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="admin@allgamma.com"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contraseña</label>
+              <Input
+                type="password"
+                required
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="••••••••••"
+              />
+            </div>
+            {loginError && (
+              <div className="flex items-start gap-2 rounded-md p-3 text-xs"
+                style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: "#fca5a5" }}>
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={loginBusy}>
+              {loginBusy ? "Verificando…" : "Entrar"}
+            </Button>
+            <div className="text-center">
+              <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">← Volver al inicio</Link>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
   }
 
   if (!isAdmin) {
@@ -71,8 +147,8 @@ export default function Admin() {
         <Card className="p-8 max-w-md text-center" style={{ boxShadow: "var(--shadow-elegant)" }}>
           <AlertTriangle className="h-10 w-10 text-flip mx-auto mb-3" />
           <h2 className="text-xl font-bold mb-2">Acceso restringido</h2>
-          <p className="text-muted-foreground text-sm mb-4">Solo los administradores pueden acceder a esta página.</p>
-          <Link to="/dashboard"><Button>Volver al panel</Button></Link>
+          <p className="text-muted-foreground text-sm mb-4">Esta cuenta no tiene permisos de administrador.</p>
+          <Link to="/dashboard"><Button>Ir al panel</Button></Link>
         </Card>
       </div>
     );
