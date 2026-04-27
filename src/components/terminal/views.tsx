@@ -1050,6 +1050,11 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
               label: "3D SURFACE",
               content: <SurfaceChart strikes={strikes.slice().reverse()} expiries={expiries} cellMap={cellMap} min={min} max={max} colorFor={colorFor} />,
             },
+            {
+              key: "flow",
+              label: "OPTIONS FLOW",
+              content: <OptionsFlowHeatmap ticker={ticker} contracts={contracts} />,
+            },
           ]}
         />
       </div>
