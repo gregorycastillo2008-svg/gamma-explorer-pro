@@ -70,7 +70,7 @@ function computeGreekByStrike(ticker: DemoTicker, contracts: OptionContract[], g
     else if (greek === "zomma") g = zomma(ticker.spot, c.strike, r, sigma, T);
     else g = color(ticker.spot, c.strike, r, sigma, T) / 365; // per day
     // dealer perspective: short calls (negative) + long puts ish — sign per OI
-    const signed = g * (c.openInterest ?? 0) * (c.type === "call" ? 1 : -1) * 100;
+    const signed = g * (c.oi ?? 0) * (c.type === "call" ? 1 : -1) * 100;
     byStrike.set(c.strike, (byStrike.get(c.strike) ?? 0) + signed);
   }
   const arr = Array.from(byStrike.entries())
