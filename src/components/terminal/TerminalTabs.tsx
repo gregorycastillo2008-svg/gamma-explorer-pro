@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export interface TerminalTab {
   key: string;
-  label: string;
+  label: ReactNode;
   content: ReactNode;
 }
 

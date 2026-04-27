@@ -1054,7 +1054,7 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
             },
             {
               key: "flow",
-              label: "OPTIONS FLOW",
+              label: <span style={{ background: "linear-gradient(90deg, #ffffff, #1e40af)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontWeight: 800 }}>HEATMAP</span>,
               content: <OptionsFlowHeatmap ticker={ticker} contracts={contracts} />,
             },
           ]}

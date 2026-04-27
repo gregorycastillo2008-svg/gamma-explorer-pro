@@ -181,11 +181,11 @@ export default function Auth() {
 
             <Tabs defaultValue={paidEmail ? "signup" : "signin"}>
               <TabsList
-                className="h-10 items-center justify-center grid grid-cols-2 w-full mb-6 rounded-full p-1 text-secondary-foreground bg-secondary-foreground"
-                style={{ border: "1px solid rgba(255,215,0,0.2)" }}
+                className="h-10 items-center justify-center grid grid-cols-2 w-full mb-6 rounded-full p-1"
+                style={{ background: "rgba(30,64,175,0.15)", border: "1px solid rgba(30,64,175,0.5)" }}
               >
-                <TabsTrigger value="signin" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary text-white">Entrar</TabsTrigger>
-                <TabsTrigger value="signup" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary text-white">Crear cuenta</TabsTrigger>
+                <TabsTrigger value="signin" className="rounded-full text-white data-[state=active]:bg-[#1e40af] data-[state=active]:text-white data-[state=active]:font-bold">Entrar</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-full text-white data-[state=active]:bg-[#1e40af] data-[state=active]:text-white data-[state=active]:font-bold">Crear cuenta</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
@@ -297,16 +297,17 @@ function GoldButton({ busy, children }: { busy: boolean; children: React.ReactNo
     <Button
       type="submit"
       disabled={busy}
-      className="w-full rounded-full h-12 font-bold text-black hover:scale-[1.02] transition-transform group"
+      className="w-full rounded-full h-12 font-bold text-white hover:scale-[1.02] transition-transform group"
       style={{
-        background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)",
+        background: "linear-gradient(90deg, #1e40af, #3b82f6, #ffffff, #3b82f6, #1e40af)",
         backgroundSize: "200% 100%",
-        boxShadow: "0 8px 24px rgba(255,215,0,0.4)",
+        boxShadow: "0 8px 24px rgba(30,64,175,0.45)",
+        color: "#fff",
       }}
     >
       <span className="flex items-center justify-center gap-2">
         {busy ? "..." : children}
-        {!busy && <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-destructive" />}
+        {!busy && <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-white" />}
       </span>
     </Button>
   );
