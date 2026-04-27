@@ -81,11 +81,22 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
         metric === "GEX" ? e.netGex :
         metric === "DEX" ? e.dex :
         e.vex;
+      // Per-side magnitudes for the metric (so red & green can be drawn at the same strike row)
+      const callSide =
+        metric === "GEX" ? e.callGex :
+        metric === "DEX" ? Math.max(0, e.dex) :
+        Math.max(0, e.vex);
+      const putSide =
+        metric === "GEX" ? e.putGex :
+        metric === "DEX" ? Math.min(0, e.dex) :
+        Math.min(0, e.vex);
       return {
         strike: e.strike,
         value,
-        // shares per $ move (gamma exposure): netGex / spot since gex already $/$ here we keep raw
         shares: value / ticker.spot,
+        // split bars: red goes left (negative), green goes right (positive) — drawn at same row
+        callShares: Math.max(0, callSide) / ticker.spot,   // green, right side
+        putShares: -Math.abs(putSide) / ticker.spot,        // red, left side
         callOI: sides.callOI,
         putOI: sides.putOI,
         callVol: sides.callVol,
@@ -102,7 +113,10 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
   }, [ticker, filteredContracts, metric, zoom]);
 
   const maxAbs = useMemo(
-    () => Math.max(...rows.map((r) => Math.abs(r.shares)), 1),
+    () => Math.max(
+      ...rows.map((r) => Math.max(Math.abs(r.callShares), Math.abs(r.putShares))),
+      1,
+    ),
     [rows],
   );
 
