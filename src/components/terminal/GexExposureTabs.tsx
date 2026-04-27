@@ -198,19 +198,20 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
 
   return (
     <div
-      className="relative bg-black rounded border border-border p-2 h-full overflow-auto"
+      className="relative bg-black rounded border border-border p-2 h-full flex flex-col overflow-hidden"
       onMouseLeave={() => setHover(null)}
     >
-      <div className="font-jetbrains text-[9px] text-muted-foreground uppercase tracking-wider mb-1.5 grid grid-cols-2 gap-2">
+      <div className="font-jetbrains text-[9px] text-muted-foreground uppercase tracking-wider mb-1.5 grid grid-cols-2 gap-2 shrink-0">
         <div className="text-right pr-2">Negative ★</div>
         <div className="pl-2">Positive ★</div>
       </div>
-      <div className="space-y-0 relative">
-        {/* SPOT horizontal cyan line through chart (no price label, just the line) */}
-        {spotIdx >= 0 && (
+      {/* Chart area: flex-1 so all rows distribute evenly to fill available height — no scroll */}
+      <div className="flex-1 min-h-0 relative flex flex-col">
+        {/* SPOT horizontal cyan line — positioned proportionally */}
+        {spotIdx >= 0 && data.length > 0 && (
           <div
             className="pointer-events-none absolute left-0 right-0 z-20"
-            style={{ top: `calc(${spotIdx} * 12px + 6px)` }}
+            style={{ top: `${((spotIdx + 0.5) / data.length) * 100}%` }}
           >
             <div
               className="h-px"
@@ -228,6 +229,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
           const isHover = hover?.strike === p.strike;
           const isMaxPos = p.strike === maxPosStrike && v > 0;
           const isMaxNeg = p.strike === maxNegStrike && v < 0;
+          // Bar thickness scales with row height — keep ~60% of row, capped between 2 and 8px
           return (
             <div
               key={p.strike}
@@ -235,10 +237,10 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
                 const rect = (e.currentTarget.parentElement?.parentElement as HTMLElement).getBoundingClientRect();
                 setHover({ strike: p.strike, value: v, x: e.clientX - rect.left, y: e.clientY - rect.top });
               }}
-              className={`grid grid-cols-2 items-center gap-1 cursor-crosshair transition-colors ${
+              className={`grid grid-cols-2 items-center gap-1 cursor-crosshair transition-colors flex-1 min-h-0 ${
                 isHover ? "bg-white/5" : ""
               }`}
-              style={{ height: 12, borderLeft: isSpot ? "2px solid #00ffff" : "2px solid transparent" }}
+              style={{ borderLeft: isSpot ? "2px solid #00ffff" : "2px solid transparent" }}
             >
               <div className="flex justify-end items-center h-full relative pr-1">
                 {isMaxNeg && (
@@ -246,9 +248,12 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
                 )}
                 {v < 0 && (
                   <div
-                    className="h-2 rounded-l transition-all"
+                    className="rounded-l transition-all"
                     style={{
                       width: `${w}%`,
+                      height: "70%",
+                      maxHeight: 10,
+                      minHeight: 2,
                       background: isMaxNeg ? "linear-gradient(90deg, #ff0033, #ff6677)" : "#ff4d4d",
                       boxShadow: isMaxNeg
                         ? "0 0 14px #ff0033, inset 0 0 6px #fff3"
@@ -263,9 +268,12 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
               <div className="flex items-center h-full relative pl-1" style={{ borderLeft: "1px solid #1a1a1a" }}>
                 {v >= 0 && (
                   <div
-                    className="h-2 rounded-r transition-all"
+                    className="rounded-r transition-all"
                     style={{
                       width: `${w}%`,
+                      height: "70%",
+                      maxHeight: 10,
+                      minHeight: 2,
                       background: isMaxPos ? "linear-gradient(90deg, #00ff88, #aaffcc)" : "#00ff88",
                       boxShadow: isMaxPos
                         ? "0 0 14px #00ff88, inset 0 0 6px #fff3"
@@ -286,7 +294,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
       </div>
 
       {/* Footer legend — only labels, no individual strike prices visible */}
-      <div className="mt-2 pt-1.5 border-t border-[#1a1a1a] flex items-center justify-between font-jetbrains text-[9px]">
+      <div className="mt-2 pt-1.5 border-t border-[#1a1a1a] flex items-center justify-between font-jetbrains text-[9px] shrink-0">
         <span className="text-[#ff4d4d]">★ MAX −{sym}</span>
         <span className="text-[#00ffff]">▶ SPOT</span>
         <span className="text-[#00ff88]">★ MAX +{sym}</span>
