@@ -140,8 +140,17 @@ export default function Landing() {
       </header>
 
       <section className="relative z-10 container py-20 text-center opacity-75 text-7xl">
-        <div className="mb-8 flex-row opacity-60 flex items-start justify-start">
-          <GexSatellite size={340} speed={14} />
+        <div className="mb-8 flex items-center justify-start gap-6 -ml-6 -mt-10 opacity-90">
+          <GexSatellite size={460} speed={14} />
+          <span
+            className="font-black tracking-[0.25em] text-white"
+            style={{
+              fontSize: 56,
+              textShadow: "0 0 24px rgba(255,255,255,0.35), 0 0 8px rgba(255,0,0,0.4)",
+            }}
+          >
+            GEXSATELIT
+          </span>
         </div>
 
 
