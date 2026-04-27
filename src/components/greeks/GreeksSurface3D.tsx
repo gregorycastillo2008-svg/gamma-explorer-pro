@@ -30,7 +30,7 @@ export function GreeksSurface3D({ symbol, points, metric: metricProp }: Props) {
     <div className="font-mono" style={{ background: "#000", border: "1px solid #1f1f1f", borderRadius: 6 }}>
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#1f1f1f]" style={{ background: "#0a0a0a" }}>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold tracking-[0.2em] text-cyan-400">{metric} SURFACE 3D</span>
+          <span className="text-[10px] font-bold tracking-[0.2em] text-white">{metric} SURFACE 3D</span>
           <span className="text-[9px] text-muted-foreground">·</span>
           <span className="text-[10px] font-bold text-foreground">{symbol}</span>
         </div>

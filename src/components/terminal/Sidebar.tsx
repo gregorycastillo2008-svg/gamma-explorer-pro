@@ -52,7 +52,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
       )}
     >
       <div className="h-14 flex items-center px-3 border-b border-sidebar-border">
-        <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0 text-base text-black" style={{ background: "var(--gradient-primary)" }} title="GEXSATELIT">
+        <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0 text-base text-black bg-black" style={{ background: "var(--gradient-primary)" }} title="GEXSATELIT">
           🛰️
         </div>
         {!collapsed && (
