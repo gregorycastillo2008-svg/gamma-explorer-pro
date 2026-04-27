@@ -124,13 +124,13 @@ export default function Landing() {
 
       <header className="relative z-10 flex items-center justify-between py-5 px-8 bg-black/40 backdrop-blur-sm">
         <Link to="/" className="hover:scale-105 transition-transform flex items-center gap-2.5">
-          <span className="h-8 w-8 rounded-lg bg-[#2563eb] flex items-center justify-center shadow-[0_0_18px_rgba(37,99,235,0.55)]">
+          <span className="h-8 w-8 rounded-lg flex items-center justify-center shadow-[0_0_18px_rgba(37,99,235,0.55)] bg-[#135acd]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
               <polyline points="16 7 22 7 22 13" />
             </svg>
           </span>
-          <span className="font-bold text-white text-xl tracking-tight">GexRadar</span>
+          <span className="font-bold text-white text-xl tracking-tight">GEX SATELIT</span>
         </Link>
         <nav className="hidden md:flex items-center gap-8 text-sm text-white/70">
           <a href="#features" className="hover:text-white transition-colors">Features</a>
