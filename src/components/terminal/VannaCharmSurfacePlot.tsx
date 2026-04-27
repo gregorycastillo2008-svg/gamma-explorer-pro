@@ -249,7 +249,7 @@ export function VannaCharmSurfacePlot() {
       updateCam();
     };
     const onWheel = (e: WheelEvent) => {
-      distRef.current = Math.max(3.5, Math.min(16, distRef.current + e.deltaY * 0.013));
+      distRef.current = Math.max(0.5, Math.min(80, distRef.current + e.deltaY * 0.02));
       e.preventDefault();
       updateCam();
     };
