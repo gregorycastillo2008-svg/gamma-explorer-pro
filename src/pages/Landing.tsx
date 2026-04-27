@@ -103,18 +103,18 @@ export default function Landing() {
               transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
               className="relative"
             >
-              <div className="absolute -inset-2 rounded-2xl bg-primary/40 blur-xl animate-pulse" />
+              <div className="absolute -inset-2 rounded-2xl bg-[#2563eb]/50 blur-xl animate-pulse" />
               <a href="#planes" onClick={() => setShowPlansBubble(false)}>
-                <div className="relative flex items-center gap-2 px-4 py-3 rounded-2xl cursor-pointer hover:scale-105 transition-transform text-white bg-black border-[#ffc300] border-0 font-extrabold font-mono"
-                  style={{ boxShadow: "0 10px 40px -5px hsl(var(--primary) / 0.6)" }}>
-                  <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                <div className="relative flex items-center gap-2 px-4 py-3 rounded-2xl cursor-pointer hover:scale-105 transition-transform text-white bg-[#135acd] border-0 font-extrabold font-mono"
+                  style={{ boxShadow: "0 10px 40px -5px rgba(37,99,235,0.7)" }}>
+                  <Sparkles className="h-5 w-5 text-white animate-pulse" />
                   <div className="text-left">
-                    <div className="text-xs text-muted-foreground leading-none">Oferta limitada</div>
-                    <div className="text-sm font-bold">Ver planes →</div>
+                    <div className="text-xs text-white/80 leading-none">Oferta limitada</div>
+                    <div className="text-sm font-bold text-white">Ver planes →</div>
                   </div>
                   <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPlansBubble(false); }}
-                    className="ml-1 text-muted-foreground hover:text-foreground text-xs"
+                    className="ml-1 text-white/70 hover:text-white text-xs"
                   >✕</button>
                 </div>
               </a>
