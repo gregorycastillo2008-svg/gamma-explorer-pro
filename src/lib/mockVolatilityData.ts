@@ -2,6 +2,7 @@ import {
   generateIVSurface, generateIVSkew, generateHistoricalHVData,
   calculateSkewMetrics, type IvPoint, type SkewPoint, type HVRow, type SkewMetrics,
 } from "./volatilityCalculations";
+import type { OptionContract } from "./gex";
 
 export interface VolatilityDataset {
   symbol: string;
