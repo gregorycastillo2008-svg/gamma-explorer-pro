@@ -150,9 +150,9 @@ export default function Landing() {
         </div>
       </header>
 
-      <section className="relative z-10 container py-12 text-center">
-        <div className="mb-12 flex justify-start -ml-[calc((100vw-100%)/2)]">
-          <RadarMap size={520} />
+      <section className="relative z-10 container pt-2 pb-12 text-center">
+        <div className="mb-6 -mt-4 flex justify-start -ml-[calc((100vw-100%)/2)]">
+          <RadarMap size={420} />
         </div>
 
 
