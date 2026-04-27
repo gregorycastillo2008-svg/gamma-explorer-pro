@@ -181,12 +181,11 @@ const Td = ({ children, r, bold, tone }: any) => {
 
 // ─────── DEPTH VIEW — GEX/DEX por strike, filtro DTE 1/2/3 ───────
 export function DepthView({ ticker, contracts }: Ctx) {
-  const [dte, setDte] = useState<"1" | "2" | "3" | "all">("all");
+  const [dte, setDte] = useState<"1" | "2" | "3">("3");
   const [hover, setHover] = useState<number | null>(null);
 
-  // Filter contracts by DTE bucket (≤ N days)
+  // Filter contracts by DTE bucket (≤ N days, max 3)
   const filtered = useMemo(() => {
-    if (dte === "all") return contracts;
     const max = parseInt(dte, 10);
     return contracts.filter((c) => c.expiry <= max);
   }, [contracts, dte]);
@@ -214,7 +213,7 @@ export function DepthView({ ticker, contracts }: Ctx) {
       {/* DTE filter row */}
       <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/40 flex-wrap">
         <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase mr-1">DTE</span>
-        {(["all", "1", "2", "3"] as const).map((v) => (
+        {(["1", "2", "3"] as const).map((v) => (
           <button
             key={v}
             onClick={() => setDte(v)}
@@ -225,7 +224,7 @@ export function DepthView({ ticker, contracts }: Ctx) {
               borderColor: dte === v ? "#10b981" : "#2a2a2a",
             }}
           >
-            {v === "all" ? "ALL" : `${v}D`}
+            {`${v}D`}
           </button>
         ))}
       </div>

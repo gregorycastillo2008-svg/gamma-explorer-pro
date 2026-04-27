@@ -15,7 +15,7 @@ const TICKERS = ["SPY", "QQQ", "IWM", "DIA", "AAPL", "MSFT", "NVDA", "TSLA", "AM
 const TIMEFRAMES = ["1D", "5D", "1M", "3M", "6M", "1Y"] as const;
 type TF = typeof TIMEFRAMES[number];
 type ChartMode = "line" | "candle";
-type DteFilter = "all" | "1" | "2" | "3";
+type DteFilter = "1" | "2" | "3";
 
 interface PricePoint { time: number; value: number }
 interface OhlcPoint { time: number; open: number; high: number; low: number; close: number }
@@ -52,7 +52,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
   const [symbol, setSymbol] = useState(defaultSymbol);
   const [timeframe, setTimeframe] = useState<TF>("3M");
   const [chartMode, setChartMode] = useState<ChartMode>("line");
-  const [dteFilter, setDteFilter] = useState<DteFilter>("all");
+  const [dteFilter, setDteFilter] = useState<DteFilter>("3");
   const [price, setPrice] = useState<PricePayload | null>(null);
   const [chain, setChain] = useState<ChainPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,7 +140,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
   const strikeRows: StrikeRow[] = useMemo(() => {
     if (!chain || !chain.contracts.length) return [];
     const spot = chain.spot;
-    const maxDte = dteFilter === "all" ? Infinity : parseInt(dteFilter, 10);
+    const maxDte = parseInt(dteFilter, 10);
     const filtered = chain.contracts.filter((c) => daysUntil(c.expiration) <= maxDte);
     const map = new Map<number, StrikeRow>();
     filtered.forEach((c) => {
@@ -342,7 +342,6 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
           <div className="ml-2 flex items-center gap-1">
             <span className="text-[9px] tracking-widest text-muted-foreground font-bold">GAMMA</span>
             {([
-              { v: "all" as const, label: "ALL" },
               { v: "1" as const, label: "1D" },
               { v: "2" as const, label: "2D" },
               { v: "3" as const, label: "3D" },
@@ -391,7 +390,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
             <GEXBarsPanel rows={strikeRows} spot={chain.spot} />
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
-              {dteFilter === "all" ? "Loading GEX…" : `Sin opciones reales para ≤${dteFilter}D`}
+              {`Sin opciones reales para ≤${dteFilter}D`}
             </div>
           )}
         </div>
