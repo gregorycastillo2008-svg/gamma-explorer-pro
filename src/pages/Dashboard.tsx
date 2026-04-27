@@ -13,7 +13,7 @@ import { FloatingStatBar } from "@/components/terminal/FloatingStatBar";
 import { Sidebar, Section } from "@/components/terminal/Sidebar";
 import { Topbar } from "@/components/terminal/Topbar";
 import {
-  OverviewView, GexDexView, GreeksView, DepthView, LevelsView,
+  OverviewView, GreeksView, DepthView, LevelsView,
   HedgeView, VannaCharmView, VegaThetaView, VolatilityView, RegimeView,
   OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
 } from "@/components/terminal/views";
@@ -111,7 +111,7 @@ export default function Dashboard() {
     switch (section) {
       case "overview": return <OverviewView {...ctx} />;
       case "oi-analytics": return <OiAnalyticsView {...ctx} />;
-      case "gex-dex": return <GexDexView {...ctx} />;
+      
       case "greeks": return <GreeksView {...ctx} />;
       case "depth": return <DepthView {...ctx} />;
       case "levels": return <LevelsView {...ctx} />;
