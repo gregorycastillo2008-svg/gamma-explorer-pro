@@ -184,7 +184,11 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
 export function StrikeChartView({ ticker, contracts, metric }: Props) {
   const data = useMemo(() => {
     const points = computeExposures(ticker.spot, contracts);
-    return points.slice().sort((a, b) => b.strike - a.strike);
+    // Take 10 strikes above spot and 10 below (sorted desc so highest is on top)
+    const sortedAsc = points.slice().sort((a, b) => a.strike - b.strike);
+    const above = sortedAsc.filter((p) => p.strike > ticker.spot).slice(0, 10);
+    const below = sortedAsc.filter((p) => p.strike <= ticker.spot).slice(-10);
+    return [...above, ...below].sort((a, b) => b.strike - a.strike);
   }, [ticker, contracts]);
 
   const max = Math.max(...data.map((d) => Math.abs(d[metric])), 1);
@@ -251,9 +255,9 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
                     className="rounded-l transition-all"
                     style={{
                       width: `${w}%`,
-                      height: "70%",
-                      maxHeight: 10,
-                      minHeight: 2,
+                      height: "90%",
+                      maxHeight: 28,
+                      minHeight: 8,
                       background: isMaxNeg ? "linear-gradient(90deg, #ff0033, #ff6677)" : "#ff4d4d",
                       boxShadow: isMaxNeg
                         ? "0 0 14px #ff0033, inset 0 0 6px #fff3"
@@ -271,9 +275,9 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
                     className="rounded-r transition-all"
                     style={{
                       width: `${w}%`,
-                      height: "70%",
-                      maxHeight: 10,
-                      minHeight: 2,
+                      height: "90%",
+                      maxHeight: 28,
+                      minHeight: 8,
                       background: isMaxPos ? "linear-gradient(90deg, #00ff88, #aaffcc)" : "#00ff88",
                       boxShadow: isMaxPos
                         ? "0 0 14px #00ff88, inset 0 0 6px #fff3"
