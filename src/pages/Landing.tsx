@@ -54,7 +54,7 @@ function StarRow({ n }: { n: number }) {
           animate={{ rotate: [0, 12, -12, 0], scale: [1, 1.15, 1] }}
           transition={{ duration: 2, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
         >
-          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+          <Star className="h-4 w-4 fill-blue-500 text-blue-500" />
         </motion.div>
       ))}
     </div>
