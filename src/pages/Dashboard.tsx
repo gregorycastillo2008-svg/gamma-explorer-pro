@@ -15,7 +15,7 @@ import { FloatingStatBar } from "@/components/terminal/FloatingStatBar";
 import { Sidebar, Section } from "@/components/terminal/Sidebar";
 import { Topbar } from "@/components/terminal/Topbar";
 import {
-  OverviewView, GreeksView, DepthView, LevelsView,
+  OverviewView, ChartView, GreeksView, DepthView, LevelsView,
   HedgeView, VannaCharmView, VegaThetaView, VolatilityView, RegimeView,
   OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
 } from "@/components/terminal/views";
