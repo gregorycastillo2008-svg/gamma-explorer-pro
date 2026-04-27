@@ -2,28 +2,38 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 /**
- * Volatility 3D Surface — peak/drop colored mesh.
- * Adaptado del HTML provisto por el usuario (GEXSATELIT).
+ * Volatility 3D Surface — peak/drop colored mesh with rainbow colormap.
+ * Drag para rotar, scroll para zoom, sliders para elev/azim.
  */
 export function Volatility3DSurface() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
   const [elev, setElev] = useState(32);
   const [azim, setAzim] = useState(220);
 
-  // refs internos para no recrear escena
-  const stateRef = useRef<{
-    camera?: THREE.PerspectiveCamera;
-    renderer?: THREE.WebGLRenderer;
-    elev: number;
-    azim: number;
-    dist: number;
-  }>({ elev: 32, azim: 220, dist: 7.5 });
+  // Refs mutables sin re-render
+  const elevRef = useRef(elev);
+  const azimRef = useRef(azim);
+  const distRef = useRef(7.5);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+
+  useEffect(() => { elevRef.current = elev; updateCam(); }, [elev]);
+  useEffect(() => { azimRef.current = azim; updateCam(); }, [azim]);
+
+  function updateCam() {
+    const cam = cameraRef.current;
+    if (!cam) return;
+    const el = elevRef.current * Math.PI / 180;
+    const az = azimRef.current * Math.PI / 180;
+    const d = distRef.current;
+    cam.position.set(d * Math.cos(el) * Math.sin(az), d * Math.sin(el), d * Math.cos(el) * Math.cos(az));
+    cam.lookAt(0, 0.3, 0);
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current!;
-    const wrap = wrapRef.current!;
-    let W = wrap.clientWidth - 24;
+    const container = containerRef.current!;
+    const W = container.clientWidth;
     const H = 500;
     canvas.width = W; canvas.height = H;
 
@@ -34,14 +44,17 @@ export function Volatility3DSurface() {
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.055);
+
     const camera = new THREE.PerspectiveCamera(44, W / H, 0.1, 1000);
+    cameraRef.current = camera;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
     const dir1 = new THREE.DirectionalLight(0xffffff, 1.1); dir1.position.set(6, 14, 6); scene.add(dir1);
     const dir2 = new THREE.DirectionalLight(0x4488ff, 0.5); dir2.position.set(-6, 4, -4); scene.add(dir2);
     const dir3 = new THREE.DirectionalLight(0xff4400, 0.3); dir3.position.set(8, 2, 0); scene.add(dir3);
 
-    const N = 50, SX = 4.4, SZ = 4.0, SY = 2.4;
+    const N = 50;
+    const SX = 4.4, SZ = 4.0, SY = 2.4;
 
     const surface = (u: number, v: number) => {
       const peak = 1.8 * Math.exp(-Math.pow((u - 0.85) * 3.5, 2) - Math.pow((v - 0.80) * 3.5, 2));
@@ -58,13 +71,14 @@ export function Volatility3DSurface() {
       for (let j = 0; j < N; j++) {
         const v = surface(i / (N - 1), j / (N - 1));
         raw[i].push(v);
-        if (v < mn) mn = v; if (v > mx) mx = v;
+        if (v < mn) mn = v;
+        if (v > mx) mx = v;
       }
     }
 
     const rainbow = (t: number) => {
       t = Math.max(0, Math.min(1, t));
-      const stops: Array<[number, [number, number, number]]> = [
+      const stops: [number, [number, number, number]][] = [
         [0.00, [0.00, 0.00, 1.00]],
         [0.15, [0.00, 0.50, 1.00]],
         [0.30, [0.00, 1.00, 1.00]],
@@ -76,7 +90,7 @@ export function Volatility3DSurface() {
         [1.00, [1.00, 0.00, 1.00]],
       ];
       for (let k = 0; k < stops.length - 1; k++) {
-        const [t0, c0] = stops[k], [t1, c1] = stops[k + 1];
+        const [t0, c0] = stops[k]; const [t1, c1] = stops[k + 1];
         if (t >= t0 && t <= t1) {
           const f = (t - t0) / (t1 - t0);
           return new THREE.Color(c0[0] + f * (c1[0] - c0[0]), c0[1] + f * (c1[1] - c0[1]), c0[2] + f * (c1[2] - c0[2]));
@@ -98,9 +112,11 @@ export function Volatility3DSurface() {
         cols.push(c.r, c.g, c.b);
       }
     }
-    for (let i = 0; i < N - 1; i++) for (let j = 0; j < N - 1; j++) {
-      const a = i * N + j, b = i * N + j + 1, c = (i + 1) * N + j, d = (i + 1) * N + j + 1;
-      idxs.push(a, c, b, b, c, d);
+    for (let i = 0; i < N - 1; i++) {
+      for (let j = 0; j < N - 1; j++) {
+        const a = i * N + j, b = i * N + j + 1, c = (i + 1) * N + j, d = (i + 1) * N + j + 1;
+        idxs.push(a, c, b, b, c, d);
+      }
     }
     geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
     geo.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
@@ -109,12 +125,11 @@ export function Volatility3DSurface() {
 
     const mat = new THREE.MeshPhongMaterial({
       vertexColors: true, side: THREE.DoubleSide,
-      shininess: 80,
-      specular: new THREE.Color(0.5, 0.5, 0.5),
+      shininess: 80, specular: new THREE.Color(0.5, 0.5, 0.5),
     });
     scene.add(new THREE.Mesh(geo, mat));
 
-    // Grid overlay
+    // Grid overlay — white lines
     const lmat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.22, transparent: true });
     for (let j = 0; j < N; j += 4) {
       const pts: THREE.Vector3[] = [];
@@ -131,110 +146,111 @@ export function Volatility3DSurface() {
     grid.position.y = -0.65;
     scene.add(grid);
 
-    const axLine = (a: number[], b: number[], col: number, op = 0.6) => {
-      const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...(a as [number, number, number])), new THREE.Vector3(...(b as [number, number, number]))]);
+    const axLine = (a: [number, number, number], b: [number, number, number], col: number, op = 0.6) => {
+      const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]);
       scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: col, opacity: op, transparent: true })));
     };
     axLine([-2.2, -0.65, -2.0], [2.4, -0.65, -2.0], 0x444444);
     axLine([-2.2, -0.65, -2.0], [-2.2, 2.0, -2.0], 0x444444);
     axLine([-2.2, -0.65, -2.0], [-2.2, -0.65, 2.2], 0x444444);
 
-    const st = stateRef.current;
-    st.camera = camera;
-    st.renderer = renderer;
-
-    const updateCam = () => {
-      const el = st.elev * Math.PI / 180, az = st.azim * Math.PI / 180;
-      camera.position.set(
-        st.dist * Math.cos(el) * Math.sin(az),
-        st.dist * Math.sin(el),
-        st.dist * Math.cos(el) * Math.cos(az),
-      );
-      camera.lookAt(0, 0.3, 0);
-    };
     updateCam();
 
+    // Interactividad
     let drag = false, lx = 0, ly = 0;
     const onDown = (e: MouseEvent) => { drag = true; lx = e.clientX; ly = e.clientY; };
     const onUp = () => { drag = false; };
     const onMove = (e: MouseEvent) => {
       if (!drag) return;
-      st.azim -= (e.clientX - lx) * 0.45;
-      st.elev = Math.max(5, Math.min(80, st.elev + (e.clientY - ly) * 0.35));
+      azimRef.current -= (e.clientX - lx) * 0.45;
+      elevRef.current = Math.max(5, Math.min(80, elevRef.current + (e.clientY - ly) * 0.35));
       lx = e.clientX; ly = e.clientY;
-      setElev(Math.round(st.elev));
-      setAzim(((Math.round(st.azim) % 360) + 360) % 360);
+      setElev(Math.round(elevRef.current));
+      setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
       updateCam();
     };
     const onWheel = (e: WheelEvent) => {
-      st.dist = Math.max(3.5, Math.min(15, st.dist + e.deltaY * 0.012));
+      distRef.current = Math.max(3.5, Math.min(15, distRef.current + e.deltaY * 0.012));
       e.preventDefault();
       updateCam();
     };
+
+    let lt: Touch | null = null;
+    const onTouchStart = (e: TouchEvent) => { lt = e.touches[0]; e.preventDefault(); };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!lt) return;
+      const t = e.touches[0];
+      azimRef.current -= (t.clientX - lt.clientX) * 0.45;
+      elevRef.current = Math.max(5, Math.min(80, elevRef.current + (t.clientY - lt.clientY) * 0.35));
+      lt = t;
+      setElev(Math.round(elevRef.current));
+      setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
+      updateCam();
+      e.preventDefault();
+    };
+
     canvas.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     window.addEventListener("mousemove", onMove);
     canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    const onResize = () => {
+      const w = container.clientWidth;
+      renderer.setSize(w, H);
+      camera.aspect = w / H;
+      camera.updateProjectionMatrix();
+    };
+    window.addEventListener("resize", onResize);
 
     let raf = 0;
     const animate = () => { raf = requestAnimationFrame(animate); renderer.render(scene, camera); };
     animate();
-
-    const onResize = () => {
-      W = wrap.clientWidth - 24;
-      renderer.setSize(W, H);
-      camera.aspect = W / H;
-      camera.updateProjectionMatrix();
-    };
-    window.addEventListener("resize", onResize);
 
     return () => {
       cancelAnimationFrame(raf);
       canvas.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
-      canvas.removeEventListener("wheel", onWheel as any);
+      canvas.removeEventListener("wheel", onWheel);
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("resize", onResize);
       renderer.dispose();
       geo.dispose();
       mat.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // sliders externos → mover cámara
-  useEffect(() => {
-    const st = stateRef.current;
-    st.elev = elev; st.azim = azim;
-    if (st.camera) {
-      const el = elev * Math.PI / 180, az = azim * Math.PI / 180;
-      st.camera.position.set(
-        st.dist * Math.cos(el) * Math.sin(az),
-        st.dist * Math.sin(el),
-        st.dist * Math.cos(el) * Math.cos(az),
-      );
-      st.camera.lookAt(0, 0.3, 0);
-    }
-  }, [elev, azim]);
-
   return (
-    <div ref={wrapRef} style={{ width: "100%", background: "#111", borderRadius: 12, padding: 12, boxSizing: "border-box" }}>
+    <div ref={containerRef} className="w-full rounded-xl p-3 box-border" style={{ background: "#111" }}>
       <canvas ref={canvasRef} style={{ width: "100%", height: 500, display: "block", borderRadius: 8 }} />
-      <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ color: "#666", fontSize: 11, fontFamily: "monospace" }}>🛰️ GEXSATELIT · drag: rotar | scroll: zoom</span>
-        <label style={{ color: "#777", fontSize: 11, fontFamily: "monospace" }}>
-          Elev <input type="range" min={5} max={80} value={elev} onChange={(e) => setElev(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} />
-          <span style={{ color: "#aaa" }}> {elev}°</span>
+      <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
+        <span className="text-[11px] font-mono text-muted-foreground">🖱 drag: rotar | scroll: zoom</span>
+        <label className="text-[11px] font-mono text-muted-foreground flex items-center gap-2">
+          Elev
+          <input type="range" min={5} max={80} value={elev} onChange={(e) => setElev(+e.target.value)} className="w-20 align-middle" />
+          <span className="text-foreground/70">{elev}°</span>
         </label>
-        <label style={{ color: "#777", fontSize: 11, fontFamily: "monospace" }}>
-          Az <input type="range" min={0} max={360} value={azim} onChange={(e) => setAzim(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} />
-          <span style={{ color: "#aaa" }}> {azim}°</span>
+        <label className="text-[11px] font-mono text-muted-foreground flex items-center gap-2">
+          Az
+          <input type="range" min={0} max={360} value={azim} onChange={(e) => setAzim(+e.target.value)} className="w-20 align-middle" />
+          <span className="text-foreground/70">{azim}°</span>
         </label>
       </div>
-      <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-        <div style={{ width: 220, height: 14, background: "linear-gradient(to right, #0000ff, #0088ff, #00ffff, #00ff88, #aaff00, #ffff00, #ff8800, #ff0000, #ff00ff)", borderRadius: 4, border: "1px solid #333" }} />
+      <div className="flex justify-center mt-2">
+        <div
+          style={{
+            width: 220, height: 14,
+            background: "linear-gradient(to right, #0000ff, #0088ff, #00ffff, #00ff88, #aaff00, #ffff00, #ff8800, #ff0000, #ff00ff)",
+            borderRadius: 4, border: "1px solid #333",
+          }}
+        />
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", width: 220, margin: "2px auto 0", fontSize: 10, color: "#555", fontFamily: "monospace" }}>
-        <span>Low</span><span style={{ marginLeft: 60 }}>Mid</span><span>High Vol</span>
+      <div className="flex justify-between font-mono text-[10px] text-muted-foreground mx-auto mt-0.5" style={{ width: 220 }}>
+        <span>Low</span><span>Mid</span><span>High Vol</span>
       </div>
     </div>
   );
