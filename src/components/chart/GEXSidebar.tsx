@@ -52,7 +52,7 @@ export function GEXSidebar({
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-[#1f1f1f]">
-        <div className="text-white text-base font-bold tracking-[0.2em]">gex bot</div>
+        <div className="text-white text-base font-bold tracking-[0.2em]">GEX SATELIT</div>
         <div className="text-muted-foreground text-[10px]">classic</div>
       </div>
 
