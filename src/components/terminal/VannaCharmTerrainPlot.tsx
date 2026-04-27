@@ -90,12 +90,15 @@ export function VannaCharmTerrainPlot() {
   const [elev, setElev] = useState(26);
   const [azim, setAzim] = useState(200);
   const [showPlane, setShowPlane] = useState(true);
+  const [tip, setTip] = useState<TooltipData | null>(null);
 
   const elevRef = useRef(26);
   const azimRef = useRef(200);
   const distRef = useRef(9.0);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const planeRef = useRef<THREE.Mesh | null>(null);
+  const surfaceRef = useRef<THREE.Mesh | null>(null);
+  const markerRef = useRef<THREE.Mesh | null>(null);
 
   function updateCam() {
     const cam = cameraRef.current;
