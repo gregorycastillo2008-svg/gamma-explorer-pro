@@ -228,6 +228,7 @@ export function VannaCharmSurfacePlot() {
     }
     scene.add(planeGroup);
 
+    const makeLabel = (text: string, color = "#cccccc", sz = 24) => {
       const cv = document.createElement("canvas");
       cv.width = 200; cv.height = 56;
       const ctx = cv.getContext("2d")!;
