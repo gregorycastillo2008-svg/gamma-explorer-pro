@@ -27,7 +27,7 @@ export function Scroll3DGallery() {
         </motion.div>
         <h2 className="text-4xl md:text-6xl font-black tracking-tight">
           Desliza para descubrir <br />
-          <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)" }}>
+          <span className="bg-clip-text text-[#ff0000]" style={{ backgroundImage: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)" }}>
             la plataforma
           </span>
         </h2>
