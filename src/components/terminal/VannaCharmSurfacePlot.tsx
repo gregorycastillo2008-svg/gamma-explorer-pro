@@ -137,7 +137,17 @@ export function VannaCharmSurfacePlot() {
       vertexColors: true, side: THREE.DoubleSide,
       shininess: 120, specular: new THREE.Color(0.6, 0.6, 0.6),
     });
-    scene.add(new THREE.Mesh(geo, mat));
+    const surfaceMesh = new THREE.Mesh(geo, mat);
+    scene.add(surfaceMesh);
+    meshRef.current = surfaceMesh;
+
+    const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.95 });
+    const marker = new THREE.Mesh(markerGeo, markerMat);
+    marker.visible = false;
+    scene.add(marker);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.25 }));
+    marker.add(glow);
 
     // Mesh grid lines (lighter color over black bg)
     const glmat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.18, transparent: true });
