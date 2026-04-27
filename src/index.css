@@ -180,5 +180,19 @@ All colors MUST be HSL.
 .glow-red  { text-shadow: 0 0 10px rgba(255, 61, 0, 0.5); }
 
 .altaris-scroll::-webkit-scrollbar { width: 4px; }
-.altaris-scroll::-webkit-scrollbar-track { background: #0a0a0a; }
-.altaris-scroll::-webkit-scrollbar-thumb { background: #1f1f1f; border-radius: 10px; }
+.altaris-scroll::-webkit-scrollbar-track { background: hsl(var(--background)); }
+.altaris-scroll::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 10px; }
+
+.terminal-scrollbar::-webkit-scrollbar { width: 14px; height: 10px; }
+.terminal-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+  border-left: 1px solid hsl(var(--border));
+}
+.terminal-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border: 3px solid hsl(var(--background));
+  border-radius: 999px;
+}
+.terminal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary-glow));
+}
