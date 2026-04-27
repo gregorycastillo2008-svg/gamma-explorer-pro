@@ -55,9 +55,8 @@ serve(async (req) => {
       });
     }
 
-    const sub = subs.data[0];
     const priceId = sub.items.data[0].price.id;
-    const meta = PRICE_TO_TIER[priceId] ?? { tier: "basic", interval: "month" };
+    const meta = PRICE_TO_TIER[priceId] ?? { tier: "starter", interval: "month" };
 
     return new Response(JSON.stringify({
       subscribed: true,
