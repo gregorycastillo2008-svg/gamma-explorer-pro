@@ -16,6 +16,12 @@ interface Props {
   symbol: string;
   /** "GEX" = Gamma$ exposure, "DEX" = Delta$ exposure */
   mode?: "GEX" | "DEX";
+  /** When true, the mode toggle is hidden and the chart fills its container */
+  lockMode?: boolean;
+  /** Optional title override */
+  title?: string;
+  /** When true, bars stretch to fill the entire card (no scroll, taller bars) */
+  fullBleed?: boolean;
 }
 
 /**
@@ -26,8 +32,9 @@ interface Props {
  * Positive => dealers long gamma/delta at that strike (suppressive).
  * Negative => dealers short gamma/delta (amplifies moves).
  */
-export function DealerExposureBars({ rows, spot, symbol, mode: modeProp }: Props) {
+export function DealerExposureBars({ rows, spot, symbol, mode: modeProp, lockMode, title, fullBleed }: Props) {
   const [mode, setMode] = useState<"GEX" | "DEX">(modeProp ?? "GEX");
+  const effectiveMode = lockMode ? (modeProp ?? "GEX") : mode;
 
   const data = useMemo(() => {
     return rows
