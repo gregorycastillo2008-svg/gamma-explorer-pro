@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
-import { GEXSATELITLogo } from "@/components/GEXSATELITLogo";
+import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
 import { toast } from "sonner";
 
@@ -122,7 +122,7 @@ export default function Landing() {
 
       <header className="relative z-10 container flex items-center justify-between py-6">
         <Link to="/" className="hover:scale-105 transition-transform">
-          <GEXSATELITLogo size="md" />
+          <AllGammaLogo size="md" />
         </Link>
         <div className="flex items-center gap-3">
           <a href="#planes"><Button variant="ghost">Planes</Button></a>
