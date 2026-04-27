@@ -422,59 +422,352 @@ function SurfaceTab({
 }) {
   return (
     <div className="grid grid-cols-2 gap-4 h-full">
-      <Surface3DPanel title="VANNAEX · 3D SURFACE" grid={vannaGrid} spot={spot} positiveHex="#fbbf24" negativeHex="#a78bfa" />
-      <Surface3DPanel title="CHARMEX · 3D SURFACE" grid={charmGrid} spot={spot} positiveHex="#10b981" negativeHex="#ef4444" />
+      <Surface3DPanel title="VANNAEX · MATLAB SURFACE" subtitle="2nd-order: ∂Δ/∂σ" grid={vannaGrid} spot={spot} variant="matlab" greekLabel="Vanna" />
+      <Surface3DPanel title="CHARMEX · TERRAIN SURFACE" subtitle="2nd-order: ∂Δ/∂t" grid={charmGrid} spot={spot} variant="terrain" greekLabel="Charm" />
     </div>
   );
 }
 
+interface SurfHover {
+  strike: number;
+  dte: number;
+  value: number;
+  spotDist: number; // %
+  x: number;
+  y: number;
+}
+
 function Surface3DPanel({
-  title, grid, spot, positiveHex, negativeHex,
+  title, subtitle, grid, spot, variant, greekLabel,
 }: {
   title: string;
+  subtitle: string;
   grid: { strike: number; expiry: number; value: number }[];
   spot: number;
-  positiveHex: string;
-  negativeHex: string;
+  variant: "matlab" | "terrain";
+  greekLabel: string;
 }) {
-  const orbitRef = useRef<any>(null);
-  const [autoRotate, setAutoRotate] = useState(false);
-  const [hover, setHover] = useState<{ strike: number; expiry: number; value: number } | null>(null);
+  const [hover, setHover] = useState<SurfHover | null>(null);
+  const [elev, setElev] = useState(variant === "matlab" ? 28 : 26);
+  const [azim, setAzim] = useState(variant === "matlab" ? 215 : 200);
+  const [dist, setDist] = useState(variant === "matlab" ? 8.5 : 9.5);
+  const ctlRef = useRef<{ reset: () => void } | null>(null);
+
+  const apply = (e: number, a: number, d: number) => {
+    setElev(e);
+    setAzim(((Math.round(a) % 360) + 360) % 360);
+    setDist(d);
+  };
+
+  const bg = variant === "matlab" ? "#fafafa" : "#dde3ee";
+  const border = variant === "matlab" ? "#ddd" : "#ccc";
 
   return (
     <div className="flex flex-col min-h-0 rounded-lg overflow-hidden relative" style={{ background: PANEL_BG, border: `1px solid ${BORDER}` }}>
-      <div className="px-3 py-2 text-[11px] uppercase tracking-wider flex justify-between" style={{ color: TEXT, borderBottom: `1px solid ${BORDER}` }}>
-        <span>{title}</span>
+      <div className="px-3 py-2 text-[11px] uppercase tracking-wider flex justify-between items-center" style={{ color: TEXT, borderBottom: `1px solid ${BORDER}` }}>
+        <div>
+          <div>{title}</div>
+          <div className="text-[9px] normal-case tracking-normal" style={{ color: MUTED }}>{subtitle}</div>
+        </div>
         <div className="flex items-center gap-2">
-          <IconBtn onClick={() => orbitRef.current?.dollyIn?.(1.2)}><ZoomIn size={14} /></IconBtn>
-          <IconBtn onClick={() => orbitRef.current?.dollyOut?.(1.2)}><ZoomOut size={14} /></IconBtn>
-          <IconBtn onClick={() => setAutoRotate((v) => !v)}><RotateCcw size={14} /></IconBtn>
-          <IconBtn onClick={() => orbitRef.current?.reset?.()}><Home size={14} /></IconBtn>
+          <IconBtn onClick={() => apply(elev, azim, Math.max(4, dist - 0.6))}><ZoomIn size={14} /></IconBtn>
+          <IconBtn onClick={() => apply(elev, azim, Math.min(18, dist + 0.6))}><ZoomOut size={14} /></IconBtn>
+          <IconBtn onClick={() => ctlRef.current?.reset()}><RotateCcw size={14} /></IconBtn>
+          <IconBtn onClick={() => ctlRef.current?.reset()}><Home size={14} /></IconBtn>
           <IconBtn onClick={() => {}}><Maximize2 size={14} /></IconBtn>
         </div>
       </div>
-      <div className="flex-1 relative">
-        <Canvas camera={{ position: [8, 6, 8], fov: 50 }}>
-          <ambientLight intensity={0.6} />
-          <directionalLight position={[5, 10, 5]} intensity={0.7} />
-          <Surface grid={grid} spot={spot} positiveHex={positiveHex} negativeHex={negativeHex} onHover={setHover} />
-          <gridHelper args={[10, 20, "#1f1f1f", "#1f1f1f"]} />
-          <OrbitControls ref={orbitRef} enableRotate enableZoom autoRotate={autoRotate} minDistance={5} maxDistance={20} />
+      <div className="flex-1 relative" style={{ background: bg, borderTop: `1px solid ${border}` }}>
+        <Canvas
+          camera={{ fov: 42, near: 0.1, far: 1000 }}
+          gl={{ antialias: true, preserveDrawingBuffer: true }}
+          onCreated={({ scene }) => {
+            scene.background = new THREE.Color(bg);
+            if (variant === "terrain") scene.fog = new THREE.Fog(0xdde3ee, 18, 38);
+          }}
+        >
+          <ambientLight intensity={variant === "matlab" ? 0.5 : 0.52} />
+          <directionalLight position={[8, 16, 10]} intensity={1.0} color={variant === "matlab" ? 0xffffff : 0xfff5e0} />
+          <directionalLight position={[-8, 6, -6]} intensity={0.45} color={variant === "matlab" ? 0xaaccff : 0xc0d8ff} />
+          <directionalLight position={[0, -4, 12]} intensity={0.32} color={variant === "matlab" ? 0xffeedd : 0xffeecc} />
+          <DataSurface variant={variant} grid={grid} spot={spot} setHover={setHover} />
+          <CamRig elev={elev} azim={azim} dist={dist} ctlRef={ctlRef} onChange={apply} />
         </Canvas>
+
         {hover && (
           <div
-            className="absolute top-3 left-3 px-3 py-2 text-[10px] font-mono rounded pointer-events-none"
-            style={{ background: "rgba(0,0,0,0.85)", border: `1px solid ${BORDER}`, color: TEXT }}
+            className="absolute pointer-events-none z-20 rounded px-2.5 py-2 text-[10px] font-mono leading-tight"
+            style={{
+              left: Math.min(hover.x + 14, 280),
+              top: hover.y + 14,
+              background: "rgba(0,0,0,0.92)",
+              border: `1px solid ${CYAN}`,
+              color: "#e5e7eb",
+              boxShadow: `0 0 10px rgba(6,182,212,0.4)`,
+              minWidth: 160,
+            }}
           >
-            <div style={{ color: CYAN }}>STRIKE ${hover.strike}</div>
-            <div style={{ color: hover.value >= 0 ? positiveHex : negativeHex }}>Value: {formatNumber(hover.value)}</div>
-            <div>DTE: {hover.expiry} days</div>
+            <div style={{ color: YELLOW, fontWeight: 700 }}>STRIKE ${hover.strike}</div>
+            <div className="flex justify-between gap-3"><span style={{ color: MUTED }}>DTE</span><span>{hover.dte}d</span></div>
+            <div className="flex justify-between gap-3"><span style={{ color: MUTED }}>{greekLabel}EX</span><span style={{ color: hover.value >= 0 ? GREEN : RED }}>{formatNumber(hover.value, 2)}</span></div>
+            <div className="flex justify-between gap-3"><span style={{ color: MUTED }}>Spot dist</span><span style={{ color: hover.spotDist >= 0 ? RED : GREEN }}>{hover.spotDist >= 0 ? "+" : ""}{hover.spotDist.toFixed(2)}%</span></div>
           </div>
         )}
-        <div className="absolute bottom-2 left-3 text-[9px]" style={{ color: MUTED }}>STRIKES (X) · DTE (Z) · {title.split(" ")[0]} (Y)</div>
+
+        <div className="absolute bottom-2 left-0 right-0 flex flex-wrap items-center justify-center gap-3 px-3 text-[10px] font-mono pointer-events-none">
+          <span style={{ color: variant === "matlab" ? "#888" : "#555" }}>🖱 drag · scroll · hover</span>
+          <label className="flex items-center gap-1 pointer-events-auto" style={{ color: variant === "matlab" ? "#666" : "#555" }}>
+            Elev
+            <input type="range" min={5} max={80} value={Math.round(elev)} onChange={(e) => apply(+e.target.value, azim, dist)} className="w-16 accent-cyan-500" />
+            <span style={{ color: variant === "matlab" ? "#444" : "#333" }}>{Math.round(elev)}°</span>
+          </label>
+          <label className="flex items-center gap-1 pointer-events-auto" style={{ color: variant === "matlab" ? "#666" : "#555" }}>
+            Az
+            <input type="range" min={0} max={360} value={Math.round(azim)} onChange={(e) => apply(elev, +e.target.value, dist)} className="w-16 accent-cyan-500" />
+            <span style={{ color: variant === "matlab" ? "#444" : "#333" }}>{Math.round(azim)}°</span>
+          </label>
+        </div>
       </div>
     </div>
   );
+}
+
+// MATLAB jet/parula colormap
+function matlabColor(t: number): [number, number, number] {
+  t = Math.max(0, Math.min(1, t));
+  const stops: [number, [number, number, number]][] = [
+    [0.00, [0.18, 0.00, 0.42]], [0.08, [0.10, 0.05, 0.65]], [0.18, [0.08, 0.25, 0.85]],
+    [0.30, [0.05, 0.55, 0.90]], [0.42, [0.10, 0.78, 0.82]], [0.55, [0.20, 0.85, 0.65]],
+    [0.65, [0.45, 0.90, 0.45]], [0.75, [0.78, 0.95, 0.20]], [0.85, [1.00, 0.95, 0.10]],
+    [0.93, [1.00, 0.72, 0.05]], [1.00, [1.00, 0.55, 0.00]],
+  ];
+  for (let k = 0; k < stops.length - 1; k++) {
+    const [t0, c0] = stops[k]; const [t1, c1] = stops[k + 1];
+    if (t >= t0 && t <= t1) {
+      const f = (t - t0) / (t1 - t0);
+      return [c0[0] + f * (c1[0] - c0[0]), c0[1] + f * (c1[1] - c0[1]), c0[2] + f * (c1[2] - c0[2])];
+    }
+  }
+  return [1, 0.55, 0];
+}
+
+// Topographic colormap (terrain)
+function topoColor(t: number): [number, number, number] {
+  t = Math.max(0, Math.min(1, t));
+  const stops: [number, [number, number, number]][] = [
+    [0.00, [0.28, 0.00, 0.50]], [0.08, [0.05, 0.05, 0.72]], [0.18, [0.00, 0.20, 0.85]],
+    [0.30, [0.00, 0.55, 0.70]], [0.42, [0.05, 0.72, 0.35]], [0.54, [0.30, 0.80, 0.10]],
+    [0.65, [0.65, 0.85, 0.05]], [0.75, [0.92, 0.88, 0.00]], [0.85, [1.00, 0.62, 0.00]],
+    [0.93, [1.00, 0.25, 0.05]], [1.00, [0.90, 0.05, 0.05]],
+  ];
+  for (let k = 0; k < stops.length - 1; k++) {
+    const [t0, c0] = stops[k]; const [t1, c1] = stops[k + 1];
+    if (t >= t0 && t <= t1) {
+      const f = (t - t0) / (t1 - t0);
+      return [c0[0] + f * (c1[0] - c0[0]), c0[1] + f * (c1[1] - c0[1]), c0[2] + f * (c1[2] - c0[2])];
+    }
+  }
+  return [0.9, 0.05, 0.05];
+}
+
+function DataSurface({
+  variant, grid, spot, setHover,
+}: {
+  variant: "matlab" | "terrain";
+  grid: { strike: number; expiry: number; value: number }[];
+  spot: number;
+  setHover: (h: SurfHover | null) => void;
+}) {
+  const built = useMemo(() => {
+    if (!grid.length) return null;
+    const strikes = Array.from(new Set(grid.map((g) => g.strike))).sort((a, b) => a - b);
+    const expiries = Array.from(new Set(grid.map((g) => g.expiry))).sort((a, b) => a - b);
+    const cols = strikes.length, rows = expiries.length;
+    if (cols < 2 || rows < 2) return null;
+
+    const map = new Map<string, number>();
+    for (const g of grid) map.set(`${g.strike}|${g.expiry}`, g.value);
+    const valueGrid: number[][] = [];
+    for (let i = 0; i < cols; i++) {
+      valueGrid.push([]);
+      for (let j = 0; j < rows; j++) {
+        valueGrid[i].push(map.get(`${strikes[i]}|${expiries[j]}`) ?? 0);
+      }
+    }
+
+    let mn = Infinity, mx = -Infinity;
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+      const v = valueGrid[i][j];
+      if (v < mn) mn = v; if (v > mx) mx = v;
+    }
+    const range = Math.max(mx - mn, 1e-9);
+
+    const SX = variant === "matlab" ? 5.2 : 5.6;
+    const SZ = variant === "matlab" ? 5.2 : 5.6;
+    const SY = variant === "matlab" ? 3.0 : 3.2;
+    const baseY = variant === "matlab" ? -0.3 : -0.4;
+    const colorFn = variant === "matlab" ? matlabColor : topoColor;
+
+    const verts: number[] = [];
+    const colors: number[] = [];
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        const x = (i / (cols - 1) - 0.5) * SX;
+        const z = (j / (rows - 1) - 0.5) * SZ;
+        const norm = (valueGrid[i][j] - mn) / range;
+        const y = norm * SY + baseY;
+        verts.push(x, y, z);
+        const [r, g, b] = colorFn(norm);
+        colors.push(r, g, b);
+      }
+    }
+    const idxs: number[] = [];
+    for (let i = 0; i < cols - 1; i++) for (let j = 0; j < rows - 1; j++) {
+      const a = i * rows + j, b = i * rows + j + 1, c = (i + 1) * rows + j, d = (i + 1) * rows + j + 1;
+      idxs.push(a, c, b, b, c, d);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setIndex(idxs);
+    geometry.computeVertexNormals();
+
+    const lineColor = variant === "matlab" ? 0x111111 : 0x000000;
+    const lineOp = variant === "matlab" ? 0.28 : 0.12;
+    const step = Math.max(1, Math.floor(Math.max(cols, rows) / 14));
+    const gridLines: THREE.BufferGeometry[] = [];
+    for (let j = 0; j < rows; j += step) {
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i < cols; i++) {
+        const k = (i * rows + j) * 3;
+        pts.push(new THREE.Vector3(verts[k], verts[k + 1], verts[k + 2]));
+      }
+      gridLines.push(new THREE.BufferGeometry().setFromPoints(pts));
+    }
+    for (let i = 0; i < cols; i += step) {
+      const pts: THREE.Vector3[] = [];
+      for (let j = 0; j < rows; j++) {
+        const k = (i * rows + j) * 3;
+        pts.push(new THREE.Vector3(verts[k], verts[k + 1], verts[k + 2]));
+      }
+      gridLines.push(new THREE.BufferGeometry().setFromPoints(pts));
+    }
+
+    return { geometry, gridLines, strikes, expiries, valueGrid, cols, rows, lineColor, lineOp, baseY, SX, SZ, SY, variant };
+  }, [grid, variant]);
+
+  if (!built) return null;
+
+  return (
+    <group>
+      <mesh
+        geometry={built.geometry}
+        onPointerMove={(e) => {
+          const face = e.face;
+          if (!face) return;
+          const a = face.a;
+          const i = Math.floor(a / built.rows);
+          const j = a % built.rows;
+          const strike = built.strikes[Math.min(i, built.cols - 1)];
+          const dte = built.expiries[Math.min(j, built.rows - 1)];
+          const value = built.valueGrid[Math.min(i, built.cols - 1)][Math.min(j, built.rows - 1)];
+          setHover({
+            strike, dte, value,
+            spotDist: ((strike - spot) / spot) * 100,
+            x: e.nativeEvent.offsetX,
+            y: e.nativeEvent.offsetY,
+          });
+        }}
+        onPointerOut={() => setHover(null)}
+      >
+        <meshPhongMaterial
+          vertexColors
+          side={THREE.DoubleSide}
+          shininess={built.variant === "matlab" ? 120 : 55}
+          specular={new THREE.Color(built.variant === "matlab" ? 0.6 : 0.35, built.variant === "matlab" ? 0.6 : 0.35, built.variant === "matlab" ? 0.6 : 0.25)}
+        />
+      </mesh>
+      {built.gridLines.map((g, i) => (
+        <line key={i}>
+          <primitive object={g} attach="geometry" />
+          <lineBasicMaterial color={built.lineColor} transparent opacity={built.lineOp} />
+        </line>
+      ))}
+      {/* Floor plane for matlab style */}
+      {built.variant === "matlab" && (
+        <mesh position={[0, built.baseY - 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[built.SX, built.SZ]} />
+          <meshPhongMaterial color={0x22115a} transparent opacity={0.92} side={THREE.DoubleSide} shininess={10} />
+        </mesh>
+      )}
+      {/* Reference plane for terrain */}
+      {built.variant === "terrain" && (
+        <mesh position={[0, built.baseY + built.SY * 0.55, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[built.SX, built.SZ]} />
+          <meshPhongMaterial color={0x8899cc} transparent opacity={0.38} side={THREE.DoubleSide} shininess={5} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function CamRig({
+  elev, azim, dist, ctlRef, onChange,
+}: {
+  elev: number; azim: number; dist: number;
+  ctlRef: React.MutableRefObject<{ reset: () => void } | null>;
+  onChange: (e: number, a: number, d: number) => void;
+}) {
+  const { camera, gl } = useThree();
+  const dragRef = useRef({ active: false, x: 0, y: 0 });
+  const stateRef = useRef({ elev, azim, dist });
+  stateRef.current = { elev, azim, dist };
+
+  useEffect(() => {
+    ctlRef.current = { reset: () => onChange(28, 215, 8.5) };
+  }, [ctlRef, onChange]);
+
+  useEffect(() => {
+    const el = (elev * Math.PI) / 180;
+    const az = (azim * Math.PI) / 180;
+    camera.position.set(
+      dist * Math.cos(el) * Math.sin(az),
+      dist * Math.sin(el),
+      dist * Math.cos(el) * Math.cos(az),
+    );
+    camera.lookAt(0, 0.5, 0);
+  }, [elev, azim, dist, camera]);
+
+  useEffect(() => {
+    const dom = gl.domElement;
+    const md = (e: MouseEvent) => { dragRef.current.active = true; dragRef.current.x = e.clientX; dragRef.current.y = e.clientY; };
+    const mu = () => { dragRef.current.active = false; };
+    const mm = (e: MouseEvent) => {
+      if (!dragRef.current.active) return;
+      const dx = e.clientX - dragRef.current.x;
+      const dy = e.clientY - dragRef.current.y;
+      dragRef.current.x = e.clientX; dragRef.current.y = e.clientY;
+      const s = stateRef.current;
+      onChange(Math.max(5, Math.min(80, s.elev + dy * 0.32)), s.azim - dx * 0.42, s.dist);
+    };
+    const wh = (e: WheelEvent) => {
+      e.preventDefault();
+      const s = stateRef.current;
+      onChange(s.elev, s.azim, Math.max(4, Math.min(18, s.dist + e.deltaY * 0.014)));
+    };
+    dom.addEventListener("mousedown", md);
+    window.addEventListener("mouseup", mu);
+    window.addEventListener("mousemove", mm);
+    dom.addEventListener("wheel", wh, { passive: false });
+    return () => {
+      dom.removeEventListener("mousedown", md);
+      window.removeEventListener("mouseup", mu);
+      window.removeEventListener("mousemove", mm);
+      dom.removeEventListener("wheel", wh);
+    };
+  }, [gl, onChange]);
+
+  return null;
 }
 
 function IconBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
@@ -491,71 +784,3 @@ function IconBtn({ children, onClick }: { children: React.ReactNode; onClick: ()
   );
 }
 
-function Surface({
-  grid, spot, positiveHex, negativeHex, onHover,
-}: {
-  grid: { strike: number; expiry: number; value: number }[];
-  spot: number;
-  positiveHex: string;
-  negativeHex: string;
-  onHover: (h: { strike: number; expiry: number; value: number } | null) => void;
-}) {
-  const { geo, wireGeo, strikes, expiries } = useMemo(() => {
-    const strikes = Array.from(new Set(grid.map((g) => g.strike))).sort((a, b) => a - b);
-    const expiries = Array.from(new Set(grid.map((g) => g.expiry))).sort((a, b) => a - b);
-    const w = strikes.length;
-    const h = expiries.length;
-    const map = new Map(grid.map((g) => [`${g.strike}|${g.expiry}`, g.value]));
-    const max = Math.max(...grid.map((g) => Math.abs(g.value)), 1);
-
-    const SX = 10, SZ = 6, SY = 3;
-    const geo = new THREE.PlaneGeometry(SX, SZ, Math.max(1, w - 1), Math.max(1, h - 1));
-    geo.rotateX(-Math.PI / 2);
-
-    const pos = new THREE.Color(positiveHex);
-    const neg = new THREE.Color(negativeHex);
-    const colors: number[] = [];
-
-    for (let j = 0; j < h; j++) {
-      for (let i = 0; i < w; i++) {
-        const v = map.get(`${strikes[i]}|${expiries[j]}`) ?? 0;
-        const norm = v / max; // -1..1
-        const idx = (j * w + i) * 3 + 1; // y component
-        geo.attributes.position.array[idx] = norm * SY;
-        const c = v >= 0 ? pos : neg;
-        const intensity = 0.3 + Math.abs(norm) * 0.7;
-        colors.push(c.r * intensity, c.g * intensity, c.b * intensity);
-      }
-    }
-    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-    geo.computeVertexNormals();
-
-    const wireGeo = new THREE.WireframeGeometry(geo);
-    return { geo, wireGeo, strikes, expiries };
-  }, [grid, positiveHex, negativeHex]);
-
-  return (
-    <group>
-      <mesh
-        geometry={geo}
-        onPointerMove={(e) => {
-          const face = e.face;
-          if (!face) return;
-          const w = strikes.length;
-          const i = face.a % w;
-          const j = Math.floor(face.a / w);
-          const strike = strikes[Math.min(i, strikes.length - 1)];
-          const expiry = expiries[Math.min(j, expiries.length - 1)];
-          const v = grid.find((g) => g.strike === strike && g.expiry === expiry)?.value ?? 0;
-          onHover({ strike, expiry, value: v });
-        }}
-        onPointerOut={() => onHover(null)}
-      >
-        <meshStandardMaterial vertexColors side={THREE.DoubleSide} flatShading={false} />
-      </mesh>
-      <lineSegments geometry={wireGeo}>
-        <lineBasicMaterial color="#374151" transparent opacity={0.3} />
-      </lineSegments>
-    </group>
-  );
-}
