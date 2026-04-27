@@ -8,8 +8,8 @@ const BASE_PRICES: Record<string, number> = { SPY: 609.23, QQQ: 542.10, AAPL: 23
 
 interface Props { defaultSymbol?: string; }
 
-export function PriceGexChartContainer({ defaultSymbol = "SPY" }: Props) {
-  const [symbol, setSymbol] = useState(SYMBOLS.includes(defaultSymbol) ? defaultSymbol : "SPY");
+export function PriceGexChartContainer({ defaultSymbol = "QQQ" }: Props) {
+  const [symbol, setSymbol] = useState(SYMBOLS.includes(defaultSymbol) ? defaultSymbol : "QQQ");
   const basePrice = BASE_PRICES[symbol] ?? 100;
   const [livePrice, setLivePrice] = useState(basePrice);
   const [tick, setTick] = useState(0);

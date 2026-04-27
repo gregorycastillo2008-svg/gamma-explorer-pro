@@ -75,7 +75,7 @@ interface Row {
   off: number; // strike offset rank from ATM
 }
 
-export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
+export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
   const [symbol, setSymbol] = useState(initialSymbol);
   const [side, setSide] = useState<"call" | "put">("call");
   const [expiration, setExpiration] = useState<string>("");
