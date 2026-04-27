@@ -152,6 +152,35 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
     scene.add(surfaceMesh);
     meshRef.current = surfaceMesh;
 
+    // Reference plane (semi-transparent at mid-height)
+    const planeGeo = new THREE.PlaneGeometry(SX * 1.05, SZ * 1.05);
+    const planeMat = new THREE.MeshBasicMaterial({
+      color: 0x6688ff, transparent: true, opacity: 0.18, side: THREE.DoubleSide,
+    });
+    const refPlane = new THREE.Mesh(planeGeo, planeMat);
+    refPlane.rotation.x = -Math.PI / 2;
+    refPlane.position.y = 0.5 * SY - 0.6;
+    refPlane.visible = showRefPlane;
+    scene.add(refPlane);
+    refPlaneRef.current = refPlane;
+
+    // Data points (sampled red spheres on the surface)
+    const ptsGroup = new THREE.Group();
+    const sphereGeo = new THREE.SphereGeometry(0.045, 10, 10);
+    const sphereMat = new THREE.MeshPhongMaterial({ color: 0xff2222, emissive: 0x550000 });
+    const stepPts = 6;
+    for (let i = 0; i < N; i += stepPts) {
+      for (let j = 0; j < N; j += stepPts) {
+        const idx = (i * N + j) * 3;
+        const m = new THREE.Mesh(sphereGeo, sphereMat);
+        m.position.set(verts[idx], verts[idx + 1] + 0.04, verts[idx + 2]);
+        ptsGroup.add(m);
+      }
+    }
+    ptsGroup.visible = showDataPts;
+    scene.add(ptsGroup);
+    dataPtsRef.current = ptsGroup;
+
     // Hover marker (glowing sphere)
     const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.95 });
