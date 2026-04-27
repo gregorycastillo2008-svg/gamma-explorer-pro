@@ -28,32 +28,45 @@ const PCT_COLS = [0, 10, 20, 30, 40, 70, 80, 95, 100, 115] as const;
 
 type Metric = "GEX" | "DEX";
 
-// ── Continuous heat gradient: bright neon peaks, faint floor for low volume ──
-// Peaks: neon emerald #00ff88 (positive) / neon red #ff2244 (negative).
-// Min floor (~0.18) keeps low-volume cells dim but always readable.
-function cellBg(v: number, max: number): string {
-  if (!max || v === 0) return "#000000";
+type Theme = "dark" | "light";
+
+// ── Heat ramp: dark (low |v|) → bright (high |v|) for a single hue per sign.
+//   Dark theme: starts near black, peaks at neon green / red.
+//   Light theme: starts near white, peaks at deep green / red.
+function cellBg(v: number, max: number, theme: Theme): string {
+  if (!max || v === 0) return theme === "light" ? "#ffffff" : "#000000";
   const t = Math.min(1, Math.abs(v) / max);
-  // Gamma 0.45 lifts mid/low values; floor 0.18 guarantees visibility.
-  const a = 0.18 + 0.82 * Math.pow(t, 0.45);
+  // Gamma 0.5 lifts mid-low values so they're readable
+  const a = 0.12 + 0.88 * Math.pow(t, 0.5);
+
+  if (theme === "light") {
+    // White → deep green / red. Lerp from #ffffff towards peak.
+    const peak = v > 0 ? [4, 120, 60] : [160, 12, 24];     // deep emerald / deep red
+    const r = Math.round(255 + (peak[0] - 255) * a);
+    const g = Math.round(255 + (peak[1] - 255) * a);
+    const b = Math.round(255 + (peak[2] - 255) * a);
+    return `rgb(${r},${g},${b})`;
+  }
+  // Dark theme: black → neon. Single-hue ramp scaled by `a`.
   if (v > 0) {
-    // Neon emerald peak rgb(0, 255, 136)
     const r = Math.round(0   * a);
     const g = Math.round(255 * a);
     const b = Math.round(136 * a);
     return `rgb(${r},${g},${b})`;
   }
-  // Neon red peak rgb(255, 34, 68)
   const r = Math.round(255 * a);
   const g = Math.round(34  * a);
   const b = Math.round(68  * a);
   return `rgb(${r},${g},${b})`;
 }
 
-function cellFg(v: number, max: number): string {
-  if (!max || v === 0) return "#444";
+function cellFg(v: number, max: number, theme: Theme): string {
+  if (!max || v === 0) return theme === "light" ? "#999" : "#444";
   const t = Math.abs(v) / max;
-  // Black text on the brightest cells, white text on the dim ones
+  if (theme === "light") {
+    // Dark text on light cells, white text only on saturated peaks
+    return t > 0.65 ? "rgba(255,255,255,0.95)" : "#0a0a0a";
+  }
   return t > 0.6 ? "#000000" : "rgba(255,255,255,0.95)";
 }
 
