@@ -173,43 +173,54 @@ export default function Dashboard() {
     }
   };
 
+  // Mientras carga el estado de admin/sub, no decidimos nada (evita parpadeo del paywall).
+  const checking = adminLoading || subLoading;
+  const showPaywall = !checking && !hasAccess;
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <Sidebar
-        active={section}
-        onSelect={setSection}
-        collapsed={collapsed}
-        onToggle={() => setCollapsed(!collapsed)}
-        isAdmin={isAdmin}
-        email={user?.email ?? undefined}
-        onSignOut={signOut}
-        allowed={allowed}
-        tier={isAdmin ? "admin" : tier}
-        onUpgrade={openManagePlan}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Topbar
-          ticker={ticker}
-          watchlist={watchlist}
-          active={active}
-          onActive={setActive}
-          onAdd={() => setAddOpen(true)}
-          onRemove={removeTicker}
-          expiry={expiry}
-          onExpiry={setExpiry}
-          status={status}
-          source={source}
-          fetchedAt={fetchedAt}
-          priceChangePct={priceChangePct}
-          onReload={reload}
-          levels={levels}
+      <div
+        className={`flex flex-1 ${showPaywall ? "blur-md scale-[1.02] pointer-events-none select-none" : ""} transition-all duration-500`}
+        aria-hidden={showPaywall}
+      >
+        <Sidebar
+          active={section}
+          onSelect={setSection}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(!collapsed)}
+          isAdmin={isAdmin}
+          email={user?.email ?? undefined}
+          onSignOut={signOut}
+          allowed={allowed}
+          tier={isAdmin ? "admin" : tier}
+          onUpgrade={openManagePlan}
         />
-        <main className="flex-1 overflow-hidden p-1">
-          <SectionTransition sectionKey={`${section}-${active}`}>
-            {renderView()}
-          </SectionTransition>
-        </main>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Topbar
+            ticker={ticker}
+            watchlist={watchlist}
+            active={active}
+            onActive={setActive}
+            onAdd={() => setAddOpen(true)}
+            onRemove={removeTicker}
+            expiry={expiry}
+            onExpiry={setExpiry}
+            status={status}
+            source={source}
+            fetchedAt={fetchedAt}
+            priceChangePct={priceChangePct}
+            onReload={reload}
+            levels={levels}
+          />
+          <main className="flex-1 overflow-hidden p-1">
+            <SectionTransition sectionKey={`${section}-${active}`}>
+              {renderView()}
+            </SectionTransition>
+          </main>
+        </div>
       </div>
+
+      {showPaywall && <Paywall email={user?.email ?? undefined} />}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
