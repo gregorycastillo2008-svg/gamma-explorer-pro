@@ -187,7 +187,10 @@ function DepthPanel({
             <span style={{ color: RED }}>PUTS</span>
             <span style={{ color: GREEN }}>CALLS</span>
           </div>
-          <div className="flex-1 overflow-y-auto px-1 py-1 relative">
+          <div
+            className="flex-1 overflow-y-auto px-1 py-1 relative"
+            onMouseLeave={() => setTooltip(null)}
+          >
             {rows.map((r) => {
               const isSpot = Math.abs(r.strike - spot) < ticker.strikeStep / 2;
               const isFlip = flip != null && Math.abs(r.strike - flip) < ticker.strikeStep / 2;
@@ -201,7 +204,18 @@ function DepthPanel({
                   key={r.strike}
                   onMouseEnter={() => setHoverStrike(r.strike)}
                   onMouseLeave={() => setHoverStrike(null)}
-                  className="grid grid-cols-[28px_1fr_1fr] items-center gap-0.5 leading-none"
+                  onMouseMove={(e) => {
+                    const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+                    setTooltip({
+                      strike: r.strike,
+                      callOI: r.callOI,
+                      putOI: r.putOI,
+                      netGex: r.netGex,
+                      x: e.clientX - host.left,
+                      y: e.clientY - host.top,
+                    });
+                  }}
+                  className="grid grid-cols-[28px_1fr_1fr] items-center gap-0.5 leading-none cursor-crosshair"
                   style={{
                     background: isHover ? "rgba(255,255,255,0.05)" : "transparent",
                     borderTop: isSpot
@@ -210,7 +224,6 @@ function DepthPanel({
                       ? `1px dashed ${CYAN}`
                       : "1px solid transparent",
                   }}
-                  title={`Strike $${r.strike} · NET GEX: ${formatNumber(r.netGex)}`}
                 >
                   <div
                     className="text-[8px] text-right pr-1 tabular-nums"
