@@ -306,7 +306,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
                     setHover({ strike: p.strike, value: v, x: e.clientX - rect.left, y: e.clientY - rect.top });
                   }}
                   className={`relative cursor-crosshair ${isHover ? "bg-white/[0.04]" : ""}`}
-                  style={{ height: 22 }}
+                  style={{ height: 26 }}
                 >
                   {v !== 0 && (
                     <div
