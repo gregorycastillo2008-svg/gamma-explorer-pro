@@ -318,6 +318,7 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
       <div style={{ display: "flex", justifyContent: "space-between", width: 220, margin: "2px auto 0", fontSize: 10, color: "#555", fontFamily: "monospace" }}>
         <span>Low</span><span style={{ marginLeft: 60 }}>Mid</span><span>High Vol</span>
       </div>
+      {tip && <Surface3DTooltip data={tip} type="iv" />}
     </div>
   );
 }
