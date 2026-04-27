@@ -122,8 +122,8 @@ export default function Landing() {
         )}
       </AnimatePresence>
 
-      <header className="relative z-10 container flex items-center justify-between py-6">
-        <Link to="/" className="hover:scale-105 transition-transform">
+      <header className="relative z-10 flex items-center justify-between py-6 pr-6">
+        <Link to="/" className="hover:scale-105 transition-transform pl-2">
           <AllGammaLogo size="md" />
         </Link>
         <div className="flex items-center gap-3">
@@ -140,7 +140,7 @@ export default function Landing() {
       </header>
 
       <section className="relative z-10 container py-20 text-center opacity-75 text-7xl">
-        <div className="mb-8 flex items-center gap-6 -mt-10 opacity-90 -ml-[calc((100vw-100%)/2+2rem)] pl-0 justify-start w-screen max-w-none my-[400px] px-px">
+        <div className="mb-8 flex items-center gap-6 -mt-32 opacity-60 -ml-[calc((100vw-100%)/2+2rem)] pl-0 justify-start w-screen max-w-none mt-[100px] mb-[300px] px-px" style={{ transform: "scale(0.55) translateY(-80px)", transformOrigin: "left center", filter: "blur(0.4px)" }}>
           <GexSatellite size={460} speed={14} />
         </div>
 
