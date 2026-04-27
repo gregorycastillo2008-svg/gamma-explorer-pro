@@ -34,6 +34,7 @@ interface Props {
  */
 export function DealerExposureBars({ rows, spot, symbol, mode: modeProp, lockMode, title, fullBleed }: Props) {
   const [mode, setMode] = useState<"GEX" | "DEX">(modeProp ?? "GEX");
+  const [hover, setHover] = useState<number | null>(null);
   const effectiveMode = lockMode ? (modeProp ?? "GEX") : mode;
 
   const data = useMemo(() => {
@@ -46,11 +47,18 @@ export function DealerExposureBars({ rows, spot, symbol, mode: modeProp, lockMod
           spot *
           0.01;
         const dex = (r.callDelta * r.callOI + r.putDelta * r.putOI) * 100 * spot;
-        return { strike: r.strike, value: effectiveMode === "GEX" ? gex : dex, callSide: 0, putSide: 0 };
+        return {
+          strike: r.strike,
+          value: effectiveMode === "GEX" ? gex : dex,
+          gex, dex,
+          callOI: r.callOI, putOI: r.putOI,
+        };
       })
       .filter((d) => Number.isFinite(d.value))
       .sort((a, b) => b.strike - a.strike);
   }, [rows, effectiveMode, spot]);
+
+  const totalAbs = data.reduce((s, d) => s + Math.abs(d.value), 0) || 1;
 
   const maxAbs = Math.max(1, ...data.map((d) => Math.abs(d.value)));
 
@@ -100,18 +108,21 @@ export function DealerExposureBars({ rows, spot, symbol, mode: modeProp, lockMod
         style={fullBleed ? { height: 520 } : { maxHeight: 320 }}
       >
         {data.map((d) => {
-          const pct = (Math.abs(d.value) / maxAbs) * 50; // half width
+          const pct = (Math.abs(d.value) / maxAbs) * 50;
           const isPos = d.value >= 0;
           const isAtm = Math.abs(d.strike - spot) < (data[0]?.strike - data[1]?.strike || 1) * 0.6;
+          const isHover = hover === d.strike;
+          const sharePct = ((Math.abs(d.value) / totalAbs) * 100).toFixed(2);
           return (
             <div
               key={d.strike}
-              className={`group grid grid-cols-[60px_1fr] items-center px-2 ${fullBleed ? "flex-1 py-1" : "py-[2px]"} hover:bg-white/5`}
+              onMouseEnter={() => setHover(d.strike)}
+              onMouseLeave={() => setHover((h) => (h === d.strike ? null : h))}
+              className={`group grid grid-cols-[60px_1fr] items-center px-2 ${fullBleed ? "flex-1 py-1" : "py-[2px]"} hover:bg-white/5 cursor-default`}
               style={{ borderBottom: "1px solid #0a0a0a" }}
-              title={`$${d.strike.toFixed(d.strike >= 100 ? 0 : 1)} · ${effectiveMode} ${fmtCompact(d.value)}`}
             >
               <div
-                className={`text-[10px] font-bold tabular-nums ${fullBleed ? "" : "opacity-0 group-hover:opacity-100 transition-opacity"}`}
+                className="text-[10px] font-bold tabular-nums"
                 style={{ color: isAtm ? "#06b6d4" : "#e5e7eb" }}
               >
                 ${d.strike.toFixed(d.strike >= 100 ? 0 : 1)}
@@ -123,26 +134,49 @@ export function DealerExposureBars({ rows, spot, symbol, mode: modeProp, lockMod
                 {isAtm && <div className="absolute left-0 right-0 h-px bg-amber-500/40 top-1/2" />}
                 {/* bar */}
                 <div
-                  className={`absolute ${fullBleed ? "h-[70%]" : "h-2.5"} rounded-sm`}
+                  className={`absolute ${fullBleed ? "h-[70%]" : "h-2.5"} rounded-sm transition-all`}
                   style={{
                     left: isPos ? "50%" : `${50 - pct}%`,
                     width: `${pct}%`,
                     background: isPos
                       ? "linear-gradient(90deg, #10b98155, #10b981)"
                       : "linear-gradient(90deg, #ef4444, #ef444455)",
-                    boxShadow: `0 0 6px ${isPos ? "#10b98166" : "#ef444466"}`,
+                    boxShadow: isHover
+                      ? `0 0 14px ${isPos ? "#10b981" : "#ef4444"}`
+                      : `0 0 6px ${isPos ? "#10b98166" : "#ef444466"}`,
+                    outline: isHover ? `1px solid ${isPos ? "#10b981" : "#ef4444"}` : "none",
                   }}
                 />
-                {/* value tag */}
-                <span
-                  className={`absolute text-[8px] font-bold tabular-nums ${fullBleed ? "" : "opacity-0 group-hover:opacity-100 transition-opacity"} pointer-events-none`}
-                  style={{
-                    [isPos ? "left" : "right"]: `calc(${50 + pct}% + 4px)`,
-                    color: isPos ? "#10b981" : "#ef4444",
-                  } as any}
-                >
-                  {fmtCompact(d.value)}
-                </span>
+                {/* hover tooltip */}
+                {isHover && (
+                  <div
+                    className="absolute z-30 left-1/2 -translate-x-1/2 -top-2 -translate-y-full px-3 py-2 rounded-md font-mono text-[10px] pointer-events-none whitespace-nowrap text-left"
+                    style={{
+                      background: "rgba(0,0,0,0.95)",
+                      border: `1px solid ${isPos ? "#10b981" : "#ef4444"}`,
+                      boxShadow: `0 6px 20px ${isPos ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+                      color: "#fff",
+                    }}
+                  >
+                    <div className="font-bold mb-1 tracking-wider" style={{ color: isPos ? "#10b981" : "#ef4444" }}>
+                      ${d.strike} · {symbol}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px]">
+                      <span className="text-muted-foreground">{effectiveMode}</span>
+                      <span className={`text-right ${isPos ? "text-emerald-400" : "text-red-400"}`}>{fmtCompact(d.value)}</span>
+                      <span className="text-muted-foreground">GEX</span>
+                      <span className={`text-right ${d.gex >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmtCompact(d.gex)}</span>
+                      <span className="text-muted-foreground">DEX</span>
+                      <span className={`text-right ${d.dex >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmtCompact(d.dex)}</span>
+                      <span className="text-muted-foreground">Call OI</span>
+                      <span className="text-emerald-300 text-right">{d.callOI.toLocaleString()}</span>
+                      <span className="text-muted-foreground">Put OI</span>
+                      <span className="text-red-300 text-right">{d.putOI.toLocaleString()}</span>
+                      <span className="text-muted-foreground">% del total</span>
+                      <span className="text-amber-300 text-right">{sharePct}%</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );
