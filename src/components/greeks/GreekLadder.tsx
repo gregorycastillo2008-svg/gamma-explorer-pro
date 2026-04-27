@@ -406,6 +406,14 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
         </div>
       )}
 
+      {/* ═════ DEALER EXPOSURE + 3D SURFACE (cajas separadas dentro del Greek Ladder) ═════ */}
+      {chain && dealerRows.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border-t border-[#1f1f1f]" style={{ background: "#030303" }}>
+          <DealerExposureBars rows={dealerRows} spot={chain.spot} symbol={symbol} />
+          <GreeksSurface3D symbol={symbol} points={surfacePoints} metric="GAMMA" />
+        </div>
+      )}
+
       {/* ═════ FOOTER INSIGHTS ═════ */}
       {insights && (
         <div className="px-3 py-2 border-t border-[#1f1f1f]" style={{ background: "#050505" }}>
