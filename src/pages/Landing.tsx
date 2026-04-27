@@ -488,17 +488,17 @@ export default function Landing() {
                   transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.6, repeatDelay: 0.4 }}
                 />
                 <div className="pl-3 pr-2 py-1.5 flex items-center gap-1.5 relative">
-                  <span className="font-mono font-black tracking-widest text-xs bg-clip-text text-[#ff0000]"
-                    style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
+                  <span className="font-mono font-black tracking-widest text-xs bg-clip-text text-transparent"
+                    style={{ backgroundImage: "linear-gradient(90deg, #ffffff, #93c5fd, #3b82f6)" }}
                   >
                     {d.code}
                   </span>
                   <span className="text-[10px] font-bold px-1.5 rounded-full"
-                    style={{ background: "rgba(0,255,120,0.15)", color: "#00ff78", border: "1px solid rgba(0,255,120,0.4)" }}
+                    style={{ background: "rgba(59,130,246,0.18)", color: "#ffffff", border: "1px solid rgba(59,130,246,0.55)" }}
                   >
                     {d.off}
                   </span>
-                  <span className="text-[10px] hidden md:inline" style={{ color: "rgba(255,215,0,0.55)" }}>· {d.note}</span>
+                  <span className="text-[10px] hidden md:inline" style={{ color: "rgba(255,255,255,0.6)" }}>· {d.note}</span>
                 </div>
                 <button
                   onClick={() => copyCode(d.code)}
