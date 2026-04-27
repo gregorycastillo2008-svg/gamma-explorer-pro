@@ -115,6 +115,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
           }} />
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
