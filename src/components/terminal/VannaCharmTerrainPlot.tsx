@@ -285,6 +285,48 @@ export function VannaCharmTerrainPlot() {
       setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
       updateCam();
     };
+
+    // Hover raycaster
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let lastHover = 0;
+    const onHover = (e: MouseEvent) => {
+      if (drag) { setTip(null); if (markerRef.current) markerRef.current.visible = false; return; }
+      const now = performance.now();
+      if (now - lastHover < 16) return;
+      lastHover = now;
+      const rect = canvas.getBoundingClientRect();
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const surf = surfaceRef.current;
+      if (!surf) return;
+      const hits = raycaster.intersectObject(surf);
+      if (hits.length > 0) {
+        const pt = hits[0].point;
+        if (markerRef.current) {
+          markerRef.current.position.copy(pt);
+          markerRef.current.visible = true;
+        }
+        // Map back: x in mm 0..0.08, y(z-axis on screen) in mm 0..0.08, value in μm 10.5..14
+        const xMM = ((pt.x / SX) + 0.5) * 0.08;
+        const yMM = (0.5 - (pt.z / SZ)) * 0.08;
+        const zUM = ((pt.y + 0.4) / SY) * (14 - 10.5) + 10.5;
+        setTip({
+          value: zUM,
+          x: xMM,
+          y: yMM,
+          xLabel: "X (mm)",
+          yLabel: "Y (mm)",
+          zLabel: "Z (μm)",
+          position: { x: e.clientX, y: e.clientY },
+        });
+      } else {
+        if (markerRef.current) markerRef.current.visible = false;
+        setTip(null);
+      }
+    };
+    const onLeave = () => { setTip(null); if (markerRef.current) markerRef.current.visible = false; };
     const onWheel = (e: WheelEvent) => {
       distRef.current = Math.max(0.5, Math.min(80, distRef.current + e.deltaY * 0.02));
       e.preventDefault();
