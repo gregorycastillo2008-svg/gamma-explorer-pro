@@ -42,13 +42,14 @@ serve(async (req) => {
       });
     }
 
+    // Aceptamos active O trialing (7 días de prueba)
     const subs = await stripe.subscriptions.list({
       customer: customers.data[0].id,
-      status: "active",
-      limit: 1,
+      status: "all",
+      limit: 10,
     });
-
-    if (subs.data.length === 0) {
+    const sub = subs.data.find((s) => s.status === "active" || s.status === "trialing");
+    if (!sub) {
       return new Response(JSON.stringify({ subscribed: false, tier: null, interval: null, subscription_end: null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
