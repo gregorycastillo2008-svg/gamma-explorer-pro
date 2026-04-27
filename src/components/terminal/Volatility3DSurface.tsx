@@ -184,7 +184,7 @@ export function Volatility3DSurface(_: Props) {
       if (!lt) return;
       const t = e.touches[0];
       azimRef.current -= (t.clientX - lt.clientX) * 0.45;
-      elevRef.current = Math.max(5, Math.min(80, elevRef.current + (t.clientY - lt.clientY) * 0.35));
+      elevRef.current = Math.max(-89, Math.min(89, elevRef.current + (t.clientY - lt.clientY) * 0.35));
       lt = t;
       setElev(Math.round(elevRef.current));
       setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
