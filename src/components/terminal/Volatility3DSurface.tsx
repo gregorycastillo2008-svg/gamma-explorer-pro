@@ -218,9 +218,53 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
       e.preventDefault();
     };
 
+    // Raycaster hover for tooltip
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let lastHover = 0;
+    const onHover = (e: MouseEvent) => {
+      if (drag) return;
+      const now = performance.now();
+      if (now - lastHover < 16) return;
+      lastHover = now;
+      const rect = canvas.getBoundingClientRect();
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(surfaceMesh);
+      if (hits.length > 0) {
+        const pt = hits[0].point;
+        marker.visible = true;
+        marker.position.copy(pt);
+        // Map x∈[-SX/2,SX/2] → moneyness, z∈[-SZ/2,SZ/2] → DTE
+        const u = (pt.x / SX) + 0.5;
+        const v = (pt.z / SZ) + 0.5;
+        const moneyness = STRIKE_LO + u * (STRIKE_HI - STRIKE_LO);
+        const dte = Math.round(DTE_LO + v * (DTE_HI - DTE_LO));
+        const strike = Math.round(spot * moneyness);
+        // Recover IV from y: y = norm*SY - 0.6, norm∈[0,1] mapped to actual IV range
+        const norm = Math.max(0, Math.min(1, (pt.y + 0.6) / SY));
+        const iv = 0.10 + norm * 0.40; // synthetic 10%-50%
+        setTip({
+          strike,
+          moneyness: moneyness * 100,
+          dte,
+          value: iv,
+          iv,
+          position: { x: e.clientX, y: e.clientY },
+        });
+      } else {
+        marker.visible = false;
+        setTip(null);
+      }
+    };
+    const onLeave = () => { marker.visible = false; setTip(null); };
+
     canvas.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     window.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mousemove", onHover);
+    canvas.addEventListener("mouseleave", onLeave);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("touchstart", onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", onTouchMove, { passive: false });
