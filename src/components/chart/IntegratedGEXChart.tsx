@@ -342,7 +342,6 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
           <div className="ml-2 flex items-center gap-1">
             <span className="text-[9px] tracking-widest text-muted-foreground font-bold">GAMMA</span>
             {([
-              { v: "all" as const, label: "ALL" },
               { v: "1" as const, label: "1D" },
               { v: "2" as const, label: "2D" },
               { v: "3" as const, label: "3D" },
