@@ -5,6 +5,7 @@ import { OrbitControls } from "@react-three/drei";
 import type { DemoTicker, OptionContract } from "@/lib/gex";
 import { bsGreeks, formatNumber } from "@/lib/gex";
 import { ZoomIn, ZoomOut, RotateCcw, Camera, Home, Maximize2 } from "lucide-react";
+import { VannaCharmSurfacePlot } from "./VannaCharmSurfacePlot";
 
 interface Props {
   ticker: DemoTicker;
