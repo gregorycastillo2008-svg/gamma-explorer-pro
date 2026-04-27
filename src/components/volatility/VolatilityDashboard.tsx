@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { DemoTicker, OptionContract } from "@/lib/gex";
 import { buildVolatilityDataset } from "@/lib/mockVolatilityData";
 import { TopMetricsBar } from "./TopMetricsBar";
-import { IVSurface3D } from "./IVSurface3D";
+import { Volatility3DSurface } from "@/components/terminal/Volatility3DSurface";
 import { IVSkewChart } from "./IVSkewChart";
 import { PutCallSkewPanel } from "./PutCallSkewPanel";
 import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
