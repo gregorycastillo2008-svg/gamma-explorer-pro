@@ -421,9 +421,12 @@ function SurfaceTab({
   charmGrid: { strike: number; expiry: number; value: number }[];
 }) {
   return (
-    <div className="grid grid-cols-2 gap-4 h-full">
-      <Surface3DPanel title="VANNAEX · MATLAB SURFACE" subtitle="2nd-order: ∂Δ/∂σ" grid={vannaGrid} spot={spot} variant="matlab" greekLabel="Vanna" />
-      <Surface3DPanel title="CHARMEX · TERRAIN SURFACE" subtitle="2nd-order: ∂Δ/∂t" grid={charmGrid} spot={spot} variant="terrain" greekLabel="Charm" />
+    <div className="flex flex-col gap-4 h-full">
+      <VannaCharmSurfacePlot />
+      <div className="grid grid-cols-2 gap-4">
+        <Surface3DPanel title="VANNAEX · MATLAB SURFACE" subtitle="2nd-order: ∂Δ/∂σ" grid={vannaGrid} spot={spot} variant="matlab" greekLabel="Vanna" />
+        <Surface3DPanel title="CHARMEX · TERRAIN SURFACE" subtitle="2nd-order: ∂Δ/∂t" grid={charmGrid} spot={spot} variant="terrain" greekLabel="Charm" />
+      </div>
     </div>
   );
 }
