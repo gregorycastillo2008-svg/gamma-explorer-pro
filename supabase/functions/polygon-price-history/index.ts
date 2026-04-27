@@ -72,9 +72,9 @@ Deno.serve(async (req: Request) => {
   const timeframe = url.searchParams.get("timeframe") || "3M";
 
   try {
-    const { points, spot, change, changePct } = await fetchYahoo(symbol, timeframe);
+    const { points, ohlc, spot, change, changePct } = await fetchYahoo(symbol, timeframe);
     return new Response(
-      JSON.stringify({ symbol, timeframe, points, spot, change, changePct, source: "yahoo" }),
+      JSON.stringify({ symbol, timeframe, points, ohlc, spot, change, changePct, source: "yahoo" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e: any) {
