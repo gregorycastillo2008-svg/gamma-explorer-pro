@@ -166,14 +166,14 @@ export function Volatility3DSurface(_: Props) {
     const onMove = (e: MouseEvent) => {
       if (!drag) return;
       azimRef.current -= (e.clientX - lx) * 0.45;
-      elevRef.current = Math.max(5, Math.min(80, elevRef.current + (e.clientY - ly) * 0.35));
+      elevRef.current = Math.max(-89, Math.min(89, elevRef.current + (e.clientY - ly) * 0.35));
       lx = e.clientX; ly = e.clientY;
       setElev(Math.round(elevRef.current));
       setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
       updateCam();
     };
     const onWheel = (e: WheelEvent) => {
-      distRef.current = Math.max(3.5, Math.min(15, distRef.current + e.deltaY * 0.012));
+      distRef.current = Math.max(0.5, Math.min(80, distRef.current + e.deltaY * 0.02));
       e.preventDefault();
       updateCam();
     };
@@ -184,7 +184,7 @@ export function Volatility3DSurface(_: Props) {
       if (!lt) return;
       const t = e.touches[0];
       azimRef.current -= (t.clientX - lt.clientX) * 0.45;
-      elevRef.current = Math.max(5, Math.min(80, elevRef.current + (t.clientY - lt.clientY) * 0.35));
+      elevRef.current = Math.max(-89, Math.min(89, elevRef.current + (t.clientY - lt.clientY) * 0.35));
       lt = t;
       setElev(Math.round(elevRef.current));
       setAzim(((Math.round(azimRef.current) % 360) + 360) % 360);
@@ -233,7 +233,7 @@ export function Volatility3DSurface(_: Props) {
       <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}>
         <span style={{ color: "#666", fontSize: 11, fontFamily: "monospace" }}>🖱 drag: rotar &nbsp;|&nbsp; scroll: zoom</span>
         <label style={{ color: "#777", fontSize: 11, fontFamily: "monospace" }}>
-          Elev <input type="range" min={5} max={80} value={elev} onChange={(e) => setElev(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#aaa" }}>{elev}°</span>
+          Elev <input type="range" min={-89} max={89} value={elev} onChange={(e) => setElev(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#aaa" }}>{elev}°</span>
         </label>
         <label style={{ color: "#777", fontSize: 11, fontFamily: "monospace" }}>
           Az <input type="range" min={0} max={360} value={azim} onChange={(e) => setAzim(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#aaa" }}>{azim}°</span>
