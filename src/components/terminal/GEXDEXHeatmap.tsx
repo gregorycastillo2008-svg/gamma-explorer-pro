@@ -388,13 +388,13 @@ function HeatPanel({
 
       <div ref={scrollRef} className="flex-1 overflow-auto">
         <table className="w-full border-collapse" style={{ fontSize: 10 }}>
-          <thead className="sticky top-0 z-10" style={{ background: C.panel }}>
-            <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+          <thead className="sticky top-0 z-10" style={{ background: T.panel }}>
+            <tr style={{ borderBottom: `1px solid ${T.border}` }}>
               <th
                 className="text-left px-2 py-1.5 font-bold uppercase tracking-wider sticky left-0 z-20"
                 style={{
-                  color: C.muted, fontSize: 9, background: C.panel,
-                  borderRight: `1px solid ${C.border}`,
+                  color: T.muted, fontSize: 9, background: T.panel,
+                  borderRight: `1px solid ${T.border}`,
                 }}
               >
                 Strike
@@ -406,9 +406,11 @@ function HeatPanel({
                   onMouseLeave={() => setHoverCol(null)}
                   className="px-1.5 py-1.5 text-right font-bold uppercase tracking-wider cursor-default"
                   style={{
-                    color: hoverCol === i ? accent : C.muted,
+                    color: hoverCol === i ? accent : T.muted,
                     fontSize: 9,
-                    background: hoverCol === i ? "rgba(255,255,255,0.04)" : C.panel,
+                    background: hoverCol === i
+                      ? (theme === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.04)")
+                      : T.panel,
                   }}
                 >
                   {p === 0 ? "MIN" : p === 100 ? "MAX" : `${p}%`}
@@ -418,7 +420,7 @@ function HeatPanel({
                 onMouseEnter={() => setHoverCol(-1)}
                 onMouseLeave={() => setHoverCol(null)}
                 className="px-2 py-1.5 text-right font-bold uppercase tracking-wider"
-                style={{ color: hoverCol === -1 ? accent : C.muted, fontSize: 9, borderLeft: `1px solid ${C.border}` }}
+                style={{ color: hoverCol === -1 ? accent : T.muted, fontSize: 9, borderLeft: `1px solid ${T.border}` }}
               >
                 CHAP
               </th>
@@ -441,19 +443,19 @@ function HeatPanel({
                     background: isSel
                       ? "rgba(250,204,21,0.08)"
                       : isHover
-                        ? "rgba(255,255,255,0.03)"
+                        ? (theme === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.03)")
                         : "transparent",
-                    borderBottom: `1px solid ${C.border}`,
+                    borderBottom: `1px solid ${T.border}`,
                   }}
                 >
                   <td
                     className="px-2 py-1 sticky left-0 z-10 font-bold tabular-nums"
                     style={{
-                      color: isSpot ? C.yellow : isSel ? accent : C.text,
+                      color: isSpot ? C.yellow : isSel ? accent : T.text,
                       background: isSel
                         ? "rgba(250,204,21,0.06)"
-                        : isHover ? "#0a0a0a" : C.panel,
-                      borderRight: `1px solid ${C.border}`,
+                        : isHover ? (theme === "light" ? "#f0f0f0" : "#0a0a0a") : T.panel,
+                      borderRight: `1px solid ${T.border}`,
                       fontSize: 11,
                     }}
                   >
@@ -469,9 +471,9 @@ function HeatPanel({
                       onMouseLeave={() => setTooltip(null)}
                       className="text-right px-1.5 py-1 tabular-nums transition-colors"
                       style={{
-                        background: cellBg(v, max),
-                        color: cellFg(v, max),
-                        border: "1px solid #000",
+                        background: cellBg(v, max, theme),
+                        color: cellFg(v, max, theme),
+                        border: `1px solid ${T.cellBorder}`,
                         outline: hoverCol === ci ? `1px solid ${accent}` : "none",
                         outlineOffset: -1,
                         fontWeight: 600,
@@ -487,10 +489,10 @@ function HeatPanel({
                     onMouseLeave={() => setTooltip(null)}
                     className="text-right px-2 py-1 tabular-nums"
                     style={{
-                      background: cellBg(r[chapKey], max * 1.2),
-                      color: cellFg(r[chapKey], max * 1.2),
-                      border: "1px solid #000",
-                      borderLeft: `2px solid ${C.border}`,
+                      background: cellBg(r[chapKey], max * 1.2, theme),
+                      color: cellFg(r[chapKey], max * 1.2, theme),
+                      border: `1px solid ${T.cellBorder}`,
+                      borderLeft: `2px solid ${T.border}`,
                       fontWeight: 700,
                     }}
                   >
