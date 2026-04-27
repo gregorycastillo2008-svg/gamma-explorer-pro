@@ -85,8 +85,8 @@ export default function Landing() {
       <div className="fixed inset-0 opacity-50 pointer-events-none">
         <GammaBackgroundDark />
       </div>
-      {/* Soft gold vignette */}
-      <div className="fixed inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at top, rgba(255,215,0,0.06), transparent 60%)" }} />
+      {/* Soft blue vignette */}
+      <div className="fixed inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at top, rgba(59,130,246,0.08), transparent 60%)" }} />
 
       {/* Floating "Ver Planes" CTA bubble — eliminado */}
       <header className="relative z-10 flex items-center justify-between py-5 px-8 bg-black/40 backdrop-blur-sm">
