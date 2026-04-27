@@ -134,28 +134,17 @@ export function RadarMap({ size = 560 }: Props) {
 
         {/* Detected satellite blip */}
         <g filter="url(#blipGlow)">
-          {/* Persistent faint dot */}
-          <circle cx={satX} cy={satY} r={4} fill="#00ffaa" fillOpacity={0.4} />
-          {/* Pulsing ring on hit */}
+          {/* Pulsing rings on hit */}
           {pulse && (
             <>
-              <motion.circle
-                cx={satX}
-                cy={satY}
-                r={4}
-                fill="#00ffaa"
-                initial={{ opacity: 1 }}
-                animate={{ opacity: 0.4 }}
-                transition={{ duration: 0.9 }}
-              />
               <motion.circle
                 cx={satX}
                 cy={satY}
                 fill="none"
                 stroke="#00ffaa"
                 strokeWidth={2}
-                initial={{ r: 5, opacity: 0.9 }}
-                animate={{ r: 30, opacity: 0 }}
+                initial={{ r: 8, opacity: 0.9 }}
+                animate={{ r: 36, opacity: 0 }}
                 transition={{ duration: 0.9, ease: "easeOut" }}
               />
               <motion.circle
@@ -164,39 +153,68 @@ export function RadarMap({ size = 560 }: Props) {
                 fill="none"
                 stroke="#00ffaa"
                 strokeWidth={1}
-                initial={{ r: 5, opacity: 0.7 }}
-                animate={{ r: 50, opacity: 0 }}
+                initial={{ r: 8, opacity: 0.7 }}
+                animate={{ r: 60, opacity: 0 }}
                 transition={{ duration: 0.9, ease: "easeOut", delay: 0.15 }}
               />
             </>
           )}
-        </g>
 
-        {/* Label for satellite — appears with the pulse */}
-        {pulse && (
+          {/* Satellite icon — visible faintly always, bright on detection */}
           <motion.g
-            transform={`translate(${satX + 16}, ${satY - 22})`}
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: 0 }}
+            transform={`translate(${satX}, ${satY}) rotate(-20)`}
+            animate={{ opacity: pulse ? 1 : 0.45 }}
             transition={{ duration: 0.3 }}
           >
-            {/* Connector line from blip to label */}
-            <line x1={-12} y1={20} x2={2} y2={6} stroke="#00ffaa" strokeWidth={1} strokeOpacity={0.7} />
-            {/* Label box with corner brackets */}
-            <rect x={0} y={-8} width={120} height={36} rx={2} fill="#000" fillOpacity={0.85} stroke="#00ffaa" strokeWidth={1.2} />
-            {/* Corner brackets */}
-            <path d="M 0 -4 L 0 -8 L 4 -8" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
-            <path d="M 116 -8 L 120 -8 L 120 -4" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
-            <path d="M 0 24 L 0 28 L 4 28" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
-            <path d="M 116 28 L 120 28 L 120 24" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
-            <text x={6} y={6} fontFamily="monospace" fontSize={11} fill="#00ffaa" fontWeight="bold" letterSpacing={1.2}>
-              GEXSATELIT
-            </text>
-            <text x={6} y={20} fontFamily="monospace" fontSize={8} fill="#00ffaa" fillOpacity={0.75} letterSpacing={0.8}>
-              ◉ LOCKED · 0.42 AU
-            </text>
+            {/* Solar panel left */}
+            <rect x={-22} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.85} stroke="#00ffaa" strokeWidth={0.5} />
+            <line x1={-22} y1={0} x2={-10} y2={0} stroke="#001a14" strokeWidth={0.5} />
+            <line x1={-16} y1={-4} x2={-16} y2={4} stroke="#001a14" strokeWidth={0.5} />
+            {/* Solar panel right */}
+            <rect x={10} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.85} stroke="#00ffaa" strokeWidth={0.5} />
+            <line x1={10} y1={0} x2={22} y2={0} stroke="#001a14" strokeWidth={0.5} />
+            <line x1={16} y1={-4} x2={16} y2={4} stroke="#001a14" strokeWidth={0.5} />
+            {/* Connector arms */}
+            <line x1={-10} y1={0} x2={-5} y2={0} stroke="#00ffaa" strokeWidth={1} />
+            <line x1={5} y1={0} x2={10} y2={0} stroke="#00ffaa" strokeWidth={1} />
+            {/* Body */}
+            <rect x={-5} y={-5} width={10} height={10} rx={1.5} fill="#00ffaa" stroke="#003322" strokeWidth={0.8} />
+            {/* Antenna / dish */}
+            <line x1={0} y1={-5} x2={0} y2={-11} stroke="#00ffaa" strokeWidth={1} />
+            <circle cx={0} cy={-12} r={1.8} fill="#00ffaa" />
           </motion.g>
-        )}
+        </g>
+
+        {/* Label for satellite — appears with the pulse, INSIDE the radar */}
+        {pulse && (() => {
+          // Place label towards the center so it stays inside the radar disc
+          const dx = center - satX;
+          const dy = center - satY;
+          const len = Math.hypot(dx, dy) || 1;
+          const lx = satX + (dx / len) * 30 - 60;
+          const ly = satY + (dy / len) * 30 + 14;
+          return (
+            <motion.g
+              transform={`translate(${lx}, ${ly})`}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <line x1={60} y1={-6} x2={satX - lx} y2={satY - ly} stroke="#00ffaa" strokeWidth={1} strokeOpacity={0.7} />
+              <rect x={0} y={-8} width={120} height={36} rx={2} fill="#000" fillOpacity={0.88} stroke="#00ffaa" strokeWidth={1.2} />
+              <path d="M 0 -4 L 0 -8 L 4 -8" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
+              <path d="M 116 -8 L 120 -8 L 120 -4" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
+              <path d="M 0 24 L 0 28 L 4 28" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
+              <path d="M 116 28 L 120 28 L 120 24" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
+              <text x={6} y={6} fontFamily="monospace" fontSize={11} fill="#00ffaa" fontWeight="bold" letterSpacing={1.2}>
+                GEXSATELIT
+              </text>
+              <text x={6} y={20} fontFamily="monospace" fontSize={8} fill="#00ffaa" fillOpacity={0.75} letterSpacing={0.8}>
+                ◉ LOCKED · 0.42 AU
+              </text>
+            </motion.g>
+          );
+        })()}
 
         {/* Range text */}
         <text x={center + 6} y={center - 4} fontFamily="monospace" fontSize={8} fill="#00ffaa" fillOpacity={0.5}>0</text>
