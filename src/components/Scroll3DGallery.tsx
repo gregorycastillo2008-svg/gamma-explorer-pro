@@ -88,7 +88,7 @@ function Slide3D({ img, title, desc, index }: { img: string; title: string; desc
 
         {/* Text */}
         <div style={{ transform: "translateZ(20px)" }}>
-          <div className="text-7xl md:text-8xl font-black mb-2 leading-none bg-clip-text text-transparent"
+          <div className="text-7xl md:text-8xl font-black mb-2 leading-none bg-clip-text text-[#ff0000]"
             style={{ backgroundImage: "linear-gradient(180deg, rgba(255,215,0,0.3), rgba(255,215,0,0.05))" }}
           >
             0{index + 1}
