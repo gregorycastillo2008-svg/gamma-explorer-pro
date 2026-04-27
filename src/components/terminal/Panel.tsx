@@ -22,7 +22,7 @@ export function Panel({ title, subtitle, right, children, className, noPad }: Pr
           {right}
         </div>
       )}
-      <div className={cn(noPad ? "" : "p-4")}>{children}</div>
+      <div className={cn("flex-1 min-h-0", noPad ? "" : "p-4")}>{children}</div>
     </div>
   );
 }
