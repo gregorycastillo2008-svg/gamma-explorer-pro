@@ -394,6 +394,8 @@ export function VannaCharmSurfacePlot() {
       canvas.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mousemove", onHover);
+      canvas.removeEventListener("mouseleave", onLeave);
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("touchstart", onTouchStart);
       canvas.removeEventListener("touchmove", onTouchMove);
