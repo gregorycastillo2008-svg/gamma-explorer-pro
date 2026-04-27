@@ -24,19 +24,6 @@ export function AllGammaLogo({ size = "md", showText = true }: AllGammaLogoProps
           >
             GEXSATELIT
           </motion.span>
-          {/* Sparkle dots */}
-          <motion.span
-            className="absolute -top-1 -right-2 text-yellow-300"
-            style={{ fontSize: 10, filter: "drop-shadow(0 0 4px #ffd700)" }}
-            animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          >✦</motion.span>
-          <motion.span
-            className="absolute -bottom-1 left-1 text-yellow-300"
-            style={{ fontSize: 8, filter: "drop-shadow(0 0 3px #ffd700)" }}
-            animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut", delay: 0.7 }}
-          >✦</motion.span>
         </div>
       )}
     </div>
