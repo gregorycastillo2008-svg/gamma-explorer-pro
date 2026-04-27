@@ -40,7 +40,7 @@ export function GexSatellite({ size = 220, speed = 12 }: Props) {
             height: size,
             objectFit: "contain",
             animation: `gexsat-spin ${speed}s linear infinite`,
-            filter: "drop-shadow(0 8px 24px rgba(255,140,0,0.35))",
+            filter: "drop-shadow(0 8px 24px rgba(255,0,0,0.55))",
           }}
         />
       </div>
