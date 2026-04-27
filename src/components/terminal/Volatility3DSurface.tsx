@@ -332,19 +332,19 @@ export function Volatility3DSurface({ surface, spot, symbol }: Props) {
       </div>
 
       {/* Colormap legend */}
-      <div className="flex justify-center mt-2">
+      <div className="flex justify-center mt-2 gap-0 items-center">
         <div
           style={{
-            width: 240, height: 14,
+            width: 220, height: 14,
             background: "linear-gradient(to right, #0000ff, #0088ff, #00ffff, #00ff88, #aaff00, #ffff00, #ff8800, #ff0000, #ff00ff)",
             borderRadius: 4, border: "1px solid #333",
           }}
         />
       </div>
-      <div className="flex justify-between font-mono text-[10px] text-muted-foreground mx-auto mt-0.5" style={{ width: 240 }}>
-        <span>{(ivMin * 100).toFixed(0)}% IV</span>
-        <span>{((ivMin + ivMax) * 50).toFixed(0)}%</span>
-        <span>{(ivMax * 100).toFixed(0)}% IV</span>
+      <div className="flex justify-between font-mono text-[10px] mx-auto mt-0.5" style={{ width: 220, color: "#555" }}>
+        <span>Low</span>
+        <span style={{ marginLeft: 60 }}>Mid</span>
+        <span>High Vol</span>
       </div>
 
       {/* Axis labels */}
