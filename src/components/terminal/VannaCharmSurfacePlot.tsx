@@ -312,7 +312,7 @@ export function VannaCharmSurfacePlot() {
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", justifyContent: "center", marginTop: 8 }}>
         <span style={{ color: "#888", fontSize: 11 }}>🖱 drag: rotar &nbsp;|&nbsp; scroll: zoom</span>
         <label style={{ color: "#aaa", fontSize: 11 }}>
-          Elev <input type="range" min={5} max={75} value={elev} onChange={(e) => setElev(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#ddd" }}>{elev}°</span>
+          Elev <input type="range" min={-89} max={89} value={elev} onChange={(e) => setElev(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#ddd" }}>{elev}°</span>
         </label>
         <label style={{ color: "#aaa", fontSize: 11 }}>
           Az <input type="range" min={0} max={360} value={azim} onChange={(e) => setAzim(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} /> <span style={{ color: "#ddd" }}>{azim}°</span>
