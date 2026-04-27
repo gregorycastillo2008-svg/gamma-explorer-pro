@@ -174,7 +174,18 @@ export function VannaCharmTerrainPlot() {
       vertexColors: true, side: THREE.DoubleSide,
       shininess: 55, specular: new THREE.Color(0.35, 0.35, 0.25),
     });
-    scene.add(new THREE.Mesh(geo, mat));
+    const surfaceMesh = new THREE.Mesh(geo, mat);
+    surfaceRef.current = surfaceMesh;
+    scene.add(surfaceMesh);
+
+    // Hover marker
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.95 }),
+    );
+    marker.visible = false;
+    markerRef.current = marker;
+    scene.add(marker);
 
     // Mesh lines (light over black)
     const lm = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.12, transparent: true });
