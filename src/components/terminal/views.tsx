@@ -5,6 +5,7 @@ import { GexDexBars } from "./GexDexBars";
 import { GexExposureTabs, HeatmapGridView, StrikeChartView, SurfaceView } from "./GexExposureTabs";
 import { TerminalTabs } from "./TerminalTabs";
 import { FloatingStatBar } from "./FloatingStatBar";
+import { ThirdOrderGreeksPanel } from "./ThirdOrderGreeksPanel";
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -196,52 +197,8 @@ export function GexDexView({ ticker, contracts }: Ctx) {
   );
 
   return (
-    <div className="h-full flex flex-col gap-2 min-h-0">
-      {/* Institutional walls panel */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-        <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub="resistance" />
-        <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub="support" />
-        <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" sub="zero gamma" />
-        <StatBlock label="Net GEX" value={formatNumber(bias.totalGex)} tone={bias.totalGex >= 0 ? "call" : "put"} sub={bias.totalGex >= 0 ? "long gamma" : "short gamma"} />
-        <StatBlock label="DEX Bias" value={bias.label} tone={bias.label === "Call Heavy" ? "call" : bias.label === "Put Heavy" ? "put" : "warning"} sub={`ratio ${bias.ratio.toFixed(2)}`} />
-        <StatBlock label="Live Δ" value={`${tapeDelta >= 0 ? "+" : ""}${formatNumber(tapeDelta)}`} tone={tapeDelta >= 0 ? "call" : "put"} sub="last 60s" />
-      </div>
-
-      {/* DTE + metric controls */}
-      <div className="flex items-center justify-end gap-2">
-        <div className="flex gap-0.5 bg-secondary/40 rounded p-0.5">
-          {DTE_FILTERS.map((f) => (
-            <Button
-              key={f.value}
-              size="sm"
-              variant={dte === f.value ? "default" : "ghost"}
-              className="h-6 px-2 text-[10px] font-mono uppercase tracking-wider"
-              onClick={() => setDte(f.value)}
-            >
-              {f.label}
-            </Button>
-          ))}
-        </div>
-        <Tabs value={m} onValueChange={(v) => setM(v as any)}>
-          <TabsList className="h-7">
-            <TabsTrigger value="netGex" className="text-xs h-5 px-2">GEX</TabsTrigger>
-            <TabsTrigger value="dex" className="text-xs h-5 px-2">DEX</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {/* Each visualization is its own tab — full width, no sibling panels */}
-      <TerminalTabs
-        layoutId="gexdex-master-tab-bg"
-        tabs={[
-          { key: "heatmap", label: "HEATMAP", content: <Panel title="Heatmap Matrix" subtitle={`${ticker.symbol} · ${m === "netGex" ? "GEX" : "DEX"} per strike × DTE`} noPad className="h-full flex flex-col"><div className="p-2 bg-black flex-1 min-h-0"><HeatmapGridView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
-          { key: "strike", label: "STRIKE CHART", content: <Panel title="Strike Distribution" subtitle={`${ticker.symbol} · ${m === "netGex" ? "Gamma" : "Delta"} per strike`} noPad className="h-full flex flex-col"><div className="p-2 bg-black flex-1 min-h-0"><StrikeChartView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
-          { key: "surface", label: "3D SURFACE", content: <Panel title="3D Surface Projection" subtitle={`${ticker.symbol} · drag to rotate`} noPad className="h-full flex flex-col"><div className="p-2 bg-black flex-1 min-h-0"><SurfaceView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
-          { key: "tape", label: "LIVE TAPE", content: liveTape },
-          { key: "bias", label: "BIAS", content: biasBreakdown },
-          { key: "table", label: "STRIKE TABLE", content: <StrikeTable exposures={exposures} ticker={ticker} /> },
-        ]}
-      />
+    <div className="h-full flex flex-col min-h-0">
+      <ThirdOrderGreeksPanel ticker={ticker} contracts={filtered} />
     </div>
   );
 }
