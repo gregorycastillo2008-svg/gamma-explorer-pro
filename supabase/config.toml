@@ -2,3 +2,9 @@ project_id = "ikvwejdepfvjuofcnbww"
 
 [functions.cboe-options]
 verify_jwt = false
+
+[functions.market-data]
+verify_jwt = false
+
+[functions.ai-bias]
+verify_jwt = false
