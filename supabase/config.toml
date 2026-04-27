@@ -17,3 +17,10 @@ verify_jwt = false
 
 [functions.customer-portal]
 verify_jwt = false
+
+[functions.create-checkout-public]
+verify_jwt = false
+
+[functions.verify-checkout-session]
+verify_jwt = false
+
