@@ -52,7 +52,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
       )}
     >
       <div className="h-14 flex items-center px-3 border-b border-sidebar-border">
-        <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0 text-base text-black bg-black" style={{ background: "var(--gradient-primary)" }} title="GEXSATELIT">
+        <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0 text-base bg-black text-black" style={{ background: "var(--gradient-primary)" }} title="GEXSATELIT">
           🛰️
         </div>
         {!collapsed && (
@@ -128,7 +128,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
           </button>
         )}
         {!collapsed && email && (
-          <div className="px-2 py-1.5 text-xs text-sidebar-foreground/70 truncate">{email}</div>
+          <div className="px-2 py-1.5 text-xs truncate text-[#ff0000] font-semibold border-2 opacity-80">{email}</div>
         )}
         <button
           onClick={onSignOut}
@@ -136,7 +136,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
           title={collapsed ? "Sign out" : undefined}
         >
           <LogOut className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>Sign out</span>}
+          {!collapsed && <span className="text-white">Sign out</span>}
         </button>
       </div>
     </aside>
