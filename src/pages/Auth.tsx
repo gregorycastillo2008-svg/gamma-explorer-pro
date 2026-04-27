@@ -181,11 +181,11 @@ export default function Auth() {
 
             <Tabs defaultValue={paidEmail ? "signup" : "signin"}>
               <TabsList
-                className="h-10 items-center justify-center grid grid-cols-2 w-full mb-6 rounded-full p-1 text-secondary-foreground bg-secondary-foreground"
-                style={{ border: "1px solid rgba(255,215,0,0.2)" }}
+                className="h-10 items-center justify-center grid grid-cols-2 w-full mb-6 rounded-full p-1"
+                style={{ background: "rgba(30,64,175,0.15)", border: "1px solid rgba(30,64,175,0.5)" }}
               >
-                <TabsTrigger value="signin" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary text-white">Entrar</TabsTrigger>
-                <TabsTrigger value="signup" className="rounded-full data-[state=active]:text-black data-[state=active]:font-bold bg-primary text-white">Crear cuenta</TabsTrigger>
+                <TabsTrigger value="signin" className="rounded-full text-white data-[state=active]:bg-[#1e40af] data-[state=active]:text-white data-[state=active]:font-bold">Entrar</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-full text-white data-[state=active]:bg-[#1e40af] data-[state=active]:text-white data-[state=active]:font-bold">Crear cuenta</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
