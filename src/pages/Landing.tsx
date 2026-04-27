@@ -151,7 +151,7 @@ export default function Landing() {
       </header>
 
       <section className="relative z-10 container py-12 text-center">
-        <div className="mb-12 flex justify-start pl-2">
+        <div className="mb-12 flex justify-start -ml-[calc((100vw-100%)/2)]">
           <RadarMap size={520} />
         </div>
 
