@@ -451,10 +451,10 @@ export default function Landing() {
         }}
       >
         <div className="container flex items-center gap-3 overflow-x-auto justify-center flex-wrap">
-          <div className="gap-1.5 text-[10px] font-black tracking-widest uppercase shrink-0 rounded-full text-[#ff0000] flex items-start justify-start font-mono"
-            style={{ color: "#ffd700" }}
+          <div className="gap-1.5 text-[10px] font-black tracking-widest uppercase shrink-0 rounded-full flex items-start justify-start font-mono"
+            style={{ color: "#ffffff" }}
           >
-            <Sparkles className="h-3 w-3 animate-pulse" /> Códigos activos
+            <Sparkles className="h-3 w-3 animate-pulse text-blue-400" /> Códigos activos
           </div>
           {[
             { code: "GAMMA30", off: "-30%", note: "primer mes" },
