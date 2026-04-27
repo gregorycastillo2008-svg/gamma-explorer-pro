@@ -104,7 +104,7 @@ export default function Landing() {
             >
               <div className="absolute -inset-2 rounded-2xl bg-primary/40 blur-xl animate-pulse" />
               <a href="#planes" onClick={() => setShowPlansBubble(false)}>
-                <div className="relative flex items-center gap-2 px-4 py-3 rounded-2xl bg-card border-2 border-primary cursor-pointer hover:scale-105 transition-transform"
+                <div className="relative flex items-center gap-2 px-4 py-3 rounded-2xl cursor-pointer hover:scale-105 transition-transform text-white bg-black border-[#ffc300] border-0 font-extrabold font-mono"
                   style={{ boxShadow: "0 10px 40px -5px hsl(var(--primary) / 0.6)" }}>
                   <Sparkles className="h-5 w-5 text-primary animate-pulse" />
                   <div className="text-left">
@@ -140,7 +140,7 @@ export default function Landing() {
       </header>
 
       <section className="relative z-10 container py-20 text-center opacity-75 text-7xl">
-        <div className="mb-8 flex items-center gap-6 -mt-10 opacity-90 -ml-[calc((100vw-100%)/2+2rem)] pl-0 justify-start w-screen max-w-none">
+        <div className="mb-8 flex items-center gap-6 -mt-10 opacity-90 -ml-[calc((100vw-100%)/2+2rem)] pl-0 justify-start w-screen max-w-none my-[400px] px-px">
           <GexSatellite size={460} speed={14} />
         </div>
 
