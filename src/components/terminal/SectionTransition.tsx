@@ -9,7 +9,7 @@ interface Props {
 const SECTION_LABELS: Record<string, string> = {
   overview: "MARKET OVERVIEW",
   "oi-analytics": "OI ANALYTICS",
-  
+  "gex-dex": "GEX // DEX EXPOSURE",
   greeks: "GREEK LADDER",
   depth: "ORDER BOOK DEPTH",
   levels: "KEY LEVELS",

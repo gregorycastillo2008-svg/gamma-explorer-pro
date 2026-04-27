@@ -17,6 +17,7 @@ import {
   HedgeView, VannaCharmView, VegaThetaView, VolatilityView, RegimeView,
   OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
 } from "@/components/terminal/views";
+import { GexDexExposure } from "@/components/terminal/GexDexExposure";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { SectionTransition } from "@/components/terminal/SectionTransition";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -111,7 +112,7 @@ export default function Dashboard() {
     switch (section) {
       case "overview": return <OverviewView {...ctx} />;
       case "oi-analytics": return <OiAnalyticsView {...ctx} />;
-      
+      case "gex-dex": return <GexDexExposure ticker={ticker} contracts={filtered} />;
       case "greeks": return <GreeksView {...ctx} />;
       case "depth": return <DepthView {...ctx} />;
       case "levels": return <LevelsView {...ctx} />;
