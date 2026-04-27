@@ -15,10 +15,10 @@ export function RadarMap({ size = 560 }: Props) {
   const center = size / 2;
   const r = size / 2 - 10;
 
-  // Two satellites
+  // Two satellites: one on the left side, one on the right side of the radar
   const sats: Sat[] = [
-    { id: "GEXSATELIT-01", angle: -55, radiusFactor: 0.62 },
-    { id: "GEXSATELIT-02", angle: 130, radiusFactor: 0.5 },
+    { id: "GEXSATELIT-01", angle: 175, radiusFactor: 0.7 }, // left
+    { id: "GEXSATELIT-02", angle: 5, radiusFactor: 0.65 },  // right
   ];
 
   const SWEEP = 4;
