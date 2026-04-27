@@ -20,8 +20,8 @@ export function GexSatellite({ size = 220, speed = 12 }: Props) {
         className="absolute inset-0 rounded-full"
         style={{
           background:
-            "radial-gradient(circle at 50% 50%, rgba(255,180,0,0.25) 0%, rgba(255,80,0,0.12) 35%, transparent 70%)",
-          filter: "blur(8px)",
+            "radial-gradient(circle at 50% 50%, rgba(255,0,0,0.45) 0%, rgba(200,0,0,0.22) 35%, transparent 70%)",
+          filter: "blur(10px)",
           animation: "gexsat-pulse 3s ease-in-out infinite",
         }}
       />
