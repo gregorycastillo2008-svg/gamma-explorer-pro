@@ -262,8 +262,8 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
         <div className="flex items-center justify-between px-3 py-2 border-b border-[#141414]">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-[11px] font-bold tracking-[0.2em] text-amber-400">GREEK LADDER</span>
+              <Activity className="lucide lucide-activity w-3.5 h-3.5 border-[#e0e0e0] bg-[#ff0000]/5 text-[#ff0000]" />
+              <span className="text-[11px] font-bold tracking-[0.2em] text-white">GREEK LADDER</span>
             </div>
             <span className="text-[9px] text-muted-foreground">|</span>
             <span className="text-[10px] font-bold text-foreground tracking-wider">{symbol}</span>
