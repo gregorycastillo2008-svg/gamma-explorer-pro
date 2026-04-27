@@ -476,9 +476,9 @@ export default function Landing() {
               <div
                 className="relative flex items-center rounded-full overflow-hidden"
                 style={{
-                  background: "linear-gradient(135deg, rgba(20,15,5,0.95), rgba(40,30,8,0.95))",
-                  border: "1px solid rgba(255,215,0,0.5)",
-                  boxShadow: "inset 0 1px 0 rgba(255,215,0,0.25)",
+                  background: "linear-gradient(135deg, rgba(8,12,30,0.95), rgba(15,30,70,0.95))",
+                  border: "1px solid rgba(59,130,246,0.55)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)",
                 }}
               >
                 <motion.div
