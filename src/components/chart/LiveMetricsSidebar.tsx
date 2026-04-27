@@ -43,7 +43,7 @@ export function LiveMetricsSidebar({ snapshot, symbol, onSymbolChange, symbols }
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="text-sm font-bold text-cyan-400">gex bot</div>
+          <div className="text-sm font-bold text-cyan-400">GEXSATELIT</div>
           <div className="text-[10px] text-muted-foreground">classic</div>
         </div>
         <div className="flex items-center gap-1.5">
