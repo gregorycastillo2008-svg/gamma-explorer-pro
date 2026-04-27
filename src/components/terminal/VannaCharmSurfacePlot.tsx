@@ -49,6 +49,7 @@ export function VannaCharmSurfacePlot() {
   const [azim, setAzim] = useState(215);
   const [showPts, setShowPts] = useState(true);
   const [showPlane, setShowPlane] = useState(true);
+  const [tip, setTip] = useState<TooltipData | null>(null);
 
   const elevRef = useRef(28);
   const azimRef = useRef(215);
@@ -56,6 +57,7 @@ export function VannaCharmSurfacePlot() {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const dotsGroupRef = useRef<THREE.Group | null>(null);
   const planeGroupRef = useRef<THREE.Group | null>(null);
+  const meshRef = useRef<THREE.Mesh | null>(null);
 
   function updateCam() {
     const cam = cameraRef.current;
