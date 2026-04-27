@@ -10,47 +10,6 @@ export function AllGammaLogo({ size = "md", showText = true }: AllGammaLogoProps
 
   return (
     <div className="flex items-center gap-3 select-none">
-      {/* Animated gold box with gamma symbol */}
-      <div
-        className="relative rounded-xl flex items-center justify-center overflow-hidden"
-        style={{
-          width: dims.box,
-          height: dims.box,
-          background: "linear-gradient(135deg, #1a1205 0%, #3d2a08 50%, #1a1205 100%)",
-          border: "2px solid #d4af37",
-          boxShadow: "0 0 20px rgba(212,175,55,0.6), inset 0 0 12px rgba(212,175,55,0.25)",
-        }}
-      >
-        {/* Sweeping shine */}
-        <motion.div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: "linear-gradient(115deg, transparent 35%, rgba(255,215,0,0.55) 50%, transparent 65%)",
-          }}
-          animate={{ x: ["-120%", "120%"] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", repeatDelay: 0.6 }}
-        />
-        {/* Pulsing glow ring */}
-        <motion.div
-          className="absolute inset-0 rounded-xl pointer-events-none"
-          animate={{ boxShadow: ["inset 0 0 8px rgba(255,215,0,0.3)", "inset 0 0 22px rgba(255,215,0,0.7)", "inset 0 0 8px rgba(255,215,0,0.3)"] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        />
-        {/* Satellite icon */}
-        <motion.span
-          className="relative leading-none"
-          style={{
-            fontSize: dims.gamma,
-            filter: "drop-shadow(0 0 6px rgba(255,215,0,0.9))",
-            transform: "translateY(-1px)",
-          }}
-          animate={{ rotate: [0, -10, 10, -5, 0], scale: [1, 1.1, 1] }}
-          transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-        >
-          🛰️
-        </motion.span>
-      </div>
-
       {showText && (
         <div className="relative">
           <motion.span
