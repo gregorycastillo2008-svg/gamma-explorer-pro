@@ -1,36 +1,62 @@
 import type { Section } from "@/components/terminal/Sidebar";
 
-export type Tier = "basic" | "pro" | "elite";
+export type Tier = "starter" | "pro" | "elite";
 
 export const PLANS = {
-  basic: {
-    name: "Basic",
-    monthly: { priceId: "price_1TQreBCZRgBPwOB9AOgrMFJ5", amount: 29 },
-    yearly:  { priceId: "price_1TQrefCZRgBPwOB99sCuvVv4", amount: 290 },
-    features: ["Overview", "OI Analytics", "GEX & DEX", "Greek Ladder", "Level Scan"],
+  starter: {
+    name: "Starter",
+    price: 29.99,
+    priceId: "price_1TQrwlCZRgBPwOB9FoDolYiq",
+    icon: "rocket" as const,
+    features: [
+      "GEX básico SPX/SPY",
+      "1 ticker en watchlist",
+      "Datos con 15min delay",
+      "Soporte por email",
+    ],
+    popular: false,
   },
   pro: {
     name: "Pro",
-    monthly: { priceId: "price_1TQrfQCZRgBPwOB9Sti7Teao", amount: 79 },
-    yearly:  { priceId: "price_1TQrfrCZRgBPwOB9CddMvqzz", amount: 790 },
-    features: ["Everything in Basic", "Volatility 3D Surface", "Heatmap / 3D", "Hedge Pressure", "Vega & Theta", "Depth View", "AI Bias Forecast"],
+    price: 79.99,
+    priceId: "price_1TQrxOCZRgBPwOB9UbadcwFU",
+    icon: "crown" as const,
+    features: [
+      "GEX/DEX/VEX en tiempo real",
+      "Watchlist ilimitada",
+      "Call/Put walls + Gamma Flip",
+      "AI Bias diario",
+      "Alertas push",
+      "Soporte prioritario",
+    ],
+    popular: true,
   },
   elite: {
     name: "Elite",
-    monthly: { priceId: "price_1TQrgfCZRgBPwOB9Xa1n2i6P", amount: 149 },
-    yearly:  { priceId: "price_1TQrhICZRgBPwOB9YKQTn74Y", amount: 1490 },
-    features: ["Everything in Pro", "Vanna & Charm", "Anomaly Detection", "Regime Analysis", "Risk Analytics", "Unlimited symbols"],
+    price: 159.99,
+    priceId: "price_1TQry2CZRgBPwOB9bKH38XuV",
+    icon: "gem" as const,
+    features: [
+      "Todo lo de Pro",
+      "IV Surface 3D completo",
+      "API access (10k req/día)",
+      "Vanna & Charm exposure",
+      "Reportes institucionales",
+      "Onboarding 1-a-1",
+      "Discord VIP traders",
+    ],
+    popular: false,
   },
 } as const;
 
 // Sections allowed per tier (cumulative)
-const BASIC_SECTIONS: Section[] = ["overview", "oi-analytics", "gex-dex", "greeks", "levels"];
-const PRO_SECTIONS: Section[] = [...BASIC_SECTIONS, "volatility", "heatmap", "hedge", "vega-theta", "depth", "ai-bias"];
+const STARTER_SECTIONS: Section[] = ["overview", "oi-analytics", "gex-dex", "greeks", "levels"];
+const PRO_SECTIONS: Section[] = [...STARTER_SECTIONS, "volatility", "heatmap", "hedge", "vega-theta", "depth", "ai-bias"];
 const ELITE_SECTIONS: Section[] = [...PRO_SECTIONS, "vanna-charm", "anomaly", "regime", "risk"];
 
 export function allowedSections(tier: Tier | null): Section[] {
   if (tier === "elite") return ELITE_SECTIONS;
   if (tier === "pro") return PRO_SECTIONS;
-  if (tier === "basic") return BASIC_SECTIONS;
-  return []; // no subscription = no access
+  if (tier === "starter") return STARTER_SECTIONS;
+  return [];
 }
