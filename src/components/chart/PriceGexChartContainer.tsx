@@ -95,24 +95,22 @@ export function PriceGexChartContainer({ defaultSymbol = "QQQ" }: Props) {
               </span>
             </div>
 
-            {/* DTE selector — up to 3 days */}
+            {/* Expiration day selector — up to 3 days */}
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Gamma DTE</span>
-              <div className="flex border border-[#1f1f1f] rounded overflow-hidden bg-black">
-                {([1, 2, 3] as DteOpt[]).map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setDte(d)}
-                    className={`px-2.5 py-1 text-[11px] font-bold font-mono transition-colors ${
-                      dte === d
-                        ? "bg-cyan-500/20 text-cyan-400"
-                        : "text-muted-foreground hover:text-white"
-                    }`}
-                  >
-                    {d}D
-                  </button>
-                ))}
-              </div>
+              <CalendarDays className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Expiration</span>
+              <Select value={dte} onValueChange={(v) => setDte(v as DteOpt)}>
+                <SelectTrigger className="h-7 w-[160px] bg-black border-[#2a2a2a] text-[11px] font-bold text-white rounded-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-black border-[#2a2a2a]">
+                  {DTE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-[11px] font-mono">
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="text-[10px] text-muted-foreground font-mono">
                 {filtered.length} contracts
               </div>
