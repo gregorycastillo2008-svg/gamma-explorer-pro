@@ -42,7 +42,7 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
   const netDex = exposures.reduce((s, p) => s + p.dex, 0);
 
   return (
-    <div className="h-full flex flex-col gap-4 overflow-y-auto">
+    <div className="h-full flex flex-col">
       <TerminalTabs
         layoutId="overview-master-tab-bg"
         tabs={[
@@ -91,8 +91,14 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
           },
         ]}
       />
+    </div>
+  );
+}
 
-      {/* Price + GEX live chart */}
+// ─────── PRICE + GEX CHART (sección propia) ───────
+export function ChartView({ ticker }: Ctx) {
+  return (
+    <div className="h-full overflow-y-auto p-1">
       <PriceGexChartContainer defaultSymbol={ticker.symbol} />
     </div>
   );
