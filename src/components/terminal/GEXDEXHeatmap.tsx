@@ -202,14 +202,14 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
   return (
     <div
       className="w-full h-full flex flex-col rounded-lg overflow-hidden"
-      style={{ background: C.bg, border: `1px solid ${C.border}`, fontFamily: FONT }}
+      style={{ background: T.bg, border: `1px solid ${T.border}`, fontFamily: FONT }}
     >
       {/* ── TOOLBAR ── */}
       <div
         className="flex items-center gap-3 px-4 py-2.5 shrink-0 flex-wrap"
-        style={{ borderBottom: `1px solid ${C.border}`, background: "#000" }}
+        style={{ borderBottom: `1px solid ${T.border}`, background: theme === "light" ? "#ffffff" : "#000" }}
       >
-        <span style={{ color: C.muted, fontSize: 10, letterSpacing: "0.2em" }} className="uppercase font-bold">
+        <span style={{ color: T.muted, fontSize: 10, letterSpacing: "0.2em" }} className="uppercase font-bold">
           GEX/DEX Heatmap · {ticker.symbol}
         </span>
 
@@ -288,6 +288,8 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
           setSelected={setSelected}
           scrollRef={leftRef}
           accent={C.greenHi}
+          theme={theme}
+          T={T}
         />
         <HeatPanel
           title="DEX · Delta Exposure"
@@ -306,6 +308,8 @@ export function GEXDEXHeatmap({ ticker, contracts }: Props) {
           setSelected={setSelected}
           scrollRef={rightRef}
           accent={C.redHi}
+          theme={theme}
+          T={T}
         />
       </div>
 
