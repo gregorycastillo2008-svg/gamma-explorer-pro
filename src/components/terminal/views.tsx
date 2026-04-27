@@ -210,23 +210,19 @@ export function DepthView({ ticker, contracts }: Ctx) {
 
   return (
     <Panel title="GEX / DEX por Strike" subtitle={`${ticker.symbol} · spot $${ticker.spot}`} noPad>
-      {/* DTE filter row */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/40 flex-wrap">
-        <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase mr-1">DTE</span>
-        {(["1", "2", "3"] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setDte(v)}
-            className="px-2.5 py-1 text-[10px] font-bold rounded-sm border transition-colors"
-            style={{
-              background: dte === v ? "rgba(16,185,129,0.15)" : "transparent",
-              color: dte === v ? "#10b981" : "#888",
-              borderColor: dte === v ? "#10b981" : "#2a2a2a",
-            }}
-          >
-            {`${v}D`}
-          </button>
-        ))}
+      {/* Expiration selector row — up to 3 days max */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border/40 flex-wrap">
+        <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Expiration</span>
+        <select
+          value={dte}
+          onChange={(e) => setDte(e.target.value as "1" | "2" | "3")}
+          className="h-7 px-2 text-[11px] font-bold font-mono rounded-sm bg-black border border-[#2a2a2a] text-white hover:border-emerald-500/50 focus:outline-none focus:border-emerald-500"
+        >
+          <option value="1">1 day</option>
+          <option value="2">2 days</option>
+          <option value="3">3 days (max)</option>
+        </select>
+        <span className="text-[9px] text-muted-foreground font-mono ml-auto">{filtered.length} contracts</span>
       </div>
 
       <div className="relative">
