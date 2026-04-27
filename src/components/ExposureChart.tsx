@@ -28,11 +28,12 @@ const symbol: Record<Props["metric"], string> = {
 };
 
 export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: Props) {
-  // Focus on strikes within ±15% of spot so bars don't get crushed by far OTM strikes
-  const lo = spot * 0.85;
-  const hi = spot * 1.15;
+  // Focus on strikes near spot (±8%) so bars are wide and readable
+  const lo = spot * 0.92;
+  const hi = spot * 1.08;
   const chartData = data
     .filter((d) => d.strike >= lo && d.strike <= hi)
+    .sort((a, b) => a.strike - b.strike)
     .map((d) => ({
       strike: d.strike,
       value: d[metric],
@@ -58,7 +59,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
       </div>
       <div className="flex-1 min-h-0">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} margin={{ top: 28, right: 20, left: 10, bottom: 0 }} barCategoryGap={2} barGap={0}>
+        <BarChart data={chartData} margin={{ top: 28, right: 20, left: 10, bottom: 0 }} barCategoryGap="12%">
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
           <XAxis dataKey="strike" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={25} tickMargin={2} />
           <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={55} />
@@ -109,7 +110,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
               label={{ value: `★ MAX −${sym}`, position: "bottom", fill: "hsl(var(--put))", fontSize: 10, fontWeight: 600 }}
             />
           )}
-          <Bar dataKey="value" radius={[2, 2, 0, 0]} maxBarSize={40} shape={(props: any) => {
+          <Bar dataKey="value" radius={[3, 3, 0, 0]} shape={(props: any) => {
             const fill = props.payload.isPositive ? "hsl(var(--call))" : "hsl(var(--put))";
             return <rect {...props} fill={fill} />;
           }} />
