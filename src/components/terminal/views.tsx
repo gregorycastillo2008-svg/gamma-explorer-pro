@@ -10,6 +10,7 @@ import { ThirdOrderGreeksPanel } from "./ThirdOrderGreeksPanel";
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { VolatilityDashboard } from "@/components/volatility/VolatilityDashboard";
 import { PriceGexChartContainer } from "@/components/chart/PriceGexChartContainer";
+import { IntegratedGEXChart } from "@/components/chart/IntegratedGEXChart";
 import { GreekLadder } from "@/components/greeks/GreekLadder";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -98,8 +99,8 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 // ─────── PRICE + GEX CHART (sección propia) ───────
 export function ChartView({ ticker }: Ctx) {
   return (
-    <div className="h-full overflow-y-auto p-1">
-      <PriceGexChartContainer defaultSymbol={ticker.symbol} />
+    <div className="h-full overflow-hidden">
+      <IntegratedGEXChart defaultSymbol={ticker.symbol} />
     </div>
   );
 }
