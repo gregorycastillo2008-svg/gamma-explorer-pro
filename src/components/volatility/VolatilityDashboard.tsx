@@ -37,7 +37,7 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
   );
 }
 
-function Panel({ className = "", children }: { className?: string; children: React.ReactNode }) {
+function Panel({ className = "mx-0 my-0 px-0 py-0 mr-0 mb-0", children }: { className?: string; children: React.ReactNode }) {
   return (
     <div className={`rounded-xl border border-[#1f1f1f] bg-[#0a0a0a] p-4 overflow-auto ${className}`}>
       {children}
