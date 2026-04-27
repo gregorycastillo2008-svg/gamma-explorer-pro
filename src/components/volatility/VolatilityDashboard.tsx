@@ -13,10 +13,10 @@ interface Props {
   contracts: OptionContract[];
 }
 
-export function VolatilityDashboard({ ticker }: Props) {
+export function VolatilityDashboard({ ticker, contracts }: Props) {
   const data = useMemo(
-    () => buildVolatilityDataset(ticker.symbol, ticker.spot, ticker.baseIV),
-    [ticker.symbol, ticker.spot, ticker.baseIV],
+    () => buildVolatilityDataset(ticker.symbol, ticker.spot, ticker.baseIV, 7, contracts),
+    [ticker.symbol, ticker.spot, ticker.baseIV, contracts],
   );
 
   return (

@@ -2,6 +2,7 @@ import {
   generateIVSurface, generateIVSkew, generateHistoricalHVData,
   calculateSkewMetrics, type IvPoint, type SkewPoint, type HVRow, type SkewMetrics,
 } from "./volatilityCalculations";
+import type { OptionContract } from "./gex";
 
 export interface VolatilityDataset {
   symbol: string;
@@ -19,9 +20,36 @@ export interface VolatilityDataset {
   table: { strike: number; iv: number; oiSk: number; flag: string }[];
 }
 
-export function buildVolatilityDataset(symbol: string, spot: number, baseIV = 0.16, seed = 7): VolatilityDataset {
-  const expiries = [1, 2, 3, 4, 5, 6, 7];
-  const surface = generateIVSurface(spot, expiries, baseIV);
+export function buildVolatilityDataset(
+  symbol: string,
+  spot: number,
+  baseIV = 0.16,
+  seed = 7,
+  realContracts?: OptionContract[],
+): VolatilityDataset {
+  // Build REAL surface from CBOE contracts when available
+  let surface: IvPoint[];
+  if (realContracts && realContracts.length > 0) {
+    const map = new Map<string, { sum: number; n: number; strike: number; expiry: number }>();
+    for (const c of realContracts) {
+      if (c.iv <= 0) continue;
+      const key = `${c.strike}|${c.expiry}`;
+      const cur = map.get(key) ?? { sum: 0, n: 0, strike: c.strike, expiry: c.expiry };
+      cur.sum += c.iv;
+      cur.n++;
+      map.set(key, cur);
+    }
+    surface = Array.from(map.values()).map((v) => ({
+      strike: v.strike,
+      expiry: v.expiry,
+      moneyness: +(v.strike / spot).toFixed(4),
+      iv: +(v.sum / v.n).toFixed(4),
+    }));
+  } else {
+    const expiries = [1, 2, 3, 4, 5, 6, 7];
+    surface = generateIVSurface(spot, expiries, baseIV);
+  }
+
   const skew = generateIVSkew(spot, 30, baseIV);
   const metrics = calculateSkewMetrics(skew, spot);
   const hvSeries = generateHistoricalHVData(180, spot, baseIV, seed);

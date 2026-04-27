@@ -10,22 +10,12 @@ interface Props {
   symbol: string;
 }
 
-const N = 50;
 const SX = 4.4;
 const SZ = 4.0;
 const SY = 2.4;
 
-// Generated peak/drop surface (mirrors uploaded HTML)
-function surfaceFn(u: number, v: number): number {
-  const peak = 1.8 * Math.exp(-Math.pow((u - 0.85) * 3.5, 2) - Math.pow((v - 0.8) * 3.5, 2));
-  const drop = -0.9 * Math.exp(-Math.pow((u - 0.05) * 4, 2)) * (1 - v * 0.5);
-  const base = 0.25 + 0.3 * u + 0.2 * v - 0.15 * Math.pow(u - 0.5, 2);
-  const wave = 0.06 * Math.sin(u * Math.PI * 2.5) * Math.cos(v * Math.PI * 1.8);
-  return base + peak + drop + wave;
-}
-
 // Full saturated rainbow colormap
-function rainbow(t: number): THREE.Color {
+function rainbow(t: number): [number, number, number] {
   t = Math.max(0, Math.min(1, t));
   const stops: [number, [number, number, number]][] = [
     [0.0, [0.0, 0.0, 1.0]],
@@ -43,86 +33,161 @@ function rainbow(t: number): THREE.Color {
     const [t1, c1] = stops[k + 1];
     if (t >= t0 && t <= t1) {
       const f = (t - t0) / (t1 - t0);
-      return new THREE.Color(
+      return [
         c0[0] + f * (c1[0] - c0[0]),
         c0[1] + f * (c1[1] - c0[1]),
         c0[2] + f * (c1[2] - c0[2]),
-      );
+      ];
     }
   }
-  return new THREE.Color(1, 0, 1);
+  return [1, 0, 1];
 }
 
-function PeakDropSurface() {
-  const { geometry, gridLines } = useMemo(() => {
-    let mn = Infinity, mx = -Infinity;
-    const raw: number[][] = [];
-    for (let i = 0; i < N; i++) {
-      raw.push([]);
-      for (let j = 0; j < N; j++) {
-        const v = surfaceFn(i / (N - 1), j / (N - 1));
-        raw[i].push(v);
-        if (v < mn) mn = v;
-        if (v > mx) mx = v;
-      }
+interface HoverInfo {
+  strike: number;
+  dte: number;
+  iv: number;
+  sigma: number;
+  x: number;
+  y: number;
+}
+
+interface SurfaceData {
+  geometry: THREE.BufferGeometry;
+  gridLines: THREE.BufferGeometry[];
+  strikes: number[];
+  expiries: number[];
+  ivGrid: number[][]; // [strikeIdx][expiryIdx]
+  cols: number; // strikes
+  rows: number; // expiries
+}
+
+function buildSurface(surface: IvPoint[], spot: number): SurfaceData | null {
+  if (!surface.length) return null;
+
+  const strikes = Array.from(new Set(surface.map((p) => p.strike))).sort((a, b) => a - b);
+  const expiries = Array.from(new Set(surface.map((p) => p.expiry))).sort((a, b) => a - b);
+  if (strikes.length < 2 || expiries.length < 2) return null;
+
+  const map = new Map<string, number>();
+  for (const p of surface) map.set(`${p.strike}|${p.expiry}`, p.iv);
+
+  // Fill grid; for missing cells, average neighbours (or fall back to ATM IV)
+  const atm = surface.reduce((b, p) => Math.abs(p.strike - spot) < Math.abs(b.strike - spot) ? p : b, surface[0]).iv;
+  const ivGrid: number[][] = [];
+  for (let i = 0; i < strikes.length; i++) {
+    ivGrid.push([]);
+    for (let j = 0; j < expiries.length; j++) {
+      const v = map.get(`${strikes[i]}|${expiries[j]}`);
+      ivGrid[i].push(v ?? atm);
     }
+  }
 
-    const verts: number[] = [];
-    const cols: number[] = [];
-    const idxs: number[] = [];
+  const cols = strikes.length;
+  const rows = expiries.length;
 
-    for (let i = 0; i < N; i++) {
-      for (let j = 0; j < N; j++) {
-        const x = (i / (N - 1) - 0.5) * SX;
-        const z = (j / (N - 1) - 0.5) * SZ;
-        const norm = (raw[i][j] - mn) / (mx - mn);
-        const y = norm * SY - 0.6;
-        verts.push(x, y, z);
-        const c = rainbow(norm);
-        cols.push(c.r, c.g, c.b);
-      }
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+    const v = ivGrid[i][j];
+    if (v < mn) mn = v;
+    if (v > mx) mx = v;
+  }
+  const range = Math.max(mx - mn, 1e-6);
+
+  const verts: number[] = [];
+  const colors: number[] = [];
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      const x = (i / (cols - 1) - 0.5) * SX;
+      const z = (j / (rows - 1) - 0.5) * SZ;
+      const norm = (ivGrid[i][j] - mn) / range;
+      const y = norm * SY - 0.6;
+      verts.push(x, y, z);
+      const [r, g, b] = rainbow(norm);
+      colors.push(r, g, b);
     }
-    for (let i = 0; i < N - 1; i++) {
-      for (let j = 0; j < N - 1; j++) {
-        const a = i * N + j;
-        const b = i * N + j + 1;
-        const c = (i + 1) * N + j;
-        const d = (i + 1) * N + j + 1;
-        idxs.push(a, c, b, b, c, d);
-      }
+  }
+
+  const idxs: number[] = [];
+  for (let i = 0; i < cols - 1; i++) {
+    for (let j = 0; j < rows - 1; j++) {
+      const a = i * rows + j;
+      const b = i * rows + j + 1;
+      const c = (i + 1) * rows + j;
+      const d = (i + 1) * rows + j + 1;
+      idxs.push(a, c, b, b, c, d);
     }
+  }
 
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-    g.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
-    g.setIndex(idxs);
-    g.computeVertexNormals();
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(idxs);
+  geometry.computeVertexNormals();
 
-    // White grid overlay lines (every 4th row/col)
-    const lines: THREE.BufferGeometry[] = [];
-    for (let j = 0; j < N; j += 4) {
-      const pts: THREE.Vector3[] = [];
-      for (let i = 0; i < N; i++) {
-        const idx = (i * N + j) * 3;
-        pts.push(new THREE.Vector3(verts[idx], verts[idx + 1], verts[idx + 2]));
-      }
-      lines.push(new THREE.BufferGeometry().setFromPoints(pts));
+  // Sparse grid lines
+  const gridLines: THREE.BufferGeometry[] = [];
+  const stepI = Math.max(1, Math.floor(cols / 12));
+  const stepJ = Math.max(1, Math.floor(rows / 8));
+  for (let j = 0; j < rows; j += stepJ) {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < cols; i++) {
+      const idx = (i * rows + j) * 3;
+      pts.push(new THREE.Vector3(verts[idx], verts[idx + 1], verts[idx + 2]));
     }
-    for (let i = 0; i < N; i += 4) {
-      const pts: THREE.Vector3[] = [];
-      for (let j = 0; j < N; j++) {
-        const idx = (i * N + j) * 3;
-        pts.push(new THREE.Vector3(verts[idx], verts[idx + 1], verts[idx + 2]));
-      }
-      lines.push(new THREE.BufferGeometry().setFromPoints(pts));
+    gridLines.push(new THREE.BufferGeometry().setFromPoints(pts));
+  }
+  for (let i = 0; i < cols; i += stepI) {
+    const pts: THREE.Vector3[] = [];
+    for (let j = 0; j < rows; j++) {
+      const idx = (i * rows + j) * 3;
+      pts.push(new THREE.Vector3(verts[idx], verts[idx + 1], verts[idx + 2]));
     }
+    gridLines.push(new THREE.BufferGeometry().setFromPoints(pts));
+  }
 
-    return { geometry: g, gridLines: lines };
-  }, []);
+  return { geometry, gridLines, strikes, expiries, ivGrid, cols, rows };
+}
 
+function SurfaceMesh({
+  data,
+  spot,
+  setHover,
+}: {
+  data: SurfaceData;
+  spot: number;
+  setHover: (h: HoverInfo | null) => void;
+}) {
   return (
     <group>
-      <mesh geometry={geometry}>
+      <mesh
+        geometry={data.geometry}
+        onPointerMove={(e) => {
+          const face = e.face;
+          if (!face) return;
+          const rows = data.rows;
+          // Determine (i, j) from vertex index a
+          const a = face.a;
+          const i = Math.floor(a / rows);
+          const j = a % rows;
+          const strike = data.strikes[Math.min(i, data.strikes.length - 1)];
+          const dte = data.expiries[Math.min(j, data.expiries.length - 1)];
+          const iv = data.ivGrid[Math.min(i, data.cols - 1)][Math.min(j, data.rows - 1)];
+          // Standard deviation of return over horizon: sigma = IV * sqrt(T) * spot
+          const T = Math.max(dte, 1) / 365;
+          const sigmaPx = iv * Math.sqrt(T) * spot;
+          const sigmaSpot = (strike - spot) / sigmaPx;
+          setHover({
+            strike,
+            dte,
+            iv: iv * 100,
+            sigma: sigmaSpot,
+            x: e.nativeEvent.offsetX,
+            y: e.nativeEvent.offsetY,
+          });
+        }}
+        onPointerOut={() => setHover(null)}
+      >
         <meshPhongMaterial
           vertexColors
           side={THREE.DoubleSide}
@@ -130,17 +195,13 @@ function PeakDropSurface() {
           specular={new THREE.Color(0.5, 0.5, 0.5)}
         />
       </mesh>
-      {gridLines.map((g, i) => (
+      {data.gridLines.map((g, i) => (
         <line key={i}>
           <primitive object={g} attach="geometry" />
           <lineBasicMaterial color="#ffffff" transparent opacity={0.22} />
         </line>
       ))}
-
-      {/* Floor grid */}
       <gridHelper args={[5, 12, 0x222222, 0x1a1a1a]} position={[0, -0.65, 0]} />
-
-      {/* Axis lines */}
       <AxisLine from={[-2.2, -0.65, -2.0]} to={[2.4, -0.65, -2.0]} />
       <AxisLine from={[-2.2, -0.65, -2.0]} to={[-2.2, 2.0, -2.0]} />
       <AxisLine from={[-2.2, -0.65, -2.0]} to={[-2.2, -0.65, 2.2]} />
@@ -162,9 +223,6 @@ function AxisLine({ from, to }: { from: [number, number, number]; to: [number, n
 }
 
 interface CamCtl {
-  setElev: (n: number) => void;
-  setAzim: (n: number) => void;
-  setDist: (n: number) => void;
   reset: () => void;
 }
 
@@ -186,14 +244,8 @@ function CameraRig({
   const stateRef = useRef({ elev, azim, dist });
   stateRef.current = { elev, azim, dist };
 
-  // expose imperative controls
   useEffect(() => {
-    ctlRef.current = {
-      setElev: (n) => onChange(n, stateRef.current.azim, stateRef.current.dist),
-      setAzim: (n) => onChange(stateRef.current.elev, n, stateRef.current.dist),
-      setDist: (n) => onChange(stateRef.current.elev, stateRef.current.azim, n),
-      reset: () => onChange(32, 220, 7.5),
-    };
+    ctlRef.current = { reset: () => onChange(32, 220, 7.5) };
   }, [ctlRef, onChange]);
 
   useEffect(() => {
@@ -207,7 +259,6 @@ function CameraRig({
     camera.lookAt(0, 0.3, 0);
   }, [elev, azim, dist, camera]);
 
-  // mouse drag + wheel
   useEffect(() => {
     const dom = gl.domElement;
     const md = (e: MouseEvent) => {
@@ -249,11 +300,14 @@ function CameraRig({
   return null;
 }
 
-export function IVSurface3D({ surface: _surface, spot, symbol }: Props) {
+export function IVSurface3D({ surface, spot, symbol }: Props) {
   const [elev, setElev] = useState(32);
   const [azim, setAzim] = useState(220);
   const [dist, setDist] = useState(7.5);
+  const [hover, setHover] = useState<HoverInfo | null>(null);
   const ctlRef = useRef<CamCtl | null>(null);
+
+  const data = useMemo(() => buildSurface(surface, spot), [surface, spot]);
 
   const apply = (e: number, a: number, d: number) => {
     setElev(e);
@@ -289,6 +343,11 @@ export function IVSurface3D({ surface: _surface, spot, symbol }: Props) {
           <span className="text-[14px] font-jetbrains text-[#e5e7eb]">
             {symbol} <span className="text-[#6b7280]">AT*</span> SPOT <span className="text-[#fbbf24]">${spot.toFixed(2)}</span>
           </span>
+          {data && (
+            <span className="text-[10px] text-[#6b7280] font-mono">
+              {data.strikes.length} strikes · {data.expiries.length} expiries
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Btn title="Zoom in" onClick={() => apply(elev, azim, Math.max(3.5, dist - 0.6))}><ZoomIn size={14} /></Btn>
@@ -304,25 +363,65 @@ export function IVSurface3D({ surface: _surface, spot, symbol }: Props) {
         className="relative flex-1 min-h-0 rounded border border-[#1f1f1f] overflow-hidden iv-surface-canvas"
         style={{ background: "#0a0a0a" }}
       >
-        <Canvas
-          camera={{ fov: 44, near: 0.1, far: 1000 }}
-          gl={{ preserveDrawingBuffer: true, antialias: true }}
-          onCreated={({ scene }) => {
-            scene.fog = new THREE.FogExp2(0x0a0a0a, 0.055);
-            scene.background = new THREE.Color(0x0a0a0a);
-          }}
-        >
-          <ambientLight intensity={0.4} />
-          <directionalLight position={[6, 14, 6]} intensity={1.1} />
-          <directionalLight position={[-6, 4, -4]} intensity={0.5} color={0x4488ff} />
-          <directionalLight position={[8, 2, 0]} intensity={0.3} color={0xff4400} />
-          <PeakDropSurface />
-          <CameraRig elev={elev} azim={azim} dist={dist} ctlRef={ctlRef} onChange={apply} />
-        </Canvas>
+        {data ? (
+          <Canvas
+            camera={{ fov: 44, near: 0.1, far: 1000 }}
+            gl={{ preserveDrawingBuffer: true, antialias: true }}
+            onCreated={({ scene }) => {
+              scene.fog = new THREE.FogExp2(0x0a0a0a, 0.055);
+              scene.background = new THREE.Color(0x0a0a0a);
+            }}
+          >
+            <ambientLight intensity={0.4} />
+            <directionalLight position={[6, 14, 6]} intensity={1.1} />
+            <directionalLight position={[-6, 4, -4]} intensity={0.5} color={0x4488ff} />
+            <directionalLight position={[8, 2, 0]} intensity={0.3} color={0xff4400} />
+            <SurfaceMesh data={data} spot={spot} setHover={setHover} />
+            <CameraRig elev={elev} azim={azim} dist={dist} ctlRef={ctlRef} onChange={apply} />
+          </Canvas>
+        ) : (
+          <div className="h-full flex items-center justify-center text-[12px] text-[#6b7280] font-mono">
+            Loading surface…
+          </div>
+        )}
+
+        {/* Hover tooltip */}
+        {hover && (
+          <div
+            className="absolute pointer-events-none z-20 rounded px-2.5 py-2 text-[10px] font-mono leading-tight"
+            style={{
+              left: Math.min(hover.x + 14, 300),
+              top: hover.y + 14,
+              background: "rgba(0,0,0,0.92)",
+              border: "1px solid #06b6d4",
+              color: "#e5e7eb",
+              boxShadow: "0 0 10px rgba(6,182,212,0.4)",
+              minWidth: 150,
+            }}
+          >
+            <div className="text-[#fbbf24] font-bold">STRIKE ${hover.strike.toFixed(hover.strike < 100 ? 2 : 0)}</div>
+            <div className="flex justify-between gap-3">
+              <span className="text-[#6b7280]">DTE</span><span>{hover.dte}d</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-[#6b7280]">IV</span><span className="text-[#06b6d4]">{hover.iv.toFixed(2)}%</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-[#6b7280]">σ from spot</span>
+              <span className={hover.sigma >= 0 ? "text-[#10b981]" : "text-[#ef4444]"}>
+                {hover.sigma >= 0 ? "+" : ""}{hover.sigma.toFixed(2)}σ
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-[#6b7280]">Moneyness</span>
+              <span>{((hover.strike / spot - 1) * 100).toFixed(2)}%</span>
+            </div>
+          </div>
+        )}
 
         {/* Hint + sliders */}
         <div className="absolute bottom-2 left-0 right-0 flex flex-wrap items-center justify-center gap-4 px-3 text-[11px] font-mono pointer-events-none">
-          <span className="text-[#666]">🖱 drag: rotate | scroll: zoom</span>
+          <span className="text-[#666]">🖱 drag: rotate | scroll: zoom | hover: strike+σ</span>
           <label className="text-[#777] flex items-center gap-1 pointer-events-auto">
             Elev
             <input
@@ -345,7 +444,7 @@ export function IVSurface3D({ surface: _surface, spot, symbol }: Props) {
 
         {/* Rainbow colorbar */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 pointer-events-none">
-          <span className="text-[9px] font-mono text-[#555]">High</span>
+          <span className="text-[9px] font-mono text-[#555]">High IV</span>
           <div
             className="w-[14px] h-[200px] rounded border border-[#333]"
             style={{
@@ -353,7 +452,7 @@ export function IVSurface3D({ surface: _surface, spot, symbol }: Props) {
                 "linear-gradient(to top, #0000ff, #0088ff, #00ffff, #00ff88, #aaff00, #ffff00, #ff8800, #ff0000, #ff00ff)",
             }}
           />
-          <span className="text-[9px] font-mono text-[#555]">Low</span>
+          <span className="text-[9px] font-mono text-[#555]">Low IV</span>
         </div>
       </div>
     </div>
