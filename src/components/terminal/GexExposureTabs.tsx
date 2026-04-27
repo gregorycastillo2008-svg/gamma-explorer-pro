@@ -221,8 +221,16 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
       </div>
 
       {/* Scroll body: strike column (left) + bar chart (right) */}
-      <div className="flex-1 min-h-0 relative overflow-y-auto" style={{ scrollbarColor: "#1a1a1a #000" }}>
-        <div className="grid grid-cols-[72px_1fr] relative">
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 relative overflow-y-scroll overscroll-contain touch-pan-y"
+        onWheel={(e) => {
+          e.stopPropagation();
+          if (scrollRef.current) scrollRef.current.scrollTop += e.deltaY;
+        }}
+        style={{ scrollbarColor: "#3a3a3a #000", scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" as any }}
+      >
+        <div className="grid grid-cols-[72px_1fr] relative min-h-max">
           {/* LEFT: strike price column */}
           <div className="flex flex-col">
             {data.map((p) => {
