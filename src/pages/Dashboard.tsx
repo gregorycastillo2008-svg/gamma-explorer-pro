@@ -28,6 +28,7 @@ import { VannaCharmWorkspace } from "@/components/terminal/VannaCharmWorkspace";
 import { OiAnalyticsWorkspace } from "@/components/terminal/OiAnalyticsWorkspace";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { SectionTransition } from "@/components/terminal/SectionTransition";
+import { Paywall } from "@/components/Paywall";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
