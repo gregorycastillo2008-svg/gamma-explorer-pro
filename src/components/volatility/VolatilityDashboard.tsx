@@ -24,7 +24,7 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
       <TopMetricsBar data={data} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <Panel className="h-[560px]"><Volatility3DSurface surface={data.surface} spot={data.spot} symbol={data.symbol} /></Panel>
+        <Panel className="min-h-[660px]"><Volatility3DSurface surface={data.surface} spot={data.spot} symbol={data.symbol} /></Panel>
         <Panel className="h-[500px]"><IVSkewChart data={data} /></Panel>
         <Panel className="h-[500px]"><PutCallSkewPanel data={data} /></Panel>
         <Panel className="h-[500px]"><VolatilityTable data={data} /></Panel>
@@ -39,7 +39,7 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
 
 function Panel({ className = "", children }: { className?: string; children: React.ReactNode }) {
   return (
-    <div className={`rounded-xl border border-[#1f1f1f] bg-[#0a0a0a] p-4 overflow-hidden ${className}`}>
+    <div className={`rounded-xl border border-[#1f1f1f] bg-[#0a0a0a] p-4 overflow-auto ${className}`}>
       {children}
     </div>
   );
