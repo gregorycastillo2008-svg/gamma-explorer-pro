@@ -196,143 +196,149 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
   const maxNegStrike = data.reduce((m, p) => (p[metric] < (m?.[metric] ?? Infinity) ? p : m), null as null | (typeof data)[number])?.strike;
   const sym = metric === "netGex" ? "Γ" : "Δ";
 
+  // Build symmetric x-axis ticks
+  const axisMax = Math.max(max, 1);
+  // Round up to a "nice" number (1k, 2k, 5k, 10k, ...)
+  const niceMax = (() => {
+    const exp = Math.pow(10, Math.floor(Math.log10(axisMax)));
+    const n = axisMax / exp;
+    const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+    return nice * exp;
+  })();
+  const ticks = [-niceMax, -niceMax / 2, 0, niceMax / 2, niceMax];
+
   return (
     <div
-      className="relative bg-black rounded border border-border p-2 h-full flex flex-col overflow-hidden"
+      className="relative bg-black rounded border border-border h-full flex flex-col overflow-hidden"
       onMouseLeave={() => setHover(null)}
     >
-      <div className="font-jetbrains text-[9px] text-muted-foreground uppercase tracking-wider mb-1.5 grid grid-cols-[64px_1fr_1fr] gap-1 shrink-0">
-        <div className="text-right pr-2">Strike</div>
-        <div className="text-right pr-2">Negative ★</div>
-        <div className="pl-2">Positive ★</div>
+      {/* Header bar with title + ALL/NET pseudo tabs (visual only) */}
+      <div className="px-3 py-2 border-b border-[#1a1a1a] flex items-center gap-3 shrink-0">
+        <span className="font-jetbrains text-[10px] uppercase tracking-[0.2em] text-[#9ca3af] font-bold">
+          {metric === "netGex" ? "GAMMAEX" : "DELTAEX"} ↓ ALL ↓ NET
+        </span>
       </div>
-      {/* Chart area: scrollable, fixed-height rows so all strikes are visible by scrolling */}
+
+      {/* Scroll body: strike column (left) + bar chart (right) */}
       <div className="flex-1 min-h-0 relative overflow-y-auto" style={{ scrollbarColor: "#1a1a1a #000" }}>
-        <div className="relative flex flex-col gap-[3px]">
-          {/* SPOT horizontal cyan line — positioned proportionally over rows */}
-          {spotIdx >= 0 && data.length > 0 && (
-            <div
-              className="pointer-events-none absolute left-0 right-0 z-20"
-              style={{ top: `${((spotIdx + 0.5) / data.length) * 100}%` }}
-            >
-              <div
-                className="h-px"
-                style={{
-                  background: "linear-gradient(90deg, transparent, #00ffff 10%, #00ffff 90%, transparent)",
-                  boxShadow: "0 0 6px #00ffff, 0 0 12px #00ffff66",
-                }}
-              />
-              <div
-                className="absolute right-2 -top-2 font-jetbrains text-[9px] px-1.5 py-0.5 rounded font-bold"
-                style={{ background: "#00ffff22", color: "#00ffff", border: "1px solid #00ffff66" }}
-              >
-                ▶ SPOT ${ticker.spot}
-              </div>
-            </div>
-          )}
-          {data.map((p) => {
-            const v = p[metric];
-            const w = (Math.abs(v) / max) * 100;
-            const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
-            const isHover = hover?.strike === p.strike;
-            const isMaxPos = p.strike === maxPosStrike && v > 0;
-            const isMaxNeg = p.strike === maxNegStrike && v < 0;
-            return (
-              <div
-                key={p.strike}
-                onMouseMove={(e) => {
-                  const rect = (e.currentTarget.parentElement?.parentElement as HTMLElement).getBoundingClientRect();
-                  setHover({ strike: p.strike, value: v, x: e.clientX - rect.left, y: e.clientY - rect.top });
-                }}
-                className={`grid grid-cols-[64px_1fr_1fr] items-center gap-1 cursor-crosshair transition-colors ${
-                  isHover ? "bg-white/5" : ""
-                }`}
-                style={{
-                  height: 26,
-                  borderLeft: isSpot ? "2px solid #00ffff" : "2px solid transparent",
-                }}
-              >
-                {/* Strike price label */}
+        <div className="grid grid-cols-[72px_1fr] relative">
+          {/* LEFT: strike price column */}
+          <div className="flex flex-col">
+            {data.map((p) => {
+              const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
+              return (
                 <div
-                  className={`font-jetbrains text-[11px] text-right pr-2 ${
-                    isSpot ? "text-[#00ffff] font-bold" : "text-[#9ca3af]"
+                  key={p.strike}
+                  className={`font-jetbrains text-[11px] flex items-center justify-end pr-3 ${
+                    isSpot ? "text-[#7dd3fc] font-bold" : "text-[#9ca3af]"
                   }`}
+                  style={{ height: 22 }}
                 >
                   ${p.strike}
                 </div>
-                {/* Negative side */}
-                <div className="flex justify-end items-center h-full relative pr-1">
-                  {isMaxNeg && (
-                    <span className="absolute left-0 text-[#ff4d4d] text-[12px] font-bold drop-shadow-[0_0_4px_#ff4d4d] leading-none">★</span>
-                  )}
-                  {v < 0 && (
-                    <div
-                      className="rounded-l transition-all relative"
-                      style={{
-                        width: `${w}%`,
-                        height: "85%",
-                        maxHeight: 22,
-                        minHeight: 10,
-                        background: isMaxNeg ? "linear-gradient(90deg, #ff0033, #ff6677)" : "#ff4d4d",
-                        boxShadow: isMaxNeg
-                          ? "0 0 14px #ff0033, inset 0 0 6px #fff3"
-                          : isHover
-                            ? "0 0 10px rgba(255,77,77,0.7)"
-                            : "0 0 5px rgba(255,77,77,0.35)",
-                        outline: isMaxNeg ? "1px solid #fff" : undefined,
-                      }}
-                    >
-                      {w > 18 && (
-                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 font-jetbrains text-[10px] text-white font-semibold pointer-events-none">
-                          {formatNumber(v, 1)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {/* Positive side */}
-                <div className="flex items-center h-full relative pl-1" style={{ borderLeft: "1px solid #1a1a1a" }}>
-                  {v >= 0 && (
-                    <div
-                      className="rounded-r transition-all relative"
-                      style={{
-                        width: `${w}%`,
-                        height: "85%",
-                        maxHeight: 22,
-                        minHeight: 10,
-                        background: isMaxPos ? "linear-gradient(90deg, #00ff88, #aaffcc)" : "#00ff88",
-                        boxShadow: isMaxPos
-                          ? "0 0 14px #00ff88, inset 0 0 6px #fff3"
-                          : isHover
-                            ? "0 0 10px rgba(0,255,136,0.7)"
-                            : "0 0 5px rgba(0,255,136,0.35)",
-                        outline: isMaxPos ? "1px solid #fff" : undefined,
-                      }}
-                    >
-                      {w > 18 && (
-                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 font-jetbrains text-[10px] text-black font-bold pointer-events-none">
-                          {formatNumber(v, 1)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {isMaxPos && (
-                    <span className="ml-1 text-[#00ff88] text-[12px] font-bold drop-shadow-[0_0_4px_#00ff88] leading-none">★</span>
-                  )}
+              );
+            })}
+          </div>
+
+          {/* RIGHT: bar chart canvas */}
+          <div className="relative">
+            {/* Vertical zero line */}
+            <div className="absolute top-0 bottom-0 left-1/2 w-px bg-[#2a2a2a]" />
+            {/* Reference half-tick lines */}
+            {[0.25, 0.75].map((t) => (
+              <div
+                key={t}
+                className="absolute top-0 bottom-0 w-px bg-[#141414]"
+                style={{ left: `${t * 100}%` }}
+              />
+            ))}
+
+            {/* SPOT horizontal dashed line (purple/blue) */}
+            {spotIdx >= 0 && data.length > 0 && (
+              <div
+                className="pointer-events-none absolute left-0 right-0 z-20"
+                style={{ top: `${(spotIdx + 0.5) * 22}px` }}
+              >
+                <div
+                  className="h-px"
+                  style={{
+                    background:
+                      "repeating-linear-gradient(90deg, #a78bfa 0 6px, transparent 6px 12px)",
+                    boxShadow: "0 0 6px #a78bfa, 0 0 12px #a78bfa55",
+                  }}
+                />
+                <div
+                  className="absolute -top-2.5 font-jetbrains text-[9px] px-1.5 py-0.5 rounded font-semibold"
+                  style={{
+                    left: "52%",
+                    background: "#a78bfa22",
+                    color: "#c4b5fd",
+                    border: "1px solid #a78bfa66",
+                  }}
+                >
+                  SPOT ${ticker.spot}
                 </div>
               </div>
+            )}
+
+            {/* Bars */}
+            {data.map((p) => {
+              const v = p[metric];
+              const w = (Math.abs(v) / niceMax) * 50; // half-width percent
+              const isHover = hover?.strike === p.strike;
+              const isPos = v >= 0;
+              const color = isPos ? "#86efac" : "#fca5a5"; // pastel green / red
+              const colorStrong = isPos ? "#22c55e" : "#ef4444";
+              return (
+                <div
+                  key={p.strike}
+                  onMouseMove={(e) => {
+                    const rect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+                    setHover({ strike: p.strike, value: v, x: e.clientX - rect.left, y: e.clientY - rect.top });
+                  }}
+                  className={`relative cursor-crosshair ${isHover ? "bg-white/[0.04]" : ""}`}
+                  style={{ height: 22 }}
+                >
+                  {v !== 0 && (
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2"
+                      style={{
+                        height: 14,
+                        width: `${w}%`,
+                        left: isPos ? "50%" : `${50 - w}%`,
+                        background: isHover ? colorStrong : color,
+                        borderRadius: isPos ? "2px 4px 4px 2px" : "4px 2px 2px 4px",
+                        boxShadow: isHover ? `0 0 10px ${colorStrong}88` : "none",
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* X-axis numeric scale */}
+      <div className="grid grid-cols-[72px_1fr] border-t border-[#1a1a1a] shrink-0">
+        <div />
+        <div className="relative h-6 font-jetbrains text-[9px] text-[#6b7280]">
+          {ticks.map((t, i) => {
+            const pct = ((t + niceMax) / (niceMax * 2)) * 100;
+            return (
+              <span
+                key={i}
+                className="absolute top-1.5 -translate-x-1/2"
+                style={{ left: `${pct}%` }}
+              >
+                {t === 0 ? "0" : `${t > 0 ? "" : "-"}${formatNumber(Math.abs(t), 1)}`}
+              </span>
             );
           })}
         </div>
       </div>
 
-      {/* Footer legend — only labels, no individual strike prices visible */}
-      <div className="mt-2 pt-1.5 border-t border-[#1a1a1a] flex items-center justify-between font-jetbrains text-[9px] shrink-0">
-        <span className="text-[#ff4d4d]">★ MAX −{sym}</span>
-        <span className="text-[#00ffff]">▶ SPOT</span>
-        <span className="text-[#00ff88]">★ MAX +{sym}</span>
-      </div>
-
+      {/* Tooltip */}
       <AnimatePresence>
         {hover && (
           <motion.div
@@ -342,14 +348,14 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
             transition={{ duration: 0.12 }}
             className="pointer-events-none absolute z-30 bg-black/95 backdrop-blur border border-[#1f1f1f] rounded px-3 py-2 font-jetbrains text-[11px] shadow-2xl"
             style={{
-              left: Math.min(hover.x + 14, 9999),
-              top: hover.y + 14,
-              boxShadow: "0 0 20px rgba(0,255,255,0.15)",
+              left: Math.min(hover.x + 90, 9999),
+              top: hover.y + 30,
+              boxShadow: "0 0 20px rgba(167,139,250,0.2)",
             }}
           >
             <div className="text-[9px] uppercase tracking-[0.18em] text-[#6b7280] mb-1">Strike</div>
-            <div className="text-[#00ffff] text-sm font-bold">${hover.strike}</div>
-            <div className="mt-1" style={{ color: hover.value >= 0 ? "#00ff88" : "#ff4d4d" }}>
+            <div className="text-[#7dd3fc] text-sm font-bold">${hover.strike}</div>
+            <div className="mt-1" style={{ color: hover.value >= 0 ? "#22c55e" : "#ef4444" }}>
               {sym} {formatNumber(hover.value)}
             </div>
           </motion.div>
