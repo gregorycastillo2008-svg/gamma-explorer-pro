@@ -359,6 +359,10 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
             </button>
           );
         })}
+      </div>
+
+      {/* ═════ TABLE (GREEK LADDER tab) ═════ */}
+      {activeTab === "ladder" && <>
       {/* ═════ TABLE ═════ */}
       {err && (
         <div className="p-4 text-center text-[11px] text-red-400">Error: {err}</div>
