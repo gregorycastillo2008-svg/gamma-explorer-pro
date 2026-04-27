@@ -94,11 +94,12 @@ export function DealerExposureBars({ rows, spot, symbol, mode: modeProp }: Props
           return (
             <div
               key={d.strike}
-              className="grid grid-cols-[60px_1fr] items-center px-2 py-[2px] hover:bg-white/5"
+              className="group grid grid-cols-[60px_1fr] items-center px-2 py-[2px] hover:bg-white/5"
               style={{ borderBottom: "1px solid #0a0a0a" }}
+              title={`$${d.strike.toFixed(d.strike >= 100 ? 0 : 1)} · ${mode} ${fmtCompact(d.value)}`}
             >
               <div
-                className="text-[10px] font-bold tabular-nums"
+                className="text-[10px] font-bold tabular-nums opacity-0 group-hover:opacity-100 transition-opacity"
                 style={{ color: isAtm ? "#06b6d4" : "#e5e7eb" }}
               >
                 ${d.strike.toFixed(d.strike >= 100 ? 0 : 1)}
@@ -120,9 +121,9 @@ export function DealerExposureBars({ rows, spot, symbol, mode: modeProp }: Props
                     boxShadow: `0 0 6px ${isPos ? "#10b98166" : "#ef444466"}`,
                   }}
                 />
-                {/* value tag */}
+                {/* value tag — hidden by default, visible on hover */}
                 <span
-                  className="absolute text-[8px] font-bold tabular-nums"
+                  className="absolute text-[8px] font-bold tabular-nums opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
                   style={{
                     [isPos ? "left" : "right"]: `calc(${50 + pct}% + 4px)`,
                     color: isPos ? "#10b981" : "#ef4444",
