@@ -118,6 +118,11 @@ function DepthPanel({
   hoverStrike,
   setHoverStrike,
 }: DepthPanelProps) {
+  const [tooltip, setTooltip] = useState<
+    | { strike: number; callOI: number; putOI: number; netGex: number; x: number; y: number }
+    | null
+  >(null);
+
   // Sort high → low for top-down display
   const rows = useMemo(
     () => [...exposures].sort((a, b) => b.strike - a.strike),
