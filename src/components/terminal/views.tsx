@@ -9,6 +9,7 @@ import { ThirdOrderGreeksPanel } from "./ThirdOrderGreeksPanel";
 
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { VolatilityDashboard } from "@/components/volatility/VolatilityDashboard";
+import { Volatility3DSurface } from "./Volatility3DSurface";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState, useEffect, useRef } from "react";
