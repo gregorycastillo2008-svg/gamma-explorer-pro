@@ -100,7 +100,7 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
   }, []);
 
   return (
-    <div ref={heatRef} className="terminal-scrollbar bg-black rounded overflow-y-scroll overflow-x-auto h-full overscroll-contain pr-1" style={{ scrollbarColor: "hsl(var(--primary)) hsl(var(--background))", scrollbarWidth: "auto" }}>
+    <div ref={heatRef} className="terminal-scrollbar bg-black rounded overflow-y-scroll overflow-x-hidden h-full overscroll-contain pr-1" style={{ scrollbarColor: "hsl(var(--primary)) hsl(var(--background))", scrollbarWidth: "auto" }}>
       <table className="w-full font-jetbrains text-[11px]" style={{ borderCollapse: "collapse" }}>
         <thead className="sticky top-0 z-20">
           <tr>
