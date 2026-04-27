@@ -90,12 +90,10 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
     const el = heatRef.current;
     if (!el) return;
     const handleWheel = (event: WheelEvent) => {
-      const canScrollY = el.scrollHeight > el.clientHeight;
-      const canScrollX = el.scrollWidth > el.clientWidth;
-      if (!canScrollY && !canScrollX) return;
+      if (el.scrollHeight <= el.clientHeight) return;
       event.preventDefault();
       event.stopPropagation();
-      el.scrollBy({ top: event.deltaY, left: event.deltaX, behavior: "auto" });
+      el.scrollBy({ top: event.deltaY, behavior: "auto" });
     };
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
