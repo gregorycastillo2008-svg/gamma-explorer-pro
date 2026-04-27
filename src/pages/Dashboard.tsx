@@ -156,7 +156,7 @@ export default function Dashboard() {
           onReload={reload}
           levels={levels}
         />
-        <main className="flex-1 overflow-y-auto p-3">
+        <main className="flex-1 overflow-hidden p-1">
           <SectionTransition sectionKey={`${section}-${active}`}>
             {renderView()}
           </SectionTransition>

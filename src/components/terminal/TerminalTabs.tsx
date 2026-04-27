@@ -25,8 +25,8 @@ export function TerminalTabs({ tabs, defaultKey, layoutId = "terminal-tab-bg", c
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
 
   return (
-    <div className={className}>
-      <div className="flex justify-end mb-2">
+    <div className={`flex flex-col h-full min-h-0 ${className}`}>
+      <div className="flex justify-end mb-2 shrink-0">
         <div className="flex gap-0.5 bg-black/60 border border-border rounded p-0.5">
           {tabs.map((t) => (
             <button
@@ -57,6 +57,7 @@ export function TerminalTabs({ tabs, defaultKey, layoutId = "terminal-tab-bg", c
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.18 }}
+          className="flex-1 min-h-0"
         >
           {current?.content}
         </motion.div>

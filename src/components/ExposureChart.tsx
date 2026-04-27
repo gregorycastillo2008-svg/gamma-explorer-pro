@@ -45,7 +45,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
   const sym = symbol[metric];
 
   return (
-    <div className="w-full h-[380px]">
+    <div className="w-full h-full min-h-[300px] flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold">{labels[metric]} por strike</h3>
         <div className="flex gap-3 text-xs text-muted-foreground">
@@ -56,6 +56,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
           <span className="flex items-center gap-1.5"><span className="text-put">★</span>Max −{sym}</span>
         </div>
       </div>
+      <div className="flex-1 min-h-0">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 28, right: 20, left: 10, bottom: 0 }} barCategoryGap={2} barGap={0}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -114,6 +115,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
           }} />
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
