@@ -54,7 +54,7 @@ export function DealerExposureBars({ rows, spot, symbol, mode: modeProp }: Props
     >
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#1f1f1f]" style={{ background: "#0a0a0a" }}>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold tracking-[0.2em] text-amber-400">DEALER EXPOSURE / STRIKE</span>
+          <span className="text-[10px] font-bold tracking-[0.2em] text-white">DEALER EXPOSURE / STRIKE</span>
           <span className="text-[9px] text-muted-foreground">·</span>
           <span className="text-[10px] font-bold text-foreground">{symbol}</span>
         </div>

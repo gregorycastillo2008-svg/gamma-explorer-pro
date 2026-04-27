@@ -498,7 +498,7 @@ function NumCell({ value, color, prefix = "", suffix = "", digits = 2, format }:
   if (!value) return <td className="text-right px-2 py-1 text-muted-foreground" style={{ borderLeft: "1px solid #111" }}>—</td>;
   const formatted = format === "int" ? value.toLocaleString() : value.toFixed(digits);
   return (
-    <td className="text-right px-2 py-1 font-mono tabular-nums" style={{ color, borderLeft: "1px solid #111", fontSize: 10 }}>
+    <td className="text-right px-2 py-1 tabular-nums bg-[#18c96d]/[0.42] font-sans opacity-75" style={{ color, borderLeft: "1px solid #111", fontSize: 10 }}>
       {prefix}{formatted}{suffix}
     </td>
   );
@@ -526,12 +526,12 @@ function GreekCell({ value, type, allValues }: { value: number; type: GreekType;
   const valueColor = value > 0 ? "#10b981" : value < 0 ? "#ef4444" : "#6b7280";
   return (
     <td
-      className="relative px-1.5 py-1 text-center"
+      className="relative px-1.5 py-1 text-center bg-[#519e94]/0 text-white"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{ borderLeft: "1px solid #111" }}
     >
-      <div className="flex items-center justify-center gap-1">
+      <div className="gap-1 items-center justify-center text-white bg-black flex flex-col rounded-none opacity-70">
         <span style={{ color: valueColor, fontWeight: 600, fontSize: 10 }} className="tabular-nums">
           {formatGreekValue(value, type)}
         </span>

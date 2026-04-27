@@ -46,7 +46,7 @@ function Wall({ label, value, tone }: WallProps) {
   };
   return (
     <div className="flex items-center gap-1.5 shrink-0">
-      <span className={`text-[10px] font-bold tracking-[0.15em] uppercase ${toneCls[tone]}/80`}>{label}</span>
+      <span className={`text-[10px] tracking-[0.15em] uppercase ${toneCls[tone]}/80 font-mono font-bold border-8 bg-black border-black/0`}>{label}</span>
       <span className={`font-mono font-bold text-sm tabular-nums ${toneCls[tone]}`}>
         ${typeof value === "number" ? value.toLocaleString() : value}
       </span>
@@ -73,7 +73,7 @@ export function Topbar({
     <header className="border-b border-border bg-[#0a0a0a] flex items-center px-4 gap-4 shrink-0 h-14 overflow-x-auto">
       {/* LEFT — Brand + Ticker + Spot */}
       <div className="flex items-center gap-3 shrink-0">
-        <span className="font-black text-base tracking-[0.2em] bg-gradient-to-r from-[#b8860b] via-[#ffd700] to-[#fff5cc] bg-clip-text text-secondary-foreground">
+        <span className="font-black text-base tracking-[0.2em] bg-gradient-to-r from-[#b8860b] via-[#ffd700] to-[#fff5cc] bg-clip-text text-secondary-foreground text-[#fffafa]">
           GEXSATELIT
         </span>
         <span className="text-primary font-mono font-bold text-base tabular-nums">
