@@ -197,8 +197,90 @@ export function GexDexView({ ticker, contracts }: Ctx) {
   );
 
   return (
-    <div className="h-full flex flex-col min-h-0">
-      <ThirdOrderGreeksPanel ticker={ticker} contracts={filtered} />
+    <div className="h-full flex flex-col gap-2 min-h-0">
+      {/* Top stats bar — institutional gamma context */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
+        <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub="resistance" />
+        <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub="support" />
+        <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" sub="zero gamma" />
+        <StatBlock label="Net GEX" value={formatNumber(bias.totalGex)} tone={bias.totalGex >= 0 ? "call" : "put"} sub={bias.totalGex >= 0 ? "long gamma" : "short gamma"} />
+        <StatBlock label="Spot" value={`$${ticker.spot}`} sub={ticker.symbol} />
+        <StatBlock label="Live Δ" value={`${tapeDelta >= 0 ? "+" : ""}${formatNumber(tapeDelta)}`} tone={tapeDelta >= 0 ? "call" : "put"} sub="last 60s" />
+      </div>
+
+      {/* DTE filter */}
+      <div className="flex items-center justify-end gap-2 shrink-0">
+        <div className="flex gap-0.5 bg-secondary/40 rounded p-0.5">
+          {DTE_FILTERS.map((f) => (
+            <Button
+              key={f.value}
+              size="sm"
+              variant={dte === f.value ? "default" : "ghost"}
+              className="h-6 px-2 text-[10px] font-mono uppercase tracking-wider"
+              onClick={() => setDte(f.value)}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Gamma visualizations: Heatmap · Strike Chart · 3D Surface */}
+      <div className="flex-1 min-h-0">
+        <TerminalTabs
+          layoutId="gamma-master-tab-bg"
+          tabs={[
+            {
+              key: "heatmap",
+              label: "GAMMA HEATMAP",
+              content: (
+                <Panel
+                  title="Gamma Heatmap"
+                  subtitle={`${ticker.symbol} · gamma exposure per strike × DTE`}
+                  noPad
+                  className="h-full flex flex-col"
+                >
+                  <div className="p-2 bg-black flex-1 min-h-0">
+                    <HeatmapGridView ticker={ticker} contracts={filtered} metric="netGex" />
+                  </div>
+                </Panel>
+              ),
+            },
+            {
+              key: "strike",
+              label: "STRIKE CHART",
+              content: (
+                <Panel
+                  title="Gamma by Strike"
+                  subtitle={`${ticker.symbol} · dealer gamma profile vs price`}
+                  noPad
+                  className="h-full flex flex-col"
+                >
+                  <div className="p-2 bg-black flex-1 min-h-0">
+                    <StrikeChartView ticker={ticker} contracts={filtered} metric="netGex" />
+                  </div>
+                </Panel>
+              ),
+            },
+            {
+              key: "surface",
+              label: "3D GAMMA SURFACE",
+              content: (
+                <Panel
+                  title="Gamma 3D Surface"
+                  subtitle={`${ticker.symbol} · drag to rotate · strike × DTE × Γ`}
+                  noPad
+                  className="h-full flex flex-col"
+                >
+                  <div className="p-2 bg-black flex-1 min-h-0">
+                    <SurfaceView ticker={ticker} contracts={filtered} metric="netGex" />
+                  </div>
+                </Panel>
+              ),
+            },
+          ]}
+        />
+      </div>
     </div>
   );
 }
