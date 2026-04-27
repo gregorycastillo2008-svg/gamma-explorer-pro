@@ -28,27 +28,33 @@ const PCT_COLS = [0, 10, 20, 30, 40, 70, 80, 95, 100, 115] as const;
 
 type Metric = "GEX" | "DEX";
 
-// ── Color helper: black at 0 → red/green intensity proportional to |v|/max ──
+// ── Continuous heat gradient: more magnitude → more saturated green / red ──
+// Uses gamma-corrected interpolation from black (0) to peak color so faint
+// cells fade smoothly into the background.
 function cellBg(v: number, max: number): string {
   if (!max || v === 0) return "#000000";
   const t = Math.min(1, Math.abs(v) / max);
-  // 4 intensity buckets matching the spec palette
+  // Gamma 0.55 boosts mid-range so small values are visible without flooding the table
+  const a = Math.pow(t, 0.55);
   if (v > 0) {
-    if (t > 0.75) return C.greenHi;
-    if (t > 0.45) return C.greenMd;
-    if (t > 0.18) return "#065f46";
-    return "#022c22";
+    // Peak emerald #10b981 = rgb(16, 185, 129)
+    const r = Math.round(16  * a);
+    const g = Math.round(185 * a);
+    const b = Math.round(129 * a);
+    return `rgb(${r},${g},${b})`;
   }
-  if (t > 0.75) return C.redHi;
-  if (t > 0.45) return C.redMd;
-  if (t > 0.18) return "#7f1d1d";
-  return "#2c0707";
+  // Peak crimson #dc2626 = rgb(220, 38, 38)
+  const r = Math.round(220 * a);
+  const g = Math.round(38  * a);
+  const b = Math.round(38  * a);
+  return `rgb(${r},${g},${b})`;
 }
 
 function cellFg(v: number, max: number): string {
-  if (!max || v === 0) return "#444";
+  if (!max || v === 0) return "#333";
   const t = Math.abs(v) / max;
-  return t > 0.45 ? "#000000" : "rgba(255,255,255,0.92)";
+  // Bright text only when background is dark; dark text on saturated cells
+  return t > 0.55 ? "#000000" : "rgba(255,255,255,0.92)";
 }
 
 function fmt(v: number): string {
