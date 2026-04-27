@@ -529,7 +529,7 @@ function NumCell({ value, color, prefix = "", suffix = "", digits = 2, format }:
   if (!value) return <td className="text-right px-2 py-1 border-solid text-muted-foreground" style={{ borderLeft: "1px solid #111" }}>—</td>;
   const formatted = format === "int" ? value.toLocaleString() : value.toFixed(digits);
   return (
-    <td className="text-right px-2 py-1 tabular-nums font-sans opacity-75 border-4 bg-[#289a3d] text-white" style={{ color, borderLeft: "1px solid #111", fontSize: 10 }}>
+    <td className="text-right px-2 py-1 tabular-nums font-sans opacity-75 border-4 bg-[#289a3d] text-white" style={{ borderLeft: "1px solid #111", fontSize: 10 }}>
       {prefix}{formatted}{suffix}
     </td>
   );
