@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -188,6 +188,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
   }, [ticker, contracts]);
 
   const max = Math.max(...data.map((d) => Math.abs(d[metric])), 1);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ strike: number; value: number; x: number; y: number } | null>(null);
 
   // Detect spot row index + max positive / max negative strikes
@@ -220,8 +221,16 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
       </div>
 
       {/* Scroll body: strike column (left) + bar chart (right) */}
-      <div className="flex-1 min-h-0 relative overflow-y-auto" style={{ scrollbarColor: "#1a1a1a #000" }}>
-        <div className="grid grid-cols-[72px_1fr] relative">
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 relative overflow-y-scroll overscroll-contain touch-pan-y"
+        onWheel={(e) => {
+          e.stopPropagation();
+          if (scrollRef.current) scrollRef.current.scrollTop += e.deltaY;
+        }}
+        style={{ scrollbarColor: "#3a3a3a #000", scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" as any }}
+      >
+        <div className="grid grid-cols-[72px_1fr] relative min-h-max">
           {/* LEFT: strike price column */}
           <div className="flex flex-col">
             {data.map((p) => {
@@ -232,7 +241,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
                   className={`font-jetbrains text-[11px] flex items-center justify-end pr-3 ${
                     isSpot ? "text-[#7dd3fc] font-bold" : "text-[#9ca3af]"
                   }`}
-                  style={{ height: 22 }}
+                  style={{ height: 26 }}
                 >
                   ${p.strike}
                 </div>
@@ -257,7 +266,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
             {spotIdx >= 0 && data.length > 0 && (
               <div
                 className="pointer-events-none absolute left-0 right-0 z-20"
-                style={{ top: `${(spotIdx + 0.5) * 22}px` }}
+                style={{ top: `${(spotIdx + 0.5) * 26}px` }}
               >
                 <div
                   className="h-px"
@@ -297,7 +306,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
                     setHover({ strike: p.strike, value: v, x: e.clientX - rect.left, y: e.clientY - rect.top });
                   }}
                   className={`relative cursor-crosshair ${isHover ? "bg-white/[0.04]" : ""}`}
-                  style={{ height: 22 }}
+                  style={{ height: 26 }}
                 >
                   {v !== 0 && (
                     <div
