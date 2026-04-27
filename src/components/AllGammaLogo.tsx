@@ -36,23 +36,18 @@ export function AllGammaLogo({ size = "md", showText = true }: AllGammaLogoProps
           animate={{ boxShadow: ["inset 0 0 8px rgba(255,215,0,0.3)", "inset 0 0 22px rgba(255,215,0,0.7)", "inset 0 0 8px rgba(255,215,0,0.3)"] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         />
-        {/* Gamma symbol Γ with subtle motion */}
+        {/* Satellite icon */}
         <motion.span
-          className="relative font-black leading-none"
+          className="relative leading-none"
           style={{
             fontSize: dims.gamma,
-            fontFamily: "'Times New Roman', Georgia, serif",
-            background: "linear-gradient(180deg, #fff5cc 0%, #ffd700 40%, #b8860b 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-            filter: "drop-shadow(0 0 4px rgba(255,215,0,0.8))",
+            filter: "drop-shadow(0 0 6px rgba(255,215,0,0.9))",
             transform: "translateY(-1px)",
           }}
-          animate={{ rotate: [0, -6, 6, -3, 0], scale: [1, 1.08, 1] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ rotate: [0, -10, 10, -5, 0], scale: [1, 1.1, 1] }}
+          transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
         >
-          Γ
+          🛰️
         </motion.span>
       </div>
 
@@ -68,7 +63,7 @@ export function AllGammaLogo({ size = "md", showText = true }: AllGammaLogoProps
             animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
             transition={{ duration: 3.5, repeat: Infinity, ease: "linear" }}
           >
-            AllGamma
+            GEXSATELIT
           </motion.span>
           {/* Sparkle dots */}
           <motion.span

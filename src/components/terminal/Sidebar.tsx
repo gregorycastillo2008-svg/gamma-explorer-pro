@@ -51,10 +51,17 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
       )}
     >
       <div className="h-14 flex items-center px-3 border-b border-sidebar-border">
-        <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0" style={{ background: "var(--gradient-primary)" }}>
-          <Activity className="h-4 w-4 text-primary-foreground" />
+        <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0 text-base" style={{ background: "var(--gradient-primary)" }} title="GEXSATELIT">
+          🛰️
         </div>
-        {!collapsed && <span className="ml-2 font-bold tracking-wider text-sm">ALLGEX</span>}
+        {!collapsed && (
+          <span
+            className="ml-2 font-black tracking-wider text-sm bg-clip-text text-transparent"
+            style={{ backgroundImage: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)" }}
+          >
+            GEXSATELIT
+          </span>
+        )}
         <button onClick={onToggle} className="ml-auto p-1 rounded hover:bg-sidebar-accent text-sidebar-foreground">
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>

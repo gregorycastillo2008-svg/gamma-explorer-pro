@@ -9,6 +9,7 @@ import { ThirdOrderGreeksPanel } from "./ThirdOrderGreeksPanel";
 
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { VolatilityDashboard } from "@/components/volatility/VolatilityDashboard";
+import { Volatility3DSurface } from "./Volatility3DSurface";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState, useEffect, useRef } from "react";
@@ -586,7 +587,14 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
 
 // ─────── VOLATILITY ───────
 export function VolatilityView({ ticker, contracts }: Ctx) {
-  return <VolatilityDashboard ticker={ticker} contracts={contracts} />;
+  return (
+    <div className="space-y-3 h-full overflow-y-auto pr-1">
+      <Panel title="🛰️ GEXSATELIT · IV 3D Surface">
+        <Volatility3DSurface />
+      </Panel>
+      <VolatilityDashboard ticker={ticker} contracts={contracts} />
+    </div>
+  );
 }
 
 // ─────── REGIME ───────

@@ -105,7 +105,7 @@ export default function Admin() {
             </div>
             <div>
               <div className="font-bold tracking-tight leading-none">Panel Admin</div>
-              <div className="text-xs text-muted-foreground">AllGamma</div>
+              <div className="text-xs text-muted-foreground">GEXSATELIT</div>
             </div>
           </div>
           <div className="flex items-center gap-2">

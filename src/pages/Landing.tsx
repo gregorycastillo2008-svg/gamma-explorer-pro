@@ -22,7 +22,7 @@ const features = [
 
 
 const testimonials = [
-  { name: "Carlos M.", role: "Day Trader · SPX", rating: 5, text: "Llevo 8 meses con AllGamma. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.", extra: "Cliente desde 2024 · +320% portfolio" },
+  { name: "Carlos M.", role: "Day Trader · SPX", rating: 5, text: "Llevo 8 meses con GEXSATELIT. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.", extra: "Cliente desde 2024 · +320% portfolio" },
   { name: "Ana L.", role: "Options Trader · QQQ", rating: 5, text: "Las call/put walls funcionan como imanes. Es la herramienta más precisa que he probado.", extra: "Win rate subió del 54% al 71%" },
   { name: "David R.", role: "Quant · Hedge Fund", rating: 5, text: "La latencia y la calidad de datos son institucionales. El precio es ridículamente bajo para lo que entrega.", extra: "Reemplazó software de $2k/mes" },
   { name: "Sofía P.", role: "Swing Trader", rating: 5, text: "El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.", extra: "Suscriptora Pro Elite" },
@@ -395,7 +395,7 @@ export default function Landing() {
       <footer className="relative z-10 border-t py-8 pb-28 text-center text-sm text-muted-foreground bg-card/60 backdrop-blur-sm">
         <div className="flex items-center justify-center gap-2">
           <BadgeCheck className="h-4 w-4 text-primary" />
-          AllGamma · Plataforma verificada · Solo con fines educativos. Datos simulados.
+          GEXSATELIT · Plataforma verificada · Solo con fines educativos. Datos simulados.
         </div>
       </footer>
 
