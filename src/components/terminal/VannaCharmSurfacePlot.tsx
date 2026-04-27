@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { Surface3DTooltip, type TooltipData } from "./Surface3DTooltip";
 
 const N = 60;
 const RANGE = 70;
