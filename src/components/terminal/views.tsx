@@ -36,7 +36,7 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
   const netDex = exposures.reduce((s, p) => s + p.dex, 0);
 
   return (
-    <div className="space-y-3">
+    <div className="h-full flex flex-col">
       <TerminalTabs
         layoutId="overview-master-tab-bg"
         tabs={[
@@ -44,8 +44,10 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
             key: "gex",
             label: "GEX SURFACE",
             content: (
-              <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot}`}>
-                <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric="netGex" />
+              <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot}`} className="h-full flex flex-col">
+                <div className="h-full">
+                  <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric="netGex" />
+                </div>
               </Panel>
             ),
           },
@@ -53,7 +55,7 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
             key: "levels",
             label: "KEY LEVELS",
             content: (
-              <Panel title="Key Levels">
+              <Panel title="Key Levels" className="h-full flex flex-col">
                 <div className="space-y-2 text-sm font-mono">
                   <KV k="Call Wall" v={`$${levels.callWall}`} tone="call" />
                   <KV k="Put Wall" v={`$${levels.putWall}`} tone="put" />
@@ -69,7 +71,7 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
             key: "oi",
             label: "OPEN INTEREST",
             content: (
-              <Panel title="Open Interest">
+              <Panel title="Open Interest" className="h-full flex flex-col">
                 <div className="space-y-2 text-sm font-mono">
                   <KV k="Call OI" v={formatNumber(totalCallOI, 0)} tone="call" />
                   <KV k="Put OI" v={formatNumber(totalPutOI, 0)} tone="put" />
@@ -194,7 +196,7 @@ export function GexDexView({ ticker, contracts }: Ctx) {
   );
 
   return (
-    <div className="space-y-3">
+    <div className="h-full flex flex-col gap-2 min-h-0">
       {/* Institutional walls panel */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
         <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub="resistance" />
