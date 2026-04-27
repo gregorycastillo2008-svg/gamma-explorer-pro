@@ -284,6 +284,23 @@ function StrikeChartPanel({
   const rows = useMemo(() => aggregateByStrike(grid, expiryFilter), [grid, expiryFilter]);
   const max = Math.max(...rows.map((r) => Math.abs(r.value)), 1);
 
+  // Per-strike expiry breakdown (for tooltip)
+  const breakdown = useMemo(() => {
+    const m = new Map<number, { expiry: number; value: number }[]>();
+    for (const g of grid) {
+      if (expiryFilter !== "all" && g.expiry !== expiryFilter) continue;
+      const arr = m.get(g.strike) ?? [];
+      arr.push({ expiry: g.expiry, value: g.value });
+      m.set(g.strike, arr);
+    }
+    return m;
+  }, [grid, expiryFilter]);
+
+  const [tooltip, setTooltip] = useState<
+    | { strike: number; total: number; entries: { expiry: number; value: number }[]; x: number; y: number }
+    | null
+  >(null);
+
   return (
     <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ background: PANEL_BG, border: `1px solid ${BORDER}` }}>
       <div className="px-3 py-2 text-[11px] uppercase tracking-wider" style={{ color: TEXT, borderBottom: `1px solid ${BORDER}` }}>
@@ -295,7 +312,10 @@ function StrikeChartPanel({
           <DteBtn key={e} active={expiryFilter === e} onClick={() => setExpiryFilter(e)}>{e}D</DteBtn>
         ))}
       </div>
-      <div className="flex-1 overflow-y-auto px-2 py-2 relative">
+      <div
+        className="flex-1 overflow-y-auto px-2 py-2 relative"
+        onMouseLeave={() => setTooltip(null)}
+      >
         {rows.map((r) => {
           const isAbove = r.strike > spot;
           const color = isAbove ? RED : GREEN;
@@ -304,9 +324,18 @@ function StrikeChartPanel({
           return (
             <div
               key={r.strike}
-              className="grid grid-cols-[40px_1fr_60px] items-center gap-2"
+              className="grid grid-cols-[40px_1fr_60px] items-center gap-2 cursor-crosshair"
               style={{ height: 18, marginBottom: 2 }}
-              title={`$${r.strike} · ${formatNumber(r.value)}`}
+              onMouseMove={(e) => {
+                const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+                setTooltip({
+                  strike: r.strike,
+                  total: r.value,
+                  entries: (breakdown.get(r.strike) ?? []).sort((a, b) => a.expiry - b.expiry),
+                  x: e.clientX - host.left,
+                  y: e.clientY - host.top,
+                });
+              }}
             >
               <span className="text-[9px] text-right tabular-nums" style={{ color: isSpot ? YELLOW : MUTED, fontWeight: isSpot ? 700 : 400 }}>
                 ${r.strike}
@@ -323,6 +352,38 @@ function StrikeChartPanel({
             </div>
           );
         })}
+
+        {tooltip && (
+          <div
+            className="absolute pointer-events-none z-20 rounded px-2 py-1.5 text-[10px] font-mono leading-tight"
+            style={{
+              left: Math.min(tooltip.x + 12, 220),
+              top: tooltip.y + 12,
+              background: "rgba(0,0,0,0.92)",
+              border: `1px solid ${CYAN}`,
+              color: "#e5e7eb",
+              boxShadow: `0 0 8px rgba(6,182,212,0.4)`,
+              minWidth: 140,
+            }}
+          >
+            <div style={{ color: YELLOW, fontWeight: 700 }}>STRIKE ${tooltip.strike}</div>
+            <div style={{ color: tooltip.total >= 0 ? GREEN : RED }}>
+              Total: {tooltip.total >= 0 ? "+" : ""}{formatNumber(tooltip.total)}
+            </div>
+            <div style={{ color: MUTED }}>Expiries: {tooltip.entries.length}</div>
+            <div className="mt-1 pt-1" style={{ borderTop: `1px solid ${BORDER}` }}>
+              {tooltip.entries.slice(0, 8).map((e) => (
+                <div key={e.expiry} className="flex justify-between gap-3">
+                  <span style={{ color: MUTED }}>{e.expiry}D</span>
+                  <span style={{ color: e.value >= 0 ? GREEN : RED }}>{formatNumber(e.value, 1)}</span>
+                </div>
+              ))}
+              {tooltip.entries.length > 8 && (
+                <div style={{ color: MUTED }}>+{tooltip.entries.length - 8} more…</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
