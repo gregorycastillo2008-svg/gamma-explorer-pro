@@ -35,16 +35,33 @@ async function fetchYahoo(symbol: string, tf: string) {
   const result = j?.chart?.result?.[0];
   if (!result) throw new Error("Yahoo: no result");
   const ts: number[] = result.timestamp || [];
-  const closes: (number | null)[] = result.indicators?.quote?.[0]?.close || [];
+  const q = result.indicators?.quote?.[0] || {};
+  const closes: (number | null)[] = q.close || [];
+  const opens: (number | null)[] = q.open || [];
+  const highs: (number | null)[] = q.high || [];
+  const lows: (number | null)[] = q.low || [];
   const meta = result.meta || {};
   const points = ts
     .map((t, i) => ({ time: t, value: closes[i] }))
     .filter((p) => p.value != null && Number.isFinite(p.value)) as { time: number; value: number }[];
+  const ohlc = ts
+    .map((t, i) => ({
+      time: t,
+      open: opens[i],
+      high: highs[i],
+      low: lows[i],
+      close: closes[i],
+    }))
+    .filter(
+      (p) =>
+        p.open != null && p.high != null && p.low != null && p.close != null &&
+        Number.isFinite(p.open) && Number.isFinite(p.high) && Number.isFinite(p.low) && Number.isFinite(p.close)
+    ) as { time: number; open: number; high: number; low: number; close: number }[];
   const spot = Number(meta.regularMarketPrice ?? (points.length ? points[points.length - 1].value : 0));
   const prevClose = Number(meta.chartPreviousClose ?? meta.previousClose ?? (points.length ? points[0].value : spot));
   const change = spot - prevClose;
   const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
-  return { points, spot, change, changePct };
+  return { points, ohlc, spot, change, changePct };
 }
 
 Deno.serve(async (req: Request) => {
@@ -55,9 +72,9 @@ Deno.serve(async (req: Request) => {
   const timeframe = url.searchParams.get("timeframe") || "3M";
 
   try {
-    const { points, spot, change, changePct } = await fetchYahoo(symbol, timeframe);
+    const { points, ohlc, spot, change, changePct } = await fetchYahoo(symbol, timeframe);
     return new Response(
-      JSON.stringify({ symbol, timeframe, points, spot, change, changePct, source: "yahoo" }),
+      JSON.stringify({ symbol, timeframe, points, ohlc, spot, change, changePct, source: "yahoo" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e: any) {
