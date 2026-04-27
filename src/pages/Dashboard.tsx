@@ -23,6 +23,7 @@ import { GexDexWorkspace } from "@/components/terminal/GexDexWorkspace";
 import { DepthAltaris } from "@/components/terminal/DepthAltaris";
 import { DepthMultiPanel } from "@/components/terminal/DepthMultiPanel";
 import { VannaCharmWorkspace } from "@/components/terminal/VannaCharmWorkspace";
+import { OiAnalyticsWorkspace } from "@/components/terminal/OiAnalyticsWorkspace";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { SectionTransition } from "@/components/terminal/SectionTransition";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -116,7 +117,7 @@ export default function Dashboard() {
   const renderView = () => {
     switch (section) {
       case "overview": return <OverviewView {...ctx} />;
-      case "oi-analytics": return <OiAnalyticsView {...ctx} />;
+      case "oi-analytics": return <OiAnalyticsWorkspace ticker={ticker} contracts={filtered} />;
       case "gex-dex": return <GexDexWorkspace ticker={ticker} contracts={filtered} />;
       case "greeks": return <GreeksView {...ctx} />;
       case "depth": return <DepthMultiPanel ticker={ticker} contracts={filtered} />;
