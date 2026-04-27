@@ -44,6 +44,28 @@ export default function Auth() {
     else toast({ title: "¡Cuenta creada!", description: "Ya puedes iniciar sesión." });
   };
 
+  // Login admin: si la cuenta no existe, la crea (el trigger asignará rol admin); luego entra.
+  const ADMIN_EMAIL = "gregory0322@allgamma.com";
+  const ADMIN_PASS  = "Gregory0322!Admin";
+  const adminLogin = async () => {
+    setBusy(true);
+    let { error } = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: ADMIN_PASS });
+    if (error && /invalid|credentials|not.?found/i.test(error.message)) {
+      // primer login: crear la cuenta admin
+      const { error: signErr } = await supabase.auth.signUp({
+        email: ADMIN_EMAIL, password: ADMIN_PASS,
+        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+      });
+      if (signErr) { setBusy(false); toast({ title: "Error", description: signErr.message, variant: "destructive" }); return; }
+      // intentar login otra vez
+      const retry = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: ADMIN_PASS });
+      error = retry.error;
+    }
+    setBusy(false);
+    if (error) toast({ title: "Error admin", description: error.message, variant: "destructive" });
+    else { toast({ title: "Admin", description: "Bienvenido Gregory" }); nav("/dashboard"); }
+  };
+
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden" style={{ background: "#000" }}>
       {/* Animated gamma chart background (green/red bars) */}
