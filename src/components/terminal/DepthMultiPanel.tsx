@@ -25,15 +25,36 @@ interface PanelConfig {
 export function DepthMultiPanel({ ticker, contracts }: Props) {
   const [hoverStrike, setHoverStrike] = useState<number | null>(null);
 
-  const panels: PanelConfig[] = useMemo(
-    () => [
-      { key: "all", label: "ALL", filter: () => true },
-      { key: "0dte", label: "0 DTE", filter: (c) => c.expiry <= 1 },
-      { key: "2dte", label: "2 DTE", filter: (c) => c.expiry === 2 || c.expiry === 3 },
-      { key: "3dte", label: "3 DTE", filter: (c) => c.expiry > 3 && c.expiry <= 7 },
-    ],
-    []
+  // Build DTE options dynamically from ticker expiries
+  const dteOptions: PanelConfig[] = useMemo(() => {
+    const opts: PanelConfig[] = [{ key: "all", label: "ALL", filter: () => true }];
+    for (const e of ticker.expiries) {
+      opts.push({
+        key: `${e}dte`,
+        label: `${e} DTE`,
+        filter: (c) => c.expiry === e,
+      });
+    }
+    return opts;
+  }, [ticker.expiries]);
+
+  const [leftKey, setLeftKey] = useState<string>(dteOptions[0]?.key ?? "all");
+  const [rightKey, setRightKey] = useState<string>(
+    dteOptions[1]?.key ?? dteOptions[0]?.key ?? "all"
   );
+
+  const leftCfg = dteOptions.find((o) => o.key === leftKey) ?? dteOptions[0];
+  const rightCfg = dteOptions.find((o) => o.key === rightKey) ?? dteOptions[0];
+
+  const buildPanel = (cfg: PanelConfig) => {
+    const filtered = contracts.filter(cfg.filter);
+    const exposures = computeExposures(ticker.spot, filtered);
+    const levels = computeKeyLevels(exposures);
+    return { exposures, levels };
+  };
+
+  const left = buildPanel(leftCfg);
+  const right = buildPanel(rightCfg);
 
   return (
     <div className="h-full w-full flex flex-col bg-black p-6 font-mono">
@@ -49,29 +70,32 @@ export function DepthMultiPanel({ ticker, contracts }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 flex gap-3 overflow-x-auto overflow-y-hidden pb-2">
-        {panels.map((p) => {
-          const filtered = contracts.filter(p.filter);
-          const exposures = computeExposures(ticker.spot, filtered);
-          const levels = computeKeyLevels(exposures);
-          return (
-            <DepthPanel
-              key={p.key}
-              label={p.label}
-              ticker={ticker}
-              exposures={exposures}
-              levels={levels}
-              panelKeys={panels.map((x) => x.label)}
-              activeLabel={p.label}
-              hoverStrike={hoverStrike}
-              setHoverStrike={setHoverStrike}
-            />
-          );
-        })}
+      <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
+        <DepthPanel
+          ticker={ticker}
+          exposures={left.exposures}
+          levels={left.levels}
+          dteOptions={dteOptions}
+          activeKey={leftKey}
+          onSelectKey={setLeftKey}
+          hoverStrike={hoverStrike}
+          setHoverStrike={setHoverStrike}
+        />
+        <DepthPanel
+          ticker={ticker}
+          exposures={right.exposures}
+          levels={right.levels}
+          dteOptions={dteOptions}
+          activeKey={rightKey}
+          onSelectKey={setRightKey}
+          hoverStrike={hoverStrike}
+          setHoverStrike={setHoverStrike}
+        />
       </div>
     </div>
   );
 }
+
 
 interface DepthPanelProps {
   label: string;
