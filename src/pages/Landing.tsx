@@ -139,17 +139,129 @@ export default function Landing() {
           <a href="#planes" className="hover:text-white transition-colors">Pricing</a>
         </nav>
         <div className="flex items-center gap-3">
+          <a href="#planes">
+            <Button variant="outline" className="rounded-lg px-4 font-semibold border-white/20 text-white hover:bg-white/10 hover:text-white bg-transparent">
+              Planes
+            </Button>
+          </a>
+          <button
+            onClick={() => setShowInfo(true)}
+            className="h-9 w-9 rounded-lg border border-white/20 flex items-center justify-center text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            aria-label="Información"
+            title="Información"
+          >
+            <Info className="h-4 w-4" />
+          </button>
           {user ? (
             <Link to="/dashboard">
-              <Button className="bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg px-5 font-semibold">Get Access</Button>
+              <Button className="bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg px-5 font-semibold">Obtener acceso</Button>
             </Link>
           ) : (
             <Link to="/auth">
-              <Button className="bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg px-5 font-semibold">Get Access</Button>
+              <Button className="bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg px-5 font-semibold">Obtener acceso</Button>
             </Link>
           )}
         </div>
       </header>
+
+      {/* Info modal */}
+      <AnimatePresence>
+        {showInfo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowInfo(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 22 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-2xl w-full max-h-[85vh] overflow-y-auto rounded-2xl bg-card border border-primary/30 p-8 shadow-2xl"
+              style={{ boxShadow: "0 30px 80px -20px rgba(255,215,0,0.25)" }}
+            >
+              <button
+                onClick={() => setShowInfo(false)}
+                className="absolute top-4 right-4 h-8 w-8 rounded-full bg-background/60 hover:bg-background flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="h-10 w-10 rounded-lg bg-[#135acd] flex items-center justify-center">
+                  <Info className="h-5 w-5 text-white" />
+                </div>
+                <h2 className="text-2xl font-black tracking-tight">Información de GEX SATELIT</h2>
+              </div>
+
+              <div className="space-y-5 text-sm text-foreground/90 leading-relaxed">
+                <section>
+                  <h3 className="font-bold text-base text-primary mb-1.5">¿Qué es GEX SATELIT?</h3>
+                  <p>
+                    GEX SATELIT es una plataforma profesional de análisis de <strong>Gamma Exposure</strong> en
+                    tiempo real. Te ayuda a entender el posicionamiento de los dealers de opciones en SPX,
+                    SPY, QQQ, NDX y otros tickers principales.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-base text-primary mb-1.5">¿Para quién es?</h3>
+                  <p>
+                    Para day traders, swing traders, traders de opciones y quants que quieren anticipar
+                    soportes, resistencias y cambios de régimen del mercado con base estadística.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-base text-primary mb-1.5">Métricas que ofrecemos</h3>
+                  <ul className="list-disc list-inside space-y-1 text-foreground/85">
+                    <li><strong>GEX</strong> — Gamma Exposure agregada por strike</li>
+                    <li><strong>DEX</strong> — Delta Exposure dealer</li>
+                    <li><strong>VEX, Vanna y Charm</strong> — griegas de segundo y tercer orden</li>
+                    <li><strong>Call Wall / Put Wall</strong> — niveles magnéticos clave</li>
+                    <li><strong>Gamma Flip</strong> — punto donde cambia el régimen</li>
+                    <li><strong>IV Surface 3D</strong> — superficie de volatilidad implícita</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-base text-primary mb-1.5">Tecnología</h3>
+                  <p>
+                    Datos con latencia menor a 200&nbsp;ms, uptime del 99.9%, alertas push, AI Bias diario y
+                    acceso vía API en el plan Elite. Todo accesible desde un dashboard intuitivo.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-base text-primary mb-1.5">Planes y precios</h3>
+                  <p>
+                    Tres planes: <strong>Starter</strong> ($29.99), <strong>Pro</strong> ($79.99) y{" "}
+                    <strong>Elite</strong> ($159.99) al mes. Sin permanencia. Aplica códigos de descuento al
+                    pagar.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-base text-primary mb-1.5">Aviso legal</h3>
+                  <p className="text-xs text-muted-foreground">
+                    GEX SATELIT es una herramienta educativa. Los datos mostrados pueden ser simulados con
+                    fines demostrativos. No constituye asesoramiento financiero.
+                  </p>
+                </section>
+              </div>
+
+              <div className="mt-6 flex gap-3 justify-end">
+                <Button variant="outline" onClick={() => setShowInfo(false)}>Cerrar</Button>
+                <a href="#planes" onClick={() => setShowInfo(false)}>
+                  <Button>Ver planes</Button>
+                </a>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <section className="relative z-10 container pt-2 pb-12 text-center">
         <div className="mb-6 -mt-4 flex justify-start -ml-[calc((100vw-100%)/2)]">
