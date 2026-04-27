@@ -1,55 +1,69 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 
 interface Props {
   size?: number;
 }
 
-/**
- * Big circular radar with sweeping arm.
- * Detects a "satellite" blip that pulses when the sweep passes over it.
- */
+interface Sat {
+  id: string;
+  angle: number; // degrees, 0 = +X axis, clockwise
+  radiusFactor: number; // 0..1 of radar radius
+}
+
 export function RadarMap({ size = 560 }: Props) {
   const center = size / 2;
   const r = size / 2 - 10;
 
-  // Satellite position (fixed angle/radius). 0deg = +X axis, going clockwise.
-  const satAngle = -55; // degrees
-  const satRadius = r * 0.62;
-  const satRad = (satAngle * Math.PI) / 180;
-  const satX = center + Math.cos(satRad) * satRadius;
-  const satY = center + Math.sin(satRad) * satRadius;
+  // Two satellites
+  const sats: Sat[] = [
+    { id: "GEXSATELIT-01", angle: -55, radiusFactor: 0.62 },
+    { id: "GEXSATELIT-02", angle: 130, radiusFactor: 0.5 },
+  ];
 
-  // Sweep arm rotation (4 second period)
   const SWEEP = 4;
-  const [pulse, setPulse] = useState(false);
+  // Which satellites are currently "lit" by the sweep
+  const [hits, setHits] = useState<Record<string, boolean>>({});
+  // Centered banner toggle
+  const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
-    // Convert sat angle to "sweep clock" — sweep starts at -90° (top) and goes clockwise.
-    // Time when sweep aligns with satellite within each cycle.
-    let normalized = (satAngle + 90 + 360) % 360;
-    const hitAt = (normalized / 360) * SWEEP * 1000; // ms
+    const timers: number[] = [];
     let cancelled = false;
 
-    const tick = () => {
-      const now = performance.now();
-      const phase = now % (SWEEP * 1000);
-      const delay = (hitAt - phase + SWEEP * 1000) % (SWEEP * 1000);
-      const id = setTimeout(() => {
+    const scheduleSat = (sat: Sat) => {
+      const normalized = (sat.angle + 90 + 360) % 360;
+      const hitAt = (normalized / 360) * SWEEP * 1000;
+
+      const tick = () => {
         if (cancelled) return;
-        setPulse(true);
-        setTimeout(() => setPulse(false), 900);
-        tick();
-      }, delay);
-      return () => clearTimeout(id);
+        const now = performance.now();
+        const phase = now % (SWEEP * 1000);
+        const delay = (hitAt - phase + SWEEP * 1000) % (SWEEP * 1000);
+        const id = window.setTimeout(() => {
+          if (cancelled) return;
+          setHits((h) => ({ ...h, [sat.id]: true }));
+          setShowBanner(true);
+          window.setTimeout(() => {
+            setHits((h) => ({ ...h, [sat.id]: false }));
+          }, 1400);
+          window.setTimeout(() => setShowBanner(false), 2000);
+          tick();
+        }, delay);
+        timers.push(id);
+      };
+      tick();
     };
-    tick();
-    return () => { cancelled = true; };
+
+    sats.forEach(scheduleSat);
+    return () => {
+      cancelled = true;
+      timers.forEach((id) => clearTimeout(id));
+    };
   }, []);
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
-      {/* Outer glow */}
       <div
         className="absolute inset-0 rounded-full"
         style={{
@@ -80,32 +94,17 @@ export function RadarMap({ size = 560 }: Props) {
           </filter>
         </defs>
 
-        {/* Radar disc */}
         <circle cx={center} cy={center} r={r} fill="url(#radarBg)" stroke="#00ffaa" strokeOpacity="0.5" strokeWidth={1.5} />
 
-        {/* Concentric rings */}
         {[0.25, 0.5, 0.75].map((f, i) => (
-          <circle
-            key={i}
-            cx={center}
-            cy={center}
-            r={r * f}
-            fill="none"
-            stroke="#00ffaa"
-            strokeOpacity={0.18}
-            strokeWidth={1}
-          />
+          <circle key={i} cx={center} cy={center} r={r * f} fill="none" stroke="#00ffaa" strokeOpacity={0.18} strokeWidth={1} />
         ))}
 
-        {/* Cross hairs */}
         <line x1={center - r} y1={center} x2={center + r} y2={center} stroke="#00ffaa" strokeOpacity={0.18} strokeWidth={1} />
         <line x1={center} y1={center - r} x2={center} y2={center + r} stroke="#00ffaa" strokeOpacity={0.18} strokeWidth={1} />
-
-        {/* Diagonal grid */}
         <line x1={center - r * 0.707} y1={center - r * 0.707} x2={center + r * 0.707} y2={center + r * 0.707} stroke="#00ffaa" strokeOpacity={0.08} strokeWidth={1} />
         <line x1={center - r * 0.707} y1={center + r * 0.707} x2={center + r * 0.707} y2={center - r * 0.707} stroke="#00ffaa" strokeOpacity={0.08} strokeWidth={1} />
 
-        {/* Compass labels */}
         <g fill="#00ffaa" fillOpacity="0.5" fontSize={11} fontFamily="monospace" fontWeight="bold">
           <text x={center} y={14} textAnchor="middle">N</text>
           <text x={size - 8} y={center + 4} textAnchor="end">E</text>
@@ -119,108 +118,109 @@ export function RadarMap({ size = 560 }: Props) {
           animate={{ rotate: 360 }}
           transition={{ duration: SWEEP, repeat: Infinity, ease: "linear" }}
         >
-          {/* Cone */}
           <path
             d={`M ${center} ${center} L ${center + r} ${center} A ${r} ${r} 0 0 0 ${center + r * Math.cos(-Math.PI / 3)} ${center + r * Math.sin(-Math.PI / 3)} Z`}
             fill="url(#sweepGrad)"
           />
-          {/* Sweep line */}
           <line x1={center} y1={center} x2={center + r} y2={center} stroke="#00ffaa" strokeWidth={2} strokeOpacity={0.9} />
         </motion.g>
 
-        {/* Center dot */}
         <circle cx={center} cy={center} r={4} fill="#00ffaa" />
         <circle cx={center} cy={center} r={8} fill="none" stroke="#00ffaa" strokeOpacity={0.4} strokeWidth={1} />
 
-        {/* Detected satellite blip */}
-        <g filter="url(#blipGlow)">
-          {/* Pulsing rings on hit */}
-          {pulse && (
-            <>
-              <motion.circle
-                cx={satX}
-                cy={satY}
-                fill="none"
-                stroke="#00ffaa"
-                strokeWidth={2}
-                initial={{ r: 8, opacity: 0.9 }}
-                animate={{ r: 36, opacity: 0 }}
-                transition={{ duration: 0.9, ease: "easeOut" }}
-              />
-              <motion.circle
-                cx={satX}
-                cy={satY}
-                fill="none"
-                stroke="#00ffaa"
-                strokeWidth={1}
-                initial={{ r: 8, opacity: 0.7 }}
-                animate={{ r: 60, opacity: 0 }}
-                transition={{ duration: 0.9, ease: "easeOut", delay: 0.15 }}
-              />
-            </>
-          )}
+        {/* Satellites — only visible when detected */}
+        {sats.map((sat) => {
+          const rad = (sat.angle * Math.PI) / 180;
+          const sx = center + Math.cos(rad) * r * sat.radiusFactor;
+          const sy = center + Math.sin(rad) * r * sat.radiusFactor;
+          const lit = hits[sat.id];
 
-          {/* Satellite icon — visible faintly always, bright on detection */}
-          <motion.g
-            transform={`translate(${satX}, ${satY}) rotate(-20)`}
-            animate={{ opacity: pulse ? 1 : 0.45 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* Solar panel left */}
-            <rect x={-22} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.85} stroke="#00ffaa" strokeWidth={0.5} />
-            <line x1={-22} y1={0} x2={-10} y2={0} stroke="#001a14" strokeWidth={0.5} />
-            <line x1={-16} y1={-4} x2={-16} y2={4} stroke="#001a14" strokeWidth={0.5} />
-            {/* Solar panel right */}
-            <rect x={10} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.85} stroke="#00ffaa" strokeWidth={0.5} />
-            <line x1={10} y1={0} x2={22} y2={0} stroke="#001a14" strokeWidth={0.5} />
-            <line x1={16} y1={-4} x2={16} y2={4} stroke="#001a14" strokeWidth={0.5} />
-            {/* Connector arms */}
-            <line x1={-10} y1={0} x2={-5} y2={0} stroke="#00ffaa" strokeWidth={1} />
-            <line x1={5} y1={0} x2={10} y2={0} stroke="#00ffaa" strokeWidth={1} />
-            {/* Body */}
-            <rect x={-5} y={-5} width={10} height={10} rx={1.5} fill="#00ffaa" stroke="#003322" strokeWidth={0.8} />
-            {/* Antenna / dish */}
-            <line x1={0} y1={-5} x2={0} y2={-11} stroke="#00ffaa" strokeWidth={1} />
-            <circle cx={0} cy={-12} r={1.8} fill="#00ffaa" />
-          </motion.g>
-        </g>
-
-        {/* Label for satellite — appears with the pulse, INSIDE the radar */}
-        {pulse && (() => {
-          // Place label towards the center so it stays inside the radar disc
-          const dx = center - satX;
-          const dy = center - satY;
-          const len = Math.hypot(dx, dy) || 1;
-          const lx = satX + (dx / len) * 30 - 60;
-          const ly = satY + (dy / len) * 30 + 14;
           return (
-            <motion.g
-              transform={`translate(${lx}, ${ly})`}
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <line x1={60} y1={-6} x2={satX - lx} y2={satY - ly} stroke="#00ffaa" strokeWidth={1} strokeOpacity={0.7} />
-              <rect x={0} y={-8} width={120} height={36} rx={2} fill="#000" fillOpacity={0.88} stroke="#00ffaa" strokeWidth={1.2} />
-              <path d="M 0 -4 L 0 -8 L 4 -8" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
-              <path d="M 116 -8 L 120 -8 L 120 -4" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
-              <path d="M 0 24 L 0 28 L 4 28" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
-              <path d="M 116 28 L 120 28 L 120 24" fill="none" stroke="#00ffaa" strokeWidth={1.5} />
-              <text x={6} y={6} fontFamily="monospace" fontSize={11} fill="#00ffaa" fontWeight="bold" letterSpacing={1.2}>
-                GEXSATELIT
-              </text>
-              <text x={6} y={20} fontFamily="monospace" fontSize={8} fill="#00ffaa" fillOpacity={0.75} letterSpacing={0.8}>
-                ◉ LOCKED · 0.42 AU
-              </text>
-            </motion.g>
+            <g key={sat.id} filter="url(#blipGlow)">
+              <AnimatePresence>
+                {lit && (
+                  <>
+                    <motion.circle
+                      cx={sx}
+                      cy={sy}
+                      fill="none"
+                      stroke="#00ffaa"
+                      strokeWidth={2}
+                      initial={{ r: 10, opacity: 0.95 }}
+                      animate={{ r: 60, opacity: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 1.2, ease: "easeOut" }}
+                    />
+                    <motion.circle
+                      cx={sx}
+                      cy={sy}
+                      fill="none"
+                      stroke="#00ffaa"
+                      strokeWidth={1}
+                      initial={{ r: 10, opacity: 0.7 }}
+                      animate={{ r: 90, opacity: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 1.2, ease: "easeOut", delay: 0.2 }}
+                    />
+                    <motion.g
+                      transform={`translate(${sx}, ${sy}) rotate(-15) scale(2.2)`}
+                      initial={{ opacity: 0, scale: 0.5 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.35 }}
+                    >
+                      {/* Solar panels */}
+                      <rect x={-22} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.9} stroke="#00ffaa" strokeWidth={0.5} />
+                      <line x1={-22} y1={0} x2={-10} y2={0} stroke="#001a14" strokeWidth={0.5} />
+                      <line x1={-16} y1={-4} x2={-16} y2={4} stroke="#001a14" strokeWidth={0.5} />
+                      <rect x={10} y={-4} width={12} height={8} fill="#00ffaa" fillOpacity={0.9} stroke="#00ffaa" strokeWidth={0.5} />
+                      <line x1={10} y1={0} x2={22} y2={0} stroke="#001a14" strokeWidth={0.5} />
+                      <line x1={16} y1={-4} x2={16} y2={4} stroke="#001a14" strokeWidth={0.5} />
+                      {/* Arms */}
+                      <line x1={-10} y1={0} x2={-5} y2={0} stroke="#00ffaa" strokeWidth={1} />
+                      <line x1={5} y1={0} x2={10} y2={0} stroke="#00ffaa" strokeWidth={1} />
+                      {/* Body */}
+                      <rect x={-5} y={-5} width={10} height={10} rx={1.5} fill="#00ffaa" stroke="#003322" strokeWidth={0.8} />
+                      {/* Antenna */}
+                      <line x1={0} y1={-5} x2={0} y2={-11} stroke="#00ffaa" strokeWidth={1} />
+                      <circle cx={0} cy={-12} r={1.8} fill="#00ffaa" />
+                    </motion.g>
+                  </>
+                )}
+              </AnimatePresence>
+            </g>
           );
-        })()}
-
-        {/* Range text */}
-        <text x={center + 6} y={center - 4} fontFamily="monospace" fontSize={8} fill="#00ffaa" fillOpacity={0.5}>0</text>
+        })}
       </svg>
 
-      {/* Status overlay */}
+      {/* Centered detection banner — 2 seconds */}
+      <AnimatePresence>
+        {showBanner && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.7, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          >
+            <div
+              className="px-6 py-3 rounded-md font-mono font-black tracking-[0.3em] text-[#00ffaa]"
+              style={{
+                background: "rgba(0, 10, 6, 0.85)",
+                border: "1.5px solid #00ffaa",
+                boxShadow: "0 0 30px rgba(0,255,170,0.6), inset 0 0 20px rgba(0,255,170,0.15)",
+                fontSize: 22,
+                textShadow: "0 0 12px rgba(0,255,170,0.9)",
+              }}
+            >
+              ▸ GEXSATELIT
+              <div className="text-[10px] tracking-[0.4em] opacity-75 mt-1 text-center">DETECTED · LOCKED</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Status overlays */}
       <div className="absolute top-3 left-3 font-mono text-[10px] text-[#00ffaa]/80 leading-tight">
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00ffaa] animate-pulse" />
@@ -229,7 +229,7 @@ export function RadarMap({ size = 560 }: Props) {
         <div className="opacity-60 mt-1">SCAN 360° · 4s</div>
       </div>
       <div className="absolute top-3 right-3 font-mono text-[10px] text-[#00ffaa]/80 leading-tight text-right">
-        <div className="font-bold tracking-widest">TGT: 1</div>
+        <div className="font-bold tracking-widest">TGT: {sats.length}</div>
         <div className="opacity-60 mt-1">SIG: STRONG</div>
       </div>
     </div>
