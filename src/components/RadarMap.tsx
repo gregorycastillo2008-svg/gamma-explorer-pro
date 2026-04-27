@@ -32,7 +32,7 @@ export function RadarMap({ size = 560 }: Props) {
     let cancelled = false;
 
     const scheduleSat = (sat: Sat) => {
-      const normalized = (sat.angle + 90 + 360) % 360;
+      const normalized = ((sat.angle % 360) + 360) % 360;
       const hitAt = (normalized / 360) * SWEEP * 1000;
 
       const tick = () => {
