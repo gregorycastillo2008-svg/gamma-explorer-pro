@@ -5,14 +5,21 @@ import { Card } from "@/components/ui/card";
 import { Check } from "lucide-react";
 import { PLANS, type Tier } from "@/lib/plans";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export default function Pricing() {
   const { user } = useAuth();
+  const { isAdmin } = useIsAdmin(user?.id);
+  const { subscribed } = useSubscription(user?.id);
   const nav = useNavigate();
   const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
   const [loading, setLoading] = useState<Tier | null>(null);
+
+  const canAccessDashboard = isAdmin || subscribed;
+  const signOut = async () => { await supabase.auth.signOut(); nav("/"); };
 
   const handleSubscribe = async (tier: Tier) => {
     if (!user) { nav("/auth"); return; }
@@ -81,8 +88,13 @@ export default function Pricing() {
           })}
         </div>
 
-        <div className="text-center mt-8">
-          <Button variant="ghost" onClick={() => nav("/dashboard")}>Back to dashboard</Button>
+        <div className="text-center mt-8 flex gap-3 justify-center">
+          {canAccessDashboard && (
+            <Button variant="ghost" onClick={() => nav("/dashboard")}>Back to dashboard</Button>
+          )}
+          {user && (
+            <Button variant="outline" onClick={signOut}>Sign out</Button>
+          )}
         </div>
       </div>
     </div>
