@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { DemoTicker, OptionContract } from "@/lib/gex";
 import { buildVolatilityDataset } from "@/lib/mockVolatilityData";
 import { TopMetricsBar } from "./TopMetricsBar";
-import { IVSurface3D } from "./IVSurface3D";
+import { Volatility3DSurface } from "@/components/terminal/Volatility3DSurface";
 import { IVSkewChart } from "./IVSkewChart";
 import { PutCallSkewPanel } from "./PutCallSkewPanel";
 import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
@@ -24,7 +24,7 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
       <TopMetricsBar data={data} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <Panel className="h-[500px]"><IVSurface3D surface={data.surface} spot={data.spot} symbol={data.symbol} /></Panel>
+        <Panel className="h-[560px]"><Volatility3DSurface surface={data.surface} spot={data.spot} symbol={data.symbol} /></Panel>
         <Panel className="h-[500px]"><IVSkewChart data={data} /></Panel>
         <Panel className="h-[500px]"><PutCallSkewPanel data={data} /></Panel>
         <Panel className="h-[500px]"><VolatilityTable data={data} /></Panel>
