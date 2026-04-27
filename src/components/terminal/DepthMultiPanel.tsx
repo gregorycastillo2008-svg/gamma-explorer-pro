@@ -296,6 +296,27 @@ function DepthPanel({
                 </div>
               );
             })}
+            {tooltip && (
+              <div
+                className="absolute pointer-events-none z-20 rounded px-2 py-1.5 text-[10px] font-mono leading-tight whitespace-nowrap"
+                style={{
+                  left: Math.min(tooltip.x + 12, 220),
+                  top: tooltip.y + 12,
+                  background: "rgba(0,0,0,0.92)",
+                  border: `1px solid ${CYAN}`,
+                  color: "#e5e7eb",
+                  boxShadow: `0 0 8px rgba(6,182,212,0.4)`,
+                }}
+              >
+                <div style={{ color: YELLOW, fontWeight: 700 }}>STRIKE ${tooltip.strike}</div>
+                <div style={{ color: GREEN }}>Calls OI: {formatNumber(tooltip.callOI, 0)}</div>
+                <div style={{ color: RED }}>Puts OI: {formatNumber(tooltip.putOI, 0)}</div>
+                <div style={{ color: tooltip.netGex >= 0 ? GREEN : RED }}>
+                  NET GEX: {tooltip.netGex >= 0 ? "+" : ""}{formatNumber(tooltip.netGex)}
+                </div>
+                <div style={{ color: MUTED }}>Total OI: {formatNumber(tooltip.callOI + tooltip.putOI, 0)}</div>
+              </div>
+            )}
           </div>
         </div>
 
