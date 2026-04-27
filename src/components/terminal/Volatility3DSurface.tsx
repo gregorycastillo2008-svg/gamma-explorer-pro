@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { IvPoint } from "@/lib/volatilityCalculations";
+import { Surface3DTooltip, type TooltipData } from "./Surface3DTooltip";
 
 interface Props {
   surface?: IvPoint[];
@@ -12,6 +13,12 @@ const SX = 4.4;
 const SZ = 4.0;
 const SY = 2.4;
 const N = 50;
+
+// Synthetic surface domain for tooltip back-mapping
+const STRIKE_LO = 0.85; // moneyness
+const STRIKE_HI = 1.15;
+const DTE_LO = 1;
+const DTE_HI = 60;
 
 function rainbow(t: number): THREE.Color {
   t = Math.max(0, Math.min(1, t));
@@ -45,16 +52,20 @@ function surfaceFn(u: number, v: number) {
   return base + peak + drop + wave;
 }
 
-export function Volatility3DSurface(_: Props) {
+export function Volatility3DSurface({ spot = 100, symbol }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [elev, setElev] = useState(32);
   const [azim, setAzim] = useState(220);
+  const [tip, setTip] = useState<TooltipData | null>(null);
 
   const elevRef = useRef(32);
   const azimRef = useRef(220);
   const distRef = useRef(7.5);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const meshRef = useRef<THREE.Mesh | null>(null);
+  const markerRef = useRef<THREE.Mesh | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
   function updateCam() {
     const cam = cameraRef.current;
@@ -79,6 +90,7 @@ export function Volatility3DSurface(_: Props) {
     renderer.setSize(W, H);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x0a0a0a, 1);
+    rendererRef.current = renderer;
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.055);
@@ -132,7 +144,21 @@ export function Volatility3DSurface(_: Props) {
       vertexColors: true, side: THREE.DoubleSide,
       shininess: 80, specular: new THREE.Color(0.5, 0.5, 0.5),
     });
-    scene.add(new THREE.Mesh(geo, mat));
+    const surfaceMesh = new THREE.Mesh(geo, mat);
+    scene.add(surfaceMesh);
+    meshRef.current = surfaceMesh;
+
+    // Hover marker (glowing sphere)
+    const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.95 });
+    const marker = new THREE.Mesh(markerGeo, markerMat);
+    marker.visible = false;
+    scene.add(marker);
+    const glowGeo = new THREE.SphereGeometry(0.13, 16, 16);
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.25 });
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    marker.add(glow);
+    markerRef.current = marker;
 
     const lmat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.22, transparent: true });
     for (let j = 0; j < N; j += 4) {
@@ -192,9 +218,53 @@ export function Volatility3DSurface(_: Props) {
       e.preventDefault();
     };
 
+    // Raycaster hover for tooltip
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let lastHover = 0;
+    const onHover = (e: MouseEvent) => {
+      if (drag) return;
+      const now = performance.now();
+      if (now - lastHover < 16) return;
+      lastHover = now;
+      const rect = canvas.getBoundingClientRect();
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(surfaceMesh);
+      if (hits.length > 0) {
+        const pt = hits[0].point;
+        marker.visible = true;
+        marker.position.copy(pt);
+        // Map x∈[-SX/2,SX/2] → moneyness, z∈[-SZ/2,SZ/2] → DTE
+        const u = (pt.x / SX) + 0.5;
+        const v = (pt.z / SZ) + 0.5;
+        const moneyness = STRIKE_LO + u * (STRIKE_HI - STRIKE_LO);
+        const dte = Math.round(DTE_LO + v * (DTE_HI - DTE_LO));
+        const strike = Math.round(spot * moneyness);
+        // Recover IV from y: y = norm*SY - 0.6, norm∈[0,1] mapped to actual IV range
+        const norm = Math.max(0, Math.min(1, (pt.y + 0.6) / SY));
+        const iv = 0.10 + norm * 0.40; // synthetic 10%-50%
+        setTip({
+          strike,
+          moneyness: moneyness * 100,
+          dte,
+          value: iv,
+          iv,
+          position: { x: e.clientX, y: e.clientY },
+        });
+      } else {
+        marker.visible = false;
+        setTip(null);
+      }
+    };
+    const onLeave = () => { marker.visible = false; setTip(null); };
+
     canvas.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     window.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mousemove", onHover);
+    canvas.addEventListener("mouseleave", onLeave);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("touchstart", onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -216,6 +286,8 @@ export function Volatility3DSurface(_: Props) {
       canvas.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mousemove", onHover);
+      canvas.removeEventListener("mouseleave", onLeave);
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("touchstart", onTouchStart);
       canvas.removeEventListener("touchmove", onTouchMove);
@@ -246,6 +318,7 @@ export function Volatility3DSurface(_: Props) {
       <div style={{ display: "flex", justifyContent: "space-between", width: 220, margin: "2px auto 0", fontSize: 10, color: "#555", fontFamily: "monospace" }}>
         <span>Low</span><span style={{ marginLeft: 60 }}>Mid</span><span>High Vol</span>
       </div>
+      {tip && <Surface3DTooltip data={tip} type="iv" />}
     </div>
   );
 }

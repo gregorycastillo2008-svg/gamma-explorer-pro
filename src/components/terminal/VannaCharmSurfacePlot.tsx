@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { Surface3DTooltip, type TooltipData } from "./Surface3DTooltip";
 
 const N = 60;
 const RANGE = 70;
@@ -48,6 +49,7 @@ export function VannaCharmSurfacePlot() {
   const [azim, setAzim] = useState(215);
   const [showPts, setShowPts] = useState(true);
   const [showPlane, setShowPlane] = useState(true);
+  const [tip, setTip] = useState<TooltipData | null>(null);
 
   const elevRef = useRef(28);
   const azimRef = useRef(215);
@@ -55,6 +57,7 @@ export function VannaCharmSurfacePlot() {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const dotsGroupRef = useRef<THREE.Group | null>(null);
   const planeGroupRef = useRef<THREE.Group | null>(null);
+  const meshRef = useRef<THREE.Mesh | null>(null);
 
   function updateCam() {
     const cam = cameraRef.current;
@@ -134,7 +137,17 @@ export function VannaCharmSurfacePlot() {
       vertexColors: true, side: THREE.DoubleSide,
       shininess: 120, specular: new THREE.Color(0.6, 0.6, 0.6),
     });
-    scene.add(new THREE.Mesh(geo, mat));
+    const surfaceMesh = new THREE.Mesh(geo, mat);
+    scene.add(surfaceMesh);
+    meshRef.current = surfaceMesh;
+
+    const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.95 });
+    const marker = new THREE.Mesh(markerGeo, markerMat);
+    marker.visible = false;
+    scene.add(marker);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.25 }));
+    marker.add(glow);
 
     // Mesh grid lines (lighter color over black bg)
     const glmat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.18, transparent: true });
@@ -315,9 +328,51 @@ export function VannaCharmSurfacePlot() {
       e.preventDefault();
     };
 
+    // Raycaster hover for tooltip (Vanna)
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let lastHover = 0;
+    const SX_LOC = 5.0, SZ_LOC = 5.0, SY_LOC = 3.2;
+    const onHover = (e: MouseEvent) => {
+      if (drag) return;
+      const now = performance.now();
+      if (now - lastHover < 16) return;
+      lastHover = now;
+      const rect = canvas.getBoundingClientRect();
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(surfaceMesh);
+      if (hits.length > 0) {
+        const pt = hits[0].point;
+        marker.visible = true;
+        marker.position.copy(pt);
+        const u = (pt.x / SX_LOC) + 0.5;
+        const v = (pt.z / SZ_LOC) + 0.5;
+        const moneyness = 0.85 + u * 0.30;
+        const dte = Math.round(1 + v * 59);
+        const norm = Math.max(0, Math.min(1, (pt.y + 0.3) / SY_LOC));
+        const vannaVal = (norm - 0.5) * 200_000_000;
+        setTip({
+          strike: Math.round(100 * moneyness * 47),
+          moneyness: moneyness * 100,
+          dte,
+          value: vannaVal,
+          oiPct: Math.round(norm * 100),
+          position: { x: e.clientX, y: e.clientY },
+        });
+      } else {
+        marker.visible = false;
+        setTip(null);
+      }
+    };
+    const onLeave = () => { marker.visible = false; setTip(null); };
+
     canvas.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     window.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mousemove", onHover);
+    canvas.addEventListener("mouseleave", onLeave);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("touchstart", onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -339,6 +394,8 @@ export function VannaCharmSurfacePlot() {
       canvas.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mousemove", onHover);
+      canvas.removeEventListener("mouseleave", onLeave);
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("touchstart", onTouchStart);
       canvas.removeEventListener("touchmove", onTouchMove);
@@ -372,6 +429,7 @@ export function VannaCharmSurfacePlot() {
           <input type="checkbox" checked={showPlane} onChange={(e) => setShowPlane(e.target.checked)} style={{ verticalAlign: "middle" }} /> Ref plane
         </label>
       </div>
+      {tip && <Surface3DTooltip data={tip} type="vanna" />}
     </div>
   );
 }
