@@ -241,7 +241,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
                   className={`font-jetbrains text-[11px] flex items-center justify-end pr-3 ${
                     isSpot ? "text-[#7dd3fc] font-bold" : "text-[#9ca3af]"
                   }`}
-                  style={{ height: 22 }}
+                  style={{ height: 26 }}
                 >
                   ${p.strike}
                 </div>
