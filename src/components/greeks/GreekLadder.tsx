@@ -82,6 +82,7 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+  const [activeTab, setActiveTab] = useState<"ladder" | "surface" | "delta">("ladder");
   const fetchSeq = useRef(0);
 
   // Clock
