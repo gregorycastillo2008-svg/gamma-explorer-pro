@@ -20,6 +20,7 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { AlertTriangle, TrendingUp, TrendingDown, Activity, Zap, Shield, Target } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend, BarChart, Bar } from "recharts";
 import { IvSurface3D } from "./IvSurface3D";
+import { IvSurface3DReal } from "./IvSurface3DReal";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -1049,7 +1050,7 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
             {
               key: "surface",
               label: "3D SURFACE",
-              content: <SurfaceChart strikes={strikes.slice().reverse()} expiries={expiries} cellMap={cellMap} min={min} max={max} colorFor={colorFor} />,
+              content: <IvSurface3DReal strikes={strikes} expiries={expiries} cellMap={cellMap} min={min} max={max} />,
             },
             {
               key: "flow",
