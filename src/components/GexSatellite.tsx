@@ -45,20 +45,24 @@ export function GexSatellite({ size = 220, speed = 12 }: Props) {
         />
       </div>
 
-      {/* Label */}
+      {/* Center label inside the radar */}
       <div
-        className="absolute left-1/2 -translate-x-1/2 font-black tracking-[0.4em]"
-        style={{
-          bottom: -18,
-          fontSize: Math.max(10, size * 0.055),
-          background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          backgroundClip: "text",
-          textShadow: "0 0 18px rgba(255,200,0,0.4)",
-        }}
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
       >
-        GEXSATELIT
+        <div
+          className="font-black tracking-[0.4em] text-center"
+          style={{
+            fontSize: Math.max(12, size * 0.085),
+            background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            textShadow: "0 0 22px rgba(255,200,0,0.55)",
+            filter: "drop-shadow(0 0 8px rgba(255,0,0,0.45))",
+          }}
+        >
+          GEXSATELIT
+        </div>
       </div>
 
       <style>{`
