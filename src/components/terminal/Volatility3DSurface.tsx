@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { IvPoint } from "@/lib/volatilityCalculations";
+import { Surface3DTooltip, type TooltipData } from "./Surface3DTooltip";
 
 interface Props {
   surface?: IvPoint[];
@@ -12,6 +13,12 @@ const SX = 4.4;
 const SZ = 4.0;
 const SY = 2.4;
 const N = 50;
+
+// Synthetic surface domain for tooltip back-mapping
+const STRIKE_LO = 0.85; // moneyness
+const STRIKE_HI = 1.15;
+const DTE_LO = 1;
+const DTE_HI = 60;
 
 function rainbow(t: number): THREE.Color {
   t = Math.max(0, Math.min(1, t));
