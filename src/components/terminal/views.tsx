@@ -213,7 +213,7 @@ export function DepthView({ ticker, contracts }: Ctx) {
       {/* DTE filter row */}
       <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/40 flex-wrap">
         <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase mr-1">DTE</span>
-        {(["all", "1", "2", "3"] as const).map((v) => (
+        {(["1", "2", "3"] as const).map((v) => (
           <button
             key={v}
             onClick={() => setDte(v)}
@@ -224,7 +224,7 @@ export function DepthView({ ticker, contracts }: Ctx) {
               borderColor: dte === v ? "#10b981" : "#2a2a2a",
             }}
           >
-            {v === "all" ? "ALL" : `${v}D`}
+            {`${v}D`}
           </button>
         ))}
       </div>
