@@ -223,7 +223,7 @@ export default function Landing() {
           viewport={{ once: true }}
           className="text-4xl md:text-5xl font-black tracking-tight text-center mb-3"
         >
-          Lo que dicen los <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>traders</span>
+          Lo que dicen los <span className="bg-clip-text text-[#ff0000]" style={{ backgroundImage: "var(--gradient-primary)" }}>traders</span>
         </motion.h2>
         <p className="text-center text-muted-foreground mb-10">Pasa el cursor sobre un comentario para verlo completo · se detiene la animación</p>
 
