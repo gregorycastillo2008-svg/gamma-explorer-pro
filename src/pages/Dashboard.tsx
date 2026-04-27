@@ -22,6 +22,7 @@ import { HorizontalGEXChart } from "@/components/terminal/HorizontalGEXChart";
 import { GexDexWorkspace } from "@/components/terminal/GexDexWorkspace";
 import { DepthAltaris } from "@/components/terminal/DepthAltaris";
 import { DepthMultiPanel } from "@/components/terminal/DepthMultiPanel";
+import { VannaCharmWorkspace } from "@/components/terminal/VannaCharmWorkspace";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { SectionTransition } from "@/components/terminal/SectionTransition";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -121,7 +122,7 @@ export default function Dashboard() {
       case "depth": return <DepthMultiPanel ticker={ticker} contracts={filtered} />;
       case "levels": return <LevelsView {...ctx} />;
       case "hedge": return <HedgeView {...ctx} />;
-      case "vanna-charm": return <VannaCharmView {...ctx} />;
+      case "vanna-charm": return <VannaCharmWorkspace ticker={ticker} contracts={filtered} />;
       case "vega-theta": return <VegaThetaView {...ctx} />;
       case "volatility": return <VolatilityView {...ctx} />;
       case "heatmap": return <HeatmapView {...ctx} />;
