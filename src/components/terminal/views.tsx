@@ -98,8 +98,8 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 // ─────── PRICE + GEX CHART (sección propia) ───────
 export function ChartView({ ticker }: Ctx) {
   return (
-    <div className="h-full overflow-y-auto p-1">
-      <PriceGexChartContainer defaultSymbol={ticker.symbol} />
+    <div className="h-full overflow-hidden">
+      <IntegratedGEXChart defaultSymbol={ticker.symbol} />
     </div>
   );
 }
