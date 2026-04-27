@@ -82,7 +82,7 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
-  const [activeTab, setActiveTab] = useState<"ladder" | "surface" | "delta">("ladder");
+  const [activeTab, setActiveTab] = useState<"ladder" | "surface" | "delta" | "striker">("ladder");
   const fetchSeq = useRef(0);
 
   // Clock
@@ -338,6 +338,7 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
           { id: "surface", label: "3D SURFACE" },
           { id: "ladder",  label: "GREEK LADDER" },
           { id: "delta",   label: "DELTA EXPOSURE" },
+          { id: "striker", label: "STRIKER DELTA" },
         ] as const).map((t) => {
           const active = activeTab === t.id;
           return (
@@ -449,10 +450,33 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
         </div>
       )}
 
-      {/* ═════ DELTA EXPOSURE tab ═════ */}
+      {/* ═════ DELTA EXPOSURE tab — only Gamma bars filling the entire card ═════ */}
       {activeTab === "delta" && chain && dealerRows.length > 0 && (
-        <div className="p-3 border-t border-[#1f1f1f]" style={{ background: "#030303" }}>
-          <DealerExposureBars rows={dealerRows} spot={chain.spot} symbol={symbol} mode="DEX" />
+        <div className="p-3 border-t border-[#1f1f1f]" style={{ background: "#000" }}>
+          <DealerExposureBars
+            rows={dealerRows}
+            spot={chain.spot}
+            symbol={symbol}
+            mode="GEX"
+            lockMode
+            fullBleed
+            title="GAMMA EXPOSURE / STRIKE"
+          />
+        </div>
+      )}
+
+      {/* ═════ STRIKER DELTA tab — Delta Exposure per Strike ═════ */}
+      {activeTab === "striker" && chain && dealerRows.length > 0 && (
+        <div className="p-3 border-t border-[#1f1f1f]" style={{ background: "#000" }}>
+          <DealerExposureBars
+            rows={dealerRows}
+            spot={chain.spot}
+            symbol={symbol}
+            mode="DEX"
+            lockMode
+            fullBleed
+            title="STRIKER · DELTA EXPOSURE PER STRIKE"
+          />
         </div>
       )}
 
