@@ -1,15 +1,16 @@
-import { Activity, BarChart3, LineChart, Layers, Target, TrendingUp, Wind, Gauge, Shuffle, Sigma, Shield, LogOut, ChevronLeft, ChevronRight, Grid3x3, AlertTriangle, BarChart2, Brain } from "lucide-react";
+import { Activity, BarChart3, LineChart, Layers, Target, TrendingUp, Wind, Gauge, Shuffle, Sigma, Shield, LogOut, ChevronLeft, ChevronRight, Grid3x3, AlertTriangle, BarChart2, Brain, CandlestickChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 
 export type Section =
-  | "overview" | "oi-analytics" | "gex-dex" | "greeks" | "depth" | "levels"
+  | "overview" | "chart" | "oi-analytics" | "gex-dex" | "greeks" | "depth" | "levels"
   | "hedge" | "vanna-charm" | "vega-theta"
   | "volatility" | "heatmap" | "regime" | "risk" | "anomaly"
   | "ai-bias";
 
 export const SECTIONS: { id: Section; label: string; icon: any; group: string }[] = [
   { id: "overview", label: "Overview", icon: Activity, group: "MAIN" },
+  { id: "chart", label: "Chart", icon: CandlestickChart, group: "MAIN" },
   { id: "oi-analytics", label: "OI Analytics", icon: BarChart2, group: "MAIN" },
   { id: "gex-dex", label: "GEX & DEX", icon: BarChart3, group: "MAIN" },
   { id: "greeks", label: "Greek Ladder", icon: Sigma, group: "MAIN" },
