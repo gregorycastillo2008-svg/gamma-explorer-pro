@@ -71,7 +71,7 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
       for (const p of points) m.set(p.strike, p[metric]);
       perExp.set(exp, m);
     }
-    const strikeSet = Array.from(new Set(contracts.map((c) => c.strike))).sort((a, b) => b - a);
+    const strikeSet = Array.from(new Set(contracts.map((c) => c.strike))).sort((a, b) => a - b);
     let mx = 0;
     let pPos = { strike: NaN, expiry: NaN, value: -Infinity };
     let pNeg = { strike: NaN, expiry: NaN, value: Infinity };
