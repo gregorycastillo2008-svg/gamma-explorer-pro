@@ -155,6 +155,7 @@ export default function Dashboard() {
   const renderView = () => {
     switch (section) {
       case "overview": return <OverviewView {...ctx} />;
+      case "chart": return <ChartView {...ctx} />;
       case "oi-analytics": return <OiAnalyticsWorkspace ticker={ticker} contracts={filtered} />;
       case "gex-dex": return <GexDexWorkspace ticker={ticker} contracts={filtered} />;
       case "greeks": return <GreeksView {...ctx} />;
