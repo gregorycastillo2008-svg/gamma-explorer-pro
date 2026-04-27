@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Navigate, useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,15 +11,43 @@ import { useToast } from "@/hooks/use-toast";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
 import { useTypewriter } from "@/hooks/useTypewriter";
-import { Sparkles, Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
+import { Sparkles, Mail, Lock, ArrowRight, ArrowLeft, ShieldCheck, AlertTriangle } from "lucide-react";
 
 export default function Auth() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
   const { toast } = useToast();
+  const [params] = useSearchParams();
+  const sessionId = params.get("session_id");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Verified Stripe checkout state
+  const [verifying, setVerifying] = useState(false);
+  const [paidEmail, setPaidEmail] = useState<string | null>(null);
+  const [paidError, setPaidError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    setVerifying(true);
+    setPaidError(null);
+    fetch(
+      `https://ikvwejdepfvjuofcnbww.supabase.co/functions/v1/verify-checkout-session?session_id=${encodeURIComponent(sessionId)}`,
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.valid && data?.email) {
+          setPaidEmail(data.email);
+          setEmail(data.email);
+        } else {
+          setPaidError("No pudimos verificar tu pago. Si acabas de pagar, espera unos segundos y recarga.");
+        }
+      })
+      .catch(() => setPaidError("Error verificando el pago."))
+      .finally(() => setVerifying(false));
+  }, [sessionId]);
 
   if (!loading && user) return <Navigate to="/dashboard" replace />;
 
@@ -34,48 +62,45 @@ export default function Auth() {
 
   const signUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!paidEmail) {
+      toast({
+        title: "Pago requerido",
+        description: "Para crear una cuenta primero debes completar el pago.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (email.trim().toLowerCase() !== paidEmail.toLowerCase()) {
+      toast({
+        title: "Email no coincide",
+        description: `Debes usar el mismo email del pago: ${paidEmail}`,
+        variant: "destructive",
+      });
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.auth.signUp({
-      email, password,
+      email: paidEmail,
+      password,
       options: { emailRedirectTo: `${window.location.origin}/dashboard` },
     });
     setBusy(false);
     if (error) toast({ title: "Error al registrarse", description: error.message, variant: "destructive" });
-    else toast({ title: "¡Cuenta creada!", description: "Ya puedes iniciar sesión." });
-  };
-
-  // Login admin: si la cuenta no existe, la crea (el trigger asignará rol admin); luego entra.
-  const ADMIN_EMAIL = "gregory0322@allgamma.com";
-  const ADMIN_PASS  = "Gregory0322!Admin";
-  const adminLogin = async () => {
-    setBusy(true);
-    let { error } = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: ADMIN_PASS });
-    if (error && /invalid|credentials|not.?found/i.test(error.message)) {
-      // primer login: crear la cuenta admin
-      const { error: signErr } = await supabase.auth.signUp({
-        email: ADMIN_EMAIL, password: ADMIN_PASS,
-        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
-      });
-      if (signErr) { setBusy(false); toast({ title: "Error", description: signErr.message, variant: "destructive" }); return; }
-      // intentar login otra vez
-      const retry = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: ADMIN_PASS });
-      error = retry.error;
+    else {
+      toast({ title: "¡Cuenta creada!", description: "Iniciando sesión…" });
+      // Try to sign in immediately (works if email confirmation is disabled)
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: paidEmail, password });
+      if (!signInErr) nav("/dashboard");
     }
-    setBusy(false);
-    if (error) toast({ title: "Error admin", description: error.message, variant: "destructive" });
-    else { toast({ title: "Admin", description: "Bienvenido Gregory" }); nav("/dashboard"); }
   };
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden" style={{ background: "#000" }}>
-      {/* Animated gamma chart background (green/red bars) */}
       <div className="absolute inset-0 opacity-50">
         <GammaBackgroundDark />
       </div>
-      {/* Vignette to keep card readable */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.85) 80%)" }} />
 
-      {/* Back to landing arrow */}
       <Link to="/" className="absolute top-5 right-5 z-30 group">
         <motion.div
           initial={{ opacity: 0, x: 20 }}
@@ -95,7 +120,6 @@ export default function Auth() {
         </motion.div>
       </Link>
 
-      {/* Animated gold orbs */}
       <motion.div
         className="absolute rounded-full pointer-events-none"
         style={{ width: 500, height: 500, background: "radial-gradient(circle, rgba(255,215,0,0.18) 0%, transparent 70%)", top: "-10%", left: "-10%" }}
@@ -108,22 +132,6 @@ export default function Auth() {
         animate={{ scale: [1.2, 1, 1.2], opacity: [0.6, 0.3, 0.6] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
-      {/* Floating particles */}
-      {Array.from({ length: 15 }).map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full pointer-events-none"
-          style={{
-            width: 3, height: 3,
-            background: "#ffd700",
-            boxShadow: "0 0 8px #ffd700",
-            top: `${Math.random() * 100}%`,
-            left: `${Math.random() * 100}%`,
-          }}
-          animate={{ y: [0, -40, 0], opacity: [0, 1, 0] }}
-          transition={{ duration: 4 + Math.random() * 4, repeat: Infinity, delay: Math.random() * 4, ease: "easeInOut" }}
-        />
-      ))}
 
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -135,7 +143,6 @@ export default function Auth() {
           <AllGammaLogo size="lg" />
         </div>
 
-        {/* Outer rotating gold ring */}
         <div className="relative">
           <motion.div
             className="absolute -inset-1 rounded-[3rem] pointer-events-none"
@@ -147,16 +154,7 @@ export default function Auth() {
             animate={{ rotate: 360 }}
             transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
           />
-          <motion.div
-            className="absolute -inset-px rounded-[3rem] pointer-events-none"
-            style={{
-              background: "conic-gradient(from 180deg, #ffd700, transparent, #d4af37, transparent, #ffd700)",
-            }}
-            animate={{ rotate: -360 }}
-            transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-          />
 
-          {/* Card */}
           <div
             className="relative rounded-[3rem] p-8 backdrop-blur-xl"
             style={{
@@ -167,22 +165,21 @@ export default function Auth() {
           >
             <div className="text-center mb-6">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase mb-3 text-white"
-                style={{
-                  background: "rgba(255,215,0,0.1)",
-                  border: "1px solid rgba(255,215,0,0.4)",
-                }}
+                style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.4)" }}
               >
                 <Sparkles className="h-3 w-3" /> Acceso Premium
               </div>
               <h2 className="text-2xl font-black bg-clip-text text-secondary-foreground"
                 style={{ backgroundImage: "linear-gradient(90deg, #fff5cc, #ffd700, #b8860b)" }}
               >
-                Bienvenido de nuevo
+                {paidEmail ? "¡Pago confirmado!" : "Bienvenido de nuevo"}
               </h2>
-              <p className="text-xs text-muted-foreground mt-1">Análisis Gamma Exposure profesional</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {paidEmail ? "Crea tu contraseña para activar tu cuenta" : "Análisis Gamma Exposure profesional"}
+              </p>
             </div>
 
-            <Tabs defaultValue="signin">
+            <Tabs defaultValue={paidEmail ? "signup" : "signin"}>
               <TabsList
                 className="h-10 items-center justify-center grid grid-cols-2 w-full mb-6 rounded-full p-1 text-secondary-foreground bg-secondary-foreground"
                 style={{ border: "1px solid rgba(255,215,0,0.2)" }}
@@ -194,38 +191,61 @@ export default function Auth() {
               <TabsContent value="signin">
                 <form onSubmit={signIn} className="space-y-4">
                   <FieldGold id="e1" label="Email" type="email" value={email} onChange={setEmail} icon={Mail}
-                    placeholderWords={["trader@allgamma.com", "pro@allgamma.com", "elite@allgamma.com", "demo@allgamma.com"]} />
+                    placeholderWords={["trader@allgamma.com", "pro@allgamma.com", "elite@allgamma.com"]} />
                   <FieldGold id="p1" label="Contraseña" type="password" value={password} onChange={setPassword} icon={Lock}
-                    placeholderWords={["••••••••••", "GammaFlip2025!", "CallWall$420", "PutWall#108"]} />
-                  <div className="flex gap-2">
-                    <div className="flex-1"><GoldButton busy={busy}>Entrar al panel</GoldButton></div>
-                    <Button
-                      type="button"
-                      onClick={adminLogin}
-                      disabled={busy}
-                      className="rounded-full h-12 px-5 font-bold border hover:scale-[1.02] transition-transform"
-                      style={{
-                        background: "linear-gradient(135deg, #1a1a1a, #2a2a2a)",
-                        color: "#ffd700",
-                        border: "1px solid rgba(255,215,0,0.5)",
-                        boxShadow: "0 8px 24px rgba(255,215,0,0.2)",
-                      }}
-                      title="Acceso administrador"
-                    >
-                      Admin
-                    </Button>
-                  </div>
+                    placeholderWords={["••••••••••"]} />
+                  <GoldButton busy={busy}>Entrar al panel</GoldButton>
                 </form>
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={signUp} className="space-y-4">
-                  <FieldGold id="e2" label="Email" type="email" value={email} onChange={setEmail} icon={Mail}
-                    placeholderWords={["nuevo@allgamma.com", "trader@allgamma.com", "vip@allgamma.com"]} />
-                  <FieldGold id="p2" label="Contraseña" type="password" value={password} onChange={setPassword} icon={Lock} minLength={6}
-                    placeholderWords={["GammaFlip2025!", "CallWall$420", "PutWall#108", "DealerEdge*99"]} />
-                  <GoldButton busy={busy}>Crear mi cuenta</GoldButton>
-                </form>
+                {verifying && (
+                  <div className="text-center text-sm text-muted-foreground py-8">
+                    Verificando tu pago…
+                  </div>
+                )}
+
+                {!verifying && paidEmail && (
+                  <>
+                    <div className="mb-4 flex items-start gap-2 rounded-2xl p-3 text-xs"
+                      style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.35)", color: "#86efac" }}
+                    >
+                      <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        Pago verificado para <strong className="font-mono">{paidEmail}</strong>. Crea tu contraseña para terminar.
+                      </div>
+                    </div>
+                    <form onSubmit={signUp} className="space-y-4">
+                      <FieldGold id="e2" label="Email (de tu pago)" type="email" value={email} onChange={() => {}} icon={Mail} disabled
+                        placeholderWords={[paidEmail]} />
+                      <FieldGold id="p2" label="Crea tu contraseña" type="password" value={password} onChange={setPassword} icon={Lock} minLength={6}
+                        placeholderWords={["mínimo 6 caracteres", "GammaFlip2025!", "DealerEdge*99"]} />
+                      <GoldButton busy={busy}>Crear cuenta y entrar</GoldButton>
+                    </form>
+                  </>
+                )}
+
+                {!verifying && !paidEmail && (
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-2 rounded-2xl p-4 text-xs"
+                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: "#fca5a5" }}
+                    >
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        {paidError ?? "Para crear una cuenta primero debes elegir un plan y completar el pago."}
+                      </div>
+                    </div>
+                    <Link to="/pricing" className="block">
+                      <Button type="button" className="w-full rounded-full h-12 font-bold text-black"
+                        style={{
+                          background: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)",
+                          boxShadow: "0 8px 24px rgba(255,215,0,0.4)",
+                        }}>
+                        Ver planes y pagar
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
 
@@ -241,24 +261,24 @@ export default function Auth() {
   );
 }
 
-function FieldGold({ id, label, type, value, onChange, icon: Icon, minLength, placeholderWords }: any) {
+function FieldGold({ id, label, type, value, onChange, icon: Icon, minLength, placeholderWords, disabled }: any) {
   const demo = useTypewriter(placeholderWords ?? [""], { typeMs: 85, deleteMs: 40, pauseMs: 1300 });
   return (
     <div className="space-y-1.5 text-secondary-foreground">
-      <Label htmlFor={id} className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-xs font-semibold tracking-wide text-secondary-foreground">{label}</Label>
+      <Label htmlFor={id} className="text-xs font-semibold tracking-wide text-secondary-foreground">{label}</Label>
       <div className="relative">
-        <Icon className="lucide lucide-lock absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 z-10 text-destructive-foreground" />
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 z-10 text-destructive-foreground" />
         <Input
           id={id}
           type={type}
           required
           minLength={minLength}
+          disabled={disabled}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex w-full border border-input px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-10 rounded-full h-11 bg-black/40 focus:bg-black/60 transition-colors relative text-secondary-foreground"
+          className="flex w-full border border-input px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 md:text-sm pl-10 rounded-full h-11 bg-black/40 focus:bg-black/60 transition-colors relative text-secondary-foreground"
           style={{ border: "1px solid rgba(255,215,0,0.3)" }}
         />
-        {/* Animated demo placeholder — only when empty */}
         {!value && (
           <div className="absolute left-10 top-1/2 -translate-y-1/2 pointer-events-none flex items-center text-sm font-mono"
             style={{ color: "rgba(255,215,0,0.55)" }}
@@ -286,7 +306,7 @@ function GoldButton({ busy, children }: { busy: boolean; children: React.ReactNo
     >
       <span className="flex items-center justify-center gap-2">
         {busy ? "..." : children}
-        {!busy && <ArrowRight className="lucide lucide-arrow-right h-4 w-4 group-hover:translate-x-1 transition-transform text-destructive" />}
+        {!busy && <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-destructive" />}
       </span>
     </Button>
   );

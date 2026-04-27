@@ -1,58 +1,64 @@
 import { useState } from "react";
-import { Rocket, Crown, Gem, Check, Sparkles, LogOut } from "lucide-react";
+import { Rocket, Crown, Gem, Check, Mail, X } from "lucide-react";
 import { PLANS, type Tier } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 const ICONS = { rocket: Rocket, crown: Crown, gem: Gem };
 
 interface PaywallProps {
+  /** Optional: kept for backwards compatibility with existing imports */
   email?: string;
 }
 
-export function Paywall({ email }: PaywallProps) {
+export function Paywall(_props: PaywallProps) {
   const [loading, setLoading] = useState<Tier | null>(null);
-  const nav = useNavigate();
+  const [chosen, setChosen] = useState<Tier | null>(null);
+  const [email, setEmail] = useState("");
 
-  const subscribe = async (tier: Tier) => {
+  const startCheckout = async (tier: Tier, emailToUse: string) => {
     setLoading(tier);
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId: PLANS[tier].priceId },
+      const { data, error } = await supabase.functions.invoke("create-checkout-public", {
+        body: { priceId: PLANS[tier].priceId, email: emailToUse },
       });
       if (error) throw error;
-      if (data?.url) window.open(data.url, "_blank");
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.location.href = data.url;
+      }
     } catch (e: any) {
-      toast.error(e.message || "Error creating checkout");
-    } finally {
+      toast.error(e.message || "Error iniciando el pago");
       setLoading(null);
     }
   };
 
-  const signOut = async () => { await supabase.auth.signOut(); nav("/"); };
+  const submitEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chosen) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Introduce un email válido");
+      return;
+    }
+    void startCheckout(chosen, email.trim());
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-background/80 backdrop-blur-md">
       <div className="relative w-full max-w-6xl my-8">
-        {/* Top bar with sign out */}
-        <div className="absolute -top-2 right-0 flex items-center gap-3">
-          {email && (
-            <span className="text-xs text-muted-foreground hidden md:inline">{email}</span>
-          )}
-          <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
-            <LogOut className="w-4 h-4" /> Sign out
-          </Button>
-        </div>
-
         <div className="text-center mb-8">
-
           <h1 className="text-4xl md:text-5xl font-bold mb-3">
             Elige tu <span className="text-primary">edge</span>
           </h1>
           <p className="text-muted-foreground">
-            Sin permanencia. Cancela cuando quieras. Aplica un código de descuento al pagar.
+            Sin permanencia. Cancela cuando quieras. <strong>Pagas primero, después creas tu cuenta.</strong>
+          </p>
+          <p className="text-xs text-muted-foreground mt-2">
+            ¿Ya tienes cuenta? <Link to="/auth" className="text-primary underline">Inicia sesión aquí</Link>
           </p>
         </div>
 
@@ -98,7 +104,7 @@ export function Paywall({ email }: PaywallProps) {
                   className={`w-full ${isPop ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`}
                   variant={isPop ? "default" : "outline"}
                   disabled={loading === key}
-                  onClick={() => subscribe(key)}
+                  onClick={() => setChosen(key)}
                 >
                   {loading === key ? "Cargando..." : "Empezar prueba"}
                 </Button>
@@ -108,9 +114,52 @@ export function Paywall({ email }: PaywallProps) {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Pago seguro vía Stripe · Cancela en cualquier momento durante la prueba sin cargo
+          Pago seguro vía Stripe · Cancela durante la prueba sin cargo · Crea tu cuenta tras pagar
         </p>
       </div>
+
+      {chosen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => { setChosen(null); setEmail(""); }}
+              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+              aria-label="Cerrar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-bold mb-1">Plan {PLANS[chosen].name} · ${PLANS[chosen].price}/mes</h2>
+            <p className="text-sm text-muted-foreground mb-5">
+              Indica tu email. Lo usaremos para el pago y, al volver, podrás crear tu cuenta con ese mismo email.
+            </p>
+            <form onSubmit={submitEmail} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="checkout-email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="checkout-email"
+                    type="email"
+                    required
+                    autoFocus
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@email.com"
+                    className="pl-10 h-11"
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full h-11 font-bold" disabled={loading === chosen}>
+                {loading === chosen ? "Redirigiendo a Stripe…" : "Continuar al pago →"}
+              </Button>
+              <p className="text-[11px] text-muted-foreground text-center">
+                Pago seguro · 7 días de prueba · Cancela cuando quieras
+              </p>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
