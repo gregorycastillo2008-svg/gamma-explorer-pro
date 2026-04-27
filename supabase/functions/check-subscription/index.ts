@@ -8,12 +8,9 @@ const corsHeaders = {
 };
 
 const PRICE_TO_TIER: Record<string, { tier: string; interval: string }> = {
-  price_1TQreBCZRgBPwOB9AOgrMFJ5: { tier: "basic", interval: "month" },
-  price_1TQrefCZRgBPwOB99sCuvVv4: { tier: "basic", interval: "year" },
-  price_1TQrfQCZRgBPwOB9Sti7Teao: { tier: "pro", interval: "month" },
-  price_1TQrfrCZRgBPwOB9CddMvqzz: { tier: "pro", interval: "year" },
-  price_1TQrgfCZRgBPwOB9Xa1n2i6P: { tier: "elite", interval: "month" },
-  price_1TQrhICZRgBPwOB9YKQTn74Y: { tier: "elite", interval: "year" },
+  price_1TQrwlCZRgBPwOB9FoDolYiq: { tier: "starter", interval: "month" },
+  price_1TQrxOCZRgBPwOB9UbadcwFU: { tier: "pro", interval: "month" },
+  price_1TQry2CZRgBPwOB9bKH38XuV: { tier: "elite", interval: "month" },
 };
 
 serve(async (req) => {
