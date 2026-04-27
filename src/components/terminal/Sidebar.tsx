@@ -34,10 +34,15 @@ interface Props {
   isAdmin: boolean;
   email?: string;
   onSignOut: () => void;
+  allowed?: Section[];
+  tier?: string | null;
+  onUpgrade?: () => void;
 }
 
-export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email, onSignOut }: Props) {
-  const groups = Array.from(new Set(SECTIONS.map((s) => s.group)));
+export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email, onSignOut, allowed, tier, onUpgrade }: Props) {
+  const allowSet = allowed ? new Set(allowed) : null;
+  const visibleSections = allowSet ? SECTIONS.filter((s) => allowSet.has(s.id)) : SECTIONS;
+  const groups = Array.from(new Set(visibleSections.map((s) => s.group)));
   return (
     <aside
       className={cn(
