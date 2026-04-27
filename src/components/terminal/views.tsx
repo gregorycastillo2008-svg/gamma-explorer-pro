@@ -12,6 +12,7 @@ import { VolatilityDashboard } from "@/components/volatility/VolatilityDashboard
 import { PriceGexChartContainer } from "@/components/chart/PriceGexChartContainer";
 import { IntegratedGEXChart } from "@/components/chart/IntegratedGEXChart";
 import { GreekLadder } from "@/components/greeks/GreekLadder";
+import { OptionsFlowHeatmap } from "./OptionsFlowHeatmap";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -1049,6 +1050,11 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
               key: "surface",
               label: "3D SURFACE",
               content: <SurfaceChart strikes={strikes.slice().reverse()} expiries={expiries} cellMap={cellMap} min={min} max={max} colorFor={colorFor} />,
+            },
+            {
+              key: "flow",
+              label: "OPTIONS FLOW",
+              content: <OptionsFlowHeatmap ticker={ticker} contracts={contracts} />,
             },
           ]}
         />
