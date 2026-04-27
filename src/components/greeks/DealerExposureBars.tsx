@@ -34,6 +34,7 @@ interface Props {
  */
 export function DealerExposureBars({ rows, spot, symbol, mode: modeProp, lockMode, title, fullBleed }: Props) {
   const [mode, setMode] = useState<"GEX" | "DEX">(modeProp ?? "GEX");
+  const [hover, setHover] = useState<number | null>(null);
   const effectiveMode = lockMode ? (modeProp ?? "GEX") : mode;
 
   const data = useMemo(() => {
@@ -46,11 +47,18 @@ export function DealerExposureBars({ rows, spot, symbol, mode: modeProp, lockMod
           spot *
           0.01;
         const dex = (r.callDelta * r.callOI + r.putDelta * r.putOI) * 100 * spot;
-        return { strike: r.strike, value: effectiveMode === "GEX" ? gex : dex, callSide: 0, putSide: 0 };
+        return {
+          strike: r.strike,
+          value: effectiveMode === "GEX" ? gex : dex,
+          gex, dex,
+          callOI: r.callOI, putOI: r.putOI,
+        };
       })
       .filter((d) => Number.isFinite(d.value))
       .sort((a, b) => b.strike - a.strike);
   }, [rows, effectiveMode, spot]);
+
+  const totalAbs = data.reduce((s, d) => s + Math.abs(d.value), 0) || 1;
 
   const maxAbs = Math.max(1, ...data.map((d) => Math.abs(d.value)));
 
