@@ -172,6 +172,9 @@ export default function Dashboard() {
         isAdmin={isAdmin}
         email={user?.email ?? undefined}
         onSignOut={signOut}
+        allowed={allowed}
+        tier={isAdmin ? "admin" : tier}
+        onUpgrade={openManagePlan}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar
