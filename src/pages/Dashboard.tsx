@@ -18,6 +18,7 @@ import {
   OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
 } from "@/components/terminal/views";
 import { GexDexExposure } from "@/components/terminal/GexDexExposure";
+import { HorizontalGEXChart } from "@/components/terminal/HorizontalGEXChart";
 import { DepthAltaris } from "@/components/terminal/DepthAltaris";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { SectionTransition } from "@/components/terminal/SectionTransition";
@@ -113,7 +114,7 @@ export default function Dashboard() {
     switch (section) {
       case "overview": return <OverviewView {...ctx} />;
       case "oi-analytics": return <OiAnalyticsView {...ctx} />;
-      case "gex-dex": return <GexDexExposure ticker={ticker} contracts={filtered} />;
+      case "gex-dex": return <HorizontalGEXChart ticker={ticker} contracts={filtered} />;
       case "greeks": return <GreeksView {...ctx} />;
       case "depth": return <DepthAltaris {...ctx} />;
       case "levels": return <LevelsView {...ctx} />;
