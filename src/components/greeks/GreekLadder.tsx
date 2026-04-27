@@ -329,6 +329,36 @@ export function GreekLadder({ symbol: initialSymbol = "SPY" }: Props) {
         </div>
       </div>
 
+      {/* ═════ TABS (3D SURFACE | GREEK LADDER | DELTA EXPOSURE) ═════ */}
+      <div
+        className="flex items-center gap-1 px-3 pt-2"
+        style={{ borderBottom: "1px solid #1f1f1f", background: "#000" }}
+      >
+        {([
+          { id: "surface", label: "3D SURFACE" },
+          { id: "ladder",  label: "GREEK LADDER" },
+          { id: "delta",   label: "DELTA EXPOSURE" },
+        ] as const).map((t) => {
+          const active = activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className="px-3 py-2 text-[10px] font-bold tracking-[0.2em] uppercase transition-colors relative"
+              style={{
+                color: active ? "#10b981" : "#666",
+                background: active ? "rgba(16,185,129,0.06)" : "transparent",
+                borderTop: `1px solid ${active ? "#10b981" : "transparent"}`,
+                borderLeft: `1px solid ${active ? "#1f1f1f" : "transparent"}`,
+                borderRight: `1px solid ${active ? "#1f1f1f" : "transparent"}`,
+                borderBottom: active ? "1px solid #000" : "none",
+                marginBottom: -1,
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       {/* ═════ TABLE ═════ */}
       {err && (
         <div className="p-4 text-center text-[11px] text-red-400">Error: {err}</div>
