@@ -229,8 +229,8 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
               {gammaAtSpot >= 0 ? "+" : ""}{fmtBn(gammaAtSpot)}
             </span>
           </span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Call GEX</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Put GEX</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#00f514]" /> Call GEX</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ff0000]" /> Put GEX</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> OI %</span>
           <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-yellow-400" /> Spot</span>
         </div>
