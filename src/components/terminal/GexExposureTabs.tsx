@@ -86,7 +86,7 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
   }, [ticker, contracts, metric]);
 
   return (
-    <div className="bg-black rounded overflow-auto max-h-[400px]" style={{ scrollbarColor: "#1a1a1a #000" }}>
+    <div className="bg-black rounded overflow-auto h-full" style={{ scrollbarColor: "#1a1a1a #000" }}>
       <table className="w-full font-jetbrains text-[11px]" style={{ borderCollapse: "collapse" }}>
         <thead className="sticky top-0 z-20">
           <tr>
@@ -198,7 +198,7 @@ export function StrikeChartView({ ticker, contracts, metric }: Props) {
 
   return (
     <div
-      className="relative bg-black rounded border border-border p-2"
+      className="relative bg-black rounded border border-border p-2 h-full overflow-auto"
       onMouseLeave={() => setHover(null)}
     >
       <div className="font-jetbrains text-[9px] text-muted-foreground uppercase tracking-wider mb-1.5 grid grid-cols-2 gap-2">

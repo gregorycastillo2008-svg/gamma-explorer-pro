@@ -232,9 +232,9 @@ export function GexDexView({ ticker, contracts }: Ctx) {
       <TerminalTabs
         layoutId="gexdex-master-tab-bg"
         tabs={[
-          { key: "heatmap", label: "HEATMAP", content: <Panel title="Heatmap Matrix" subtitle={`${ticker.symbol} · ${m === "netGex" ? "GEX" : "DEX"} per strike × DTE`} noPad><div className="p-2 bg-black"><HeatmapGridView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
-          { key: "strike", label: "STRIKE CHART", content: <Panel title="Strike Distribution" subtitle={`${ticker.symbol} · ${m === "netGex" ? "Gamma" : "Delta"} per strike`} noPad><div className="p-2 bg-black"><StrikeChartView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
-          { key: "surface", label: "3D SURFACE", content: <Panel title="3D Surface Projection" subtitle={`${ticker.symbol} · drag to rotate`} noPad><div className="p-2 bg-black"><SurfaceView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
+          { key: "heatmap", label: "HEATMAP", content: <Panel title="Heatmap Matrix" subtitle={`${ticker.symbol} · ${m === "netGex" ? "GEX" : "DEX"} per strike × DTE`} noPad className="h-full flex flex-col"><div className="p-2 bg-black flex-1 min-h-0"><HeatmapGridView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
+          { key: "strike", label: "STRIKE CHART", content: <Panel title="Strike Distribution" subtitle={`${ticker.symbol} · ${m === "netGex" ? "Gamma" : "Delta"} per strike`} noPad className="h-full flex flex-col"><div className="p-2 bg-black flex-1 min-h-0"><StrikeChartView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
+          { key: "surface", label: "3D SURFACE", content: <Panel title="3D Surface Projection" subtitle={`${ticker.symbol} · drag to rotate`} noPad className="h-full flex flex-col"><div className="p-2 bg-black flex-1 min-h-0"><SurfaceView ticker={ticker} contracts={filtered} metric={m} /></div></Panel> },
           { key: "tape", label: "LIVE TAPE", content: liveTape },
           { key: "bias", label: "BIAS", content: biasBreakdown },
           { key: "table", label: "STRIKE TABLE", content: <StrikeTable exposures={exposures} ticker={ticker} /> },
