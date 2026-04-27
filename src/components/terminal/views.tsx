@@ -6,6 +6,7 @@ import { GexExposureTabs, HeatmapGridView, StrikeChartView, SurfaceView } from "
 import { TerminalTabs } from "./TerminalTabs";
 import { FloatingStatBar } from "./FloatingStatBar";
 import { ThirdOrderGreeksPanel } from "./ThirdOrderGreeksPanel";
+import { GexDexDashboard } from "./GexDexDashboard";
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
