@@ -110,7 +110,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
               label={{ value: `★ MAX −${sym}`, position: "bottom", fill: "hsl(var(--put))", fontSize: 10, fontWeight: 600 }}
             />
           )}
-          <Bar dataKey="value" radius={[2, 2, 0, 0]} maxBarSize={40} shape={(props: any) => {
+          <Bar dataKey="value" radius={[3, 3, 0, 0]} shape={(props: any) => {
             const fill = props.payload.isPositive ? "hsl(var(--call))" : "hsl(var(--put))";
             return <rect {...props} fill={fill} />;
           }} />
