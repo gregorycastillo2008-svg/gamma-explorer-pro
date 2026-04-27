@@ -118,37 +118,50 @@ const DTE_FILTERS = [
 // GexDexView removed — section deleted from sidebar.
 
 // ─────── GREEK LADDER ───────
-export function GreeksView({ ticker, exposures }: Ctx) {
+export function GreeksView({ ticker, exposures, contracts }: Ctx) {
+  const atmIv = useMemo(() => {
+    const near = contracts.filter((c) => Math.abs(c.strike - ticker.spot) < ticker.strikeStep * 1.5);
+    if (!near.length) return 0.20;
+    return near.reduce((s, c) => s + c.iv, 0) / near.length;
+  }, [contracts, ticker]);
+
   return (
-    <Panel title="Greek Ladder" subtitle="Aggregated dealer exposure per strike" noPad>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs font-mono">
-          <thead className="bg-secondary/40 sticky top-0">
-            <tr className="text-left text-muted-foreground">
-              <Th>Strike</Th><Th r>Call OI</Th><Th r>Put OI</Th>
-              <Th r>GEX</Th><Th r>DEX</Th><Th r>VEX</Th><Th r>Vanna</Th><Th r>Charm</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {exposures.map((p) => {
-              const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
-              return (
-                <tr key={p.strike} className={`border-b border-border/30 ${isSpot ? "bg-primary/10" : "hover:bg-secondary/30"}`}>
-                  <Td bold>{p.strike}{isSpot && <span className="ml-1 text-[10px] text-primary">●</span>}</Td>
-                  <Td r>{formatNumber(p.callOI, 0)}</Td>
-                  <Td r>{formatNumber(p.putOI, 0)}</Td>
-                  <Td r tone={p.netGex >= 0 ? "call" : "put"}>{formatNumber(p.netGex)}</Td>
-                  <Td r>{formatNumber(p.dex)}</Td>
-                  <Td r>{formatNumber(p.vex)}</Td>
-                  <Td r>{formatNumber(p.vanna)}</Td>
-                  <Td r>{formatNumber(p.charm)}</Td>
+    <div className="h-full overflow-y-auto p-1">
+      <GreekLadder symbol={ticker.symbol} spot={ticker.spot} strikeStep={ticker.strikeStep} iv={atmIv} />
+
+      {/* Legacy aggregate ladder (dealer exposure) */}
+      <div className="mt-4">
+        <Panel title="Dealer Exposure per Strike" subtitle="Aggregated GEX/DEX/VEX/Vanna/Charm" noPad>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs font-mono">
+              <thead className="bg-secondary/40 sticky top-0">
+                <tr className="text-left text-muted-foreground">
+                  <Th>Strike</Th><Th r>Call OI</Th><Th r>Put OI</Th>
+                  <Th r>GEX</Th><Th r>DEX</Th><Th r>VEX</Th><Th r>Vanna</Th><Th r>Charm</Th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {exposures.map((p) => {
+                  const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
+                  return (
+                    <tr key={p.strike} className={`border-b border-border/30 ${isSpot ? "bg-primary/10" : "hover:bg-secondary/30"}`}>
+                      <Td bold>{p.strike}{isSpot && <span className="ml-1 text-[10px] text-primary">●</span>}</Td>
+                      <Td r>{formatNumber(p.callOI, 0)}</Td>
+                      <Td r>{formatNumber(p.putOI, 0)}</Td>
+                      <Td r tone={p.netGex >= 0 ? "call" : "put"}>{formatNumber(p.netGex)}</Td>
+                      <Td r>{formatNumber(p.dex)}</Td>
+                      <Td r>{formatNumber(p.vex)}</Td>
+                      <Td r>{formatNumber(p.vanna)}</Td>
+                      <Td r>{formatNumber(p.charm)}</Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
       </div>
-    </Panel>
+    </div>
   );
 }
 
