@@ -483,7 +483,7 @@ export default function Landing() {
               >
                 <motion.div
                   className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(115deg, transparent 40%, rgba(255,215,0,0.4) 50%, transparent 60%)" }}
+                  style={{ background: "linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%)" }}
                   animate={{ x: ["-120%", "120%"] }}
                   transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.6, repeatDelay: 0.4 }}
                 />
