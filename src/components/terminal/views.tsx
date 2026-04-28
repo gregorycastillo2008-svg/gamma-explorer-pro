@@ -103,21 +103,7 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 export function ChartView({ ticker, exposures, levels }: Ctx) {
   return (
     <div className="h-full overflow-hidden">
-      <TerminalTabs
-        layoutId="chart-master-tab-bg"
-        tabs={[
-          {
-            key: "tradingview",
-            label: "TRADINGVIEW",
-            content: <TradingViewGexChart ticker={ticker} exposures={exposures} levels={levels} />,
-          },
-          {
-            key: "gex",
-            label: "GEX CHART",
-            content: <IntegratedGEXChart defaultSymbol={ticker.symbol} />,
-          },
-        ]}
-      />
+      <IntegratedGEXChart defaultSymbol={ticker.symbol} />
     </div>
   );
 }
