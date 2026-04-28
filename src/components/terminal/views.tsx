@@ -452,8 +452,10 @@ export function LevelsView({ ticker, exposures, levels }: Ctx) {
               <div className="grid grid-cols-2 gap-2">
                 <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
                 <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-                <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-                <StatBlock label="Spot" value={`$${ticker.spot}`} tone="primary" />
+                <StatBlock label="Major Wall" value={`$${levels.majorWall}`} tone="primary" sub={`${(((levels.majorWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                <StatBlock label="Max Pain" value={`$${levels.maxPain}`} tone="warning" sub={`${(((levels.maxPain - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                <StatBlock label="Vol Trigger" value={`$${levels.volTrigger}`} tone="flip" sub={levels.gammaFlip ? "gamma flip" : "zero-gamma proxy"} />
+                <StatBlock label="Total VT" value={`$${levels.totalVt}`} tone="call" sub="vega weighted" />
               </div>
               <div className="mt-3 p-3 rounded bg-secondary/40 text-xs leading-relaxed">
                 <div className="font-semibold mb-1 text-foreground">Reading</div>
