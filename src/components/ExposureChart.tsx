@@ -1,6 +1,7 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine, ReferenceDot, CartesianGrid, LabelList } from "recharts";
 import type { ExposurePoint } from "@/lib/gex";
 import { formatNumber } from "@/lib/gex";
+import { HoverBar } from "@/components/terminal/HoverBar";
 
 interface Props {
   data: ExposurePoint[];
@@ -112,7 +113,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
           )}
           <Bar dataKey="value" radius={[3, 3, 0, 0]} shape={(props: any) => {
             const fill = props.payload.isPositive ? "hsl(var(--call))" : "hsl(var(--put))";
-            return <rect {...props} fill={fill} />;
+            return <HoverBar {...props} fill={fill} orientation="vertical" />;
           }} />
         </BarChart>
       </ResponsiveContainer>

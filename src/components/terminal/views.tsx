@@ -103,21 +103,7 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 export function ChartView({ ticker, exposures, levels }: Ctx) {
   return (
     <div className="h-full overflow-hidden">
-      <TerminalTabs
-        layoutId="chart-master-tab-bg"
-        tabs={[
-          {
-            key: "tradingview",
-            label: "TRADINGVIEW",
-            content: <TradingViewGexChart ticker={ticker} exposures={exposures} levels={levels} />,
-          },
-          {
-            key: "gex",
-            label: "GEX CHART",
-            content: <IntegratedGEXChart defaultSymbol={ticker.symbol} />,
-          },
-        ]}
-      />
+      <IntegratedGEXChart defaultSymbol={ticker.symbol} />
     </div>
   );
 }
@@ -280,9 +266,9 @@ export function DepthView({ ticker, contracts }: Ctx) {
                 )}
 
                 {/* Put bar — right-aligned, going left */}
-                <div className="flex justify-end h-3.5">
+                <div className="group/put flex justify-end h-3.5">
                   <div
-                    className="h-full rounded-l-sm transition-all"
+                    className="h-full rounded-l-sm origin-right transition-all duration-150 ease-out group-hover/put:scale-y-[1.4] group-hover/put:brightness-125"
                     style={{
                       width: `${putPct}%`,
                       background: "linear-gradient(90deg, hsl(0 95% 35%), hsl(0 100% 58%))",
@@ -301,9 +287,9 @@ export function DepthView({ ticker, contracts }: Ctx) {
                 </div>
 
                 {/* Call bar — left-aligned, going right */}
-                <div className="flex h-3.5">
+                <div className="group/call flex h-3.5">
                   <div
-                    className="h-full rounded-r-sm transition-all"
+                    className="h-full rounded-r-sm origin-left transition-all duration-150 ease-out group-hover/call:scale-y-[1.4] group-hover/call:brightness-125"
                     style={{
                       width: `${callPct}%`,
                       background: "linear-gradient(90deg, hsl(140 100% 50%), hsl(140 95% 35%))",
@@ -962,16 +948,16 @@ function HorizontalBars({ exposures, metric, max, spot, maxPain }: {
               {isSpot && <span className="ml-1">●</span>}
               {isMaxPain && !isSpot && <span className="ml-1 text-[9px]">MP</span>}
             </span>
-            <div className="relative h-4 bg-secondary/30 rounded-sm">
+            <div className="group/bar relative h-4 bg-secondary/30 rounded-sm">
               <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
               {v >= 0 ? (
                 <div
-                  className="absolute inset-y-0 left-1/2 bg-call/70 rounded-r-sm transition-all"
+                  className="absolute inset-y-0 left-1/2 bg-call/70 rounded-r-sm origin-left transition-all duration-150 ease-out group-hover/bar:scale-y-[1.4] group-hover/bar:brightness-125"
                   style={{ width: `${pct}%`, boxShadow: isHover ? "0 0 10px hsl(var(--call) / 0.6)" : undefined }}
                 />
               ) : (
                 <div
-                  className="absolute inset-y-0 right-1/2 bg-put/70 rounded-l-sm transition-all"
+                  className="absolute inset-y-0 right-1/2 bg-put/70 rounded-l-sm origin-right transition-all duration-150 ease-out group-hover/bar:scale-y-[1.4] group-hover/bar:brightness-125"
                   style={{ width: `${pct}%`, boxShadow: isHover ? "0 0 10px hsl(var(--put) / 0.6)" : undefined }}
                 />
               )}
