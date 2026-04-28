@@ -8,9 +8,12 @@ const corsHeaders = {
 };
 
 const VALID_PRICES = new Set([
-  "price_1TQrwlCZRgBPwOB9FoDolYiq", // Starter
-  "price_1TQrxOCZRgBPwOB9UbadcwFU", // Pro
-  "price_1TQry2CZRgBPwOB9bKH38XuV", // Elite
+  "price_1TRKWKCZRgBPwOB9awvuYUwA", // Starter monthly
+  "price_1TRKUmCZRgBPwOB9EKTEEmLz", // Starter yearly
+  "price_1TRKXwCZRgBPwOB97g6uSUfB", // Pro monthly
+  "price_1TRKVBCZRgBPwOB995UiKA0S", // Pro yearly
+  "price_1TRKYNCZRgBPwOB9RKZeO5Zb", // Elite monthly
+  "price_1TRKVnCZRgBPwOB93yFgA2kX", // Elite yearly
 ]);
 
 serve(async (req) => {
@@ -44,7 +47,6 @@ serve(async (req) => {
       mode: "subscription",
       payment_method_types: ["card"],
       allow_promotion_codes: true,
-      subscription_data: { trial_end: Math.floor(Date.now() / 1000) },
       success_url: `${origin}/dashboard?checkout=success`,
       cancel_url: `${origin}/dashboard?checkout=cancel`,
     });
