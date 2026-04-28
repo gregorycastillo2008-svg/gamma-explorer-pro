@@ -1,4 +1,4 @@
-// Bias forecaster usando Lovable AI Gateway con el modelo más potente disponible.
+// Bias forecaster usando Claude API (Anthropic).
 // Recibe datos reales de mercado y devuelve predicción JSON estructurada.
 // Cache en memoria por símbolo+día (30 min TTL).
 
@@ -41,12 +41,7 @@ interface Prediction {
 const cache = new Map<string, { ts: number; data: Prediction }>();
 const TTL_MS = 30 * 60 * 1000;
 
-// Modelo más potente disponible en Lovable AI Gateway
-const MODEL = "openai/gpt-5.2";
-
-function buildSystemPrompt(): string {
-  return `Eres el analista cuantitativo más avanzado del mundo, experto en Gamma Exposure (GEX), market microstructure, dealer hedging flows y volatility surface dynamics. Analizas datos reales de opciones y produces predicciones direccionales calibradas con razonamiento profundo. Siempre respondes con JSON válido sin markdown ni texto extra.`;
-}
+const MODEL = "claude-haiku-4-5-20251001";
 
 function buildPrompt(md: MarketData, targetDay: string): string {
   const distFlipPct = ((md.spotPrice - md.gammaFlip) / md.gammaFlip * 100).toFixed(2);
@@ -54,11 +49,11 @@ function buildPrompt(md: MarketData, targetDay: string): string {
     `- $${s.strike}: ${(s.netGEX / 1e9).toFixed(2)}B (Call OI: ${s.callOI.toLocaleString()}, Put OI: ${s.putOI.toLocaleString()})`
   ).join("\n");
 
-  return `Analiza estos DATOS REALES DE MERCADO y predice el sesgo direccional para ${targetDay}.
+  return `Eres el analista cuantitativo más avanzado del mundo, experto en Gamma Exposure (GEX), market microstructure, dealer hedging flows y volatility surface dynamics. Analizas datos reales de opciones y produces predicciones direccionales calibradas. Siempre respondes con JSON válido sin markdown ni texto extra.
 
-═══════════════════════════════════════════════════════════════════════════
+Analiza estos DATOS REALES DE MERCADO y predice el sesgo direccional para ${targetDay}.
+
 DATOS ACTUALES (${new Date(md.timestamp).toLocaleString()}) — ${md.symbol}
-═══════════════════════════════════════════════════════════════════════════
 
 PRECIO Y GAMMA:
 - Precio spot: $${md.spotPrice.toFixed(2)}
@@ -87,8 +82,6 @@ CONCENTRACIÓN:
 TOP 5 STRIKES POR NET GEX:
 ${topStrikesStr}
 
-═══════════════════════════════════════════════════════════════════════════
-
 Framework (pesos): Posición vs Flip 35%, Net GEX 25%, C/P Ratio 20%, Put Skew 10%, Concentración 10%.
 
 Responde ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
@@ -112,9 +105,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) {
+      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured. Add it in Supabase Dashboard → Edge Functions → Secrets." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -134,43 +127,37 @@ Deno.serve(async (req) => {
       });
     }
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         model: MODEL,
+        max_tokens: 1024,
         messages: [
-          { role: "system", content: buildSystemPrompt() },
           { role: "user", content: buildPrompt(marketData, targetDay) },
         ],
-        response_format: { type: "json_object" },
-        reasoning: { effort: "high" },
       }),
     });
 
     if (!resp.ok) {
       const txt = await resp.text();
-      console.error("Lovable AI error:", resp.status, txt);
+      console.error("Anthropic API error:", resp.status, txt);
       if (resp.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit excedido. Intenta de nuevo en unos segundos." }), {
+        return new Response(JSON.stringify({ error: "Rate limit. Intenta de nuevo en unos segundos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (resp.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de Lovable AI agotados. Añade créditos en Settings > Workspace > Usage." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: `AI gateway ${resp.status}: ${txt.slice(0, 200)}` }), {
+      return new Response(JSON.stringify({ error: `Anthropic API ${resp.status}: ${txt.slice(0, 200)}` }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const apiJson = await resp.json();
-    const text: string = apiJson?.choices?.[0]?.message?.content ?? "";
+    const text: string = apiJson?.content?.[0]?.text ?? "";
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) {
       return new Response(JSON.stringify({ error: "AI returned non-JSON", raw: text.slice(0, 500) }), {

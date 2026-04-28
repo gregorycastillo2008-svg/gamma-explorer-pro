@@ -3,7 +3,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem, Info, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem, Info, X, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
 import { AllGammaLogo } from "@/components/AllGammaLogo";
@@ -11,6 +13,8 @@ import { Scroll3DGallery } from "@/components/Scroll3DGallery";
 import { RadarMap } from "@/components/RadarMap";
 import { TestimonialsMarquee } from "@/components/TestimonialsMarquee";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { PLANS, type Tier } from "@/lib/plans";
 
 const features = [
   { icon: BarChart3, title: "GEX por strike", desc: "Visualiza Gamma Exposure agregada por strike con detección automática de Call/Put walls." },
@@ -65,6 +69,59 @@ export default function Landing() {
   const { user } = useAuth();
   const [showPlansBubble, setShowPlansBubble] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<Tier | null>(null);
+  const [checkoutEmail, setCheckoutEmail] = useState("");
+
+  const handlePlanClick = async (planName: string) => {
+    const tier = planName.toLowerCase() as Tier;
+    const plan = PLANS[tier];
+    if (!plan) return;
+
+    if (user?.email) {
+      // Logged in → direct authenticated checkout
+      setCheckoutLoading(planName);
+      try {
+        const { data, error } = await supabase.functions.invoke("create-checkout", {
+          body: { priceId: plan.priceId },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        if (data?.url) window.location.href = data.url;
+      } catch (e: any) {
+        toast.error(e.message || "Error iniciando el pago");
+      } finally {
+        setCheckoutLoading(null);
+      }
+    } else {
+      // Not logged in → show email popup
+      setCheckoutPlan(tier);
+      setCheckoutEmail("");
+    }
+  };
+
+  const submitCheckoutEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkoutPlan) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(checkoutEmail)) {
+      toast.error("Introduce un email válido");
+      return;
+    }
+    const plan = PLANS[checkoutPlan];
+    setCheckoutLoading(checkoutPlan);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout-public", {
+        body: { priceId: plan.priceId, email: checkoutEmail.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) window.location.href = data.url;
+    } catch (e: any) {
+      toast.error(e.message || "Error iniciando el pago");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
 
   // animated word in hero
   const heroWords = ["Gamma Exposure", "Dealer Flow", "Volatility Edge", "Market Bias"];
@@ -364,11 +421,15 @@ export default function Landing() {
                       </li>
                     ))}
                   </ul>
-                  <Link to={user ? "/dashboard" : "/auth"} className="block mt-7">
-                    <Button className="w-full" variant={p.popular ? "default" : "outline"} size="lg">
-                      Empezar prueba
-                    </Button>
-                  </Link>
+                  <Button
+                    className="w-full mt-7"
+                    variant={p.popular ? "default" : "outline"}
+                    size="lg"
+                    disabled={checkoutLoading === p.name}
+                    onClick={() => handlePlanClick(p.name)}
+                  >
+                    {checkoutLoading === p.name ? "Redirigiendo…" : "Suscribirse →"}
+                  </Button>
                 </div>
               </Card>
             </motion.div>
@@ -440,6 +501,66 @@ export default function Landing() {
           GEXSATELIT · Plataforma verificada · Solo con fines educativos. Datos simulados.
         </div>
       </footer>
+
+      {/* Email popup for unauthenticated checkout */}
+      <AnimatePresence>
+        {checkoutPlan && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => { setCheckoutPlan(null); setCheckoutEmail(""); }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 22 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl"
+            >
+              <button
+                type="button"
+                onClick={() => { setCheckoutPlan(null); setCheckoutEmail(""); }}
+                className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h2 className="text-xl font-bold mb-1">
+                Plan {PLANS[checkoutPlan].name} · ${PLANS[checkoutPlan].price}/mes
+              </h2>
+              <p className="text-sm text-muted-foreground mb-5">
+                Indica tu email para el pago. Después podrás crear tu cuenta con ese mismo email.
+              </p>
+              <form onSubmit={submitCheckoutEmail} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="plan-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="plan-email"
+                      type="email"
+                      required
+                      autoFocus
+                      value={checkoutEmail}
+                      onChange={(e) => setCheckoutEmail(e.target.value)}
+                      placeholder="tu@email.com"
+                      className="pl-10 h-11"
+                    />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full h-11 font-bold" disabled={!!checkoutLoading}>
+                  {checkoutLoading ? "Redirigiendo a Stripe…" : "Ir al pago →"}
+                </Button>
+                <p className="text-[11px] text-muted-foreground text-center">
+                  Pago seguro vía Stripe · Cancela cuando quieras
+                </p>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Fixed bottom discount-codes bar */}
       <div

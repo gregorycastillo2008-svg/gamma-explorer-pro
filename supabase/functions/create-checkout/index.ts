@@ -43,9 +43,6 @@ serve(async (req) => {
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       payment_method_types: ["card"],
-      subscription_data: {
-        trial_period_days: 7,
-      },
       allow_promotion_codes: true,
       success_url: `${origin}/dashboard?checkout=success`,
       cancel_url: `${origin}/dashboard?checkout=cancel`,

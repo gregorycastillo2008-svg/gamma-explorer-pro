@@ -105,9 +105,10 @@ export function useOptionsData(symbol: string): OptionsData {
         strikeStep: step,
         expiries,
       });
-      // Strip extra greeks down to OptionContract for the lib
+      // Pass real greeks from CBOE so GEX is computed with actual gamma, not BS estimate
       setContracts(json.contracts.map((c) => ({
         strike: c.strike, expiry: c.expiry, type: c.type, iv: c.iv, oi: c.oi,
+        gamma: c.gamma, delta: c.delta, vega: c.vega, theta: c.theta,
       })));
       setStatus("live");
       setSource(json.source);

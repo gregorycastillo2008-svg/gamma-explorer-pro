@@ -23,6 +23,11 @@ export interface OptionContract {
   type: "call" | "put";
   iv: number; // implied vol (decimal)
   oi: number; // open interest
+  // Real greeks from CBOE/Polygon (used when available, overrides BS recalc)
+  gamma?: number;
+  delta?: number;
+  vega?: number;
+  theta?: number;
 }
 
 export interface Greeks {
@@ -68,7 +73,15 @@ export function computeExposures(spot: number, contracts: OptionContract[], r = 
   const map = new Map<number, ExposurePoint>();
   for (const c of contracts) {
     const T = Math.max(c.expiry, 1) / 365;
-    const g = bsGreeks(spot, c.strike, T, r, c.iv, c.type);
+    // Use real greeks from CBOE/Polygon when available, fallback to Black-Scholes
+    const hasRealGreeks = (c.gamma != null && c.gamma !== 0) || (c.delta != null && c.delta !== 0);
+    const bs = hasRealGreeks ? null : bsGreeks(spot, c.strike, T, r, c.iv, c.type);
+    const gamma = hasRealGreeks ? (c.gamma ?? 0) : bs!.gamma;
+    const delta = hasRealGreeks ? (c.delta ?? 0) : bs!.delta;
+    const vega  = hasRealGreeks ? (c.vega  ?? 0) : bs!.vega;
+    const vanna = bs ? bs.vanna : 0;
+    const charm = bs ? bs.charm : 0;
+
     const notional = c.oi * CONTRACT_SIZE;
     const point = map.get(c.strike) ?? {
       strike: c.strike, callGex: 0, putGex: 0, netGex: 0,
@@ -76,7 +89,7 @@ export function computeExposures(spot: number, contracts: OptionContract[], r = 
     };
     // Dealer is short calls / long puts (standard convention)
     const sign = c.type === "call" ? 1 : -1;
-    const gexContrib = g.gamma * notional * spot * spot * 0.01 * sign;
+    const gexContrib = gamma * notional * spot * spot * 0.01 * sign;
     if (c.type === "call") {
       point.callGex += gexContrib;
       point.callOI += c.oi;
@@ -85,10 +98,10 @@ export function computeExposures(spot: number, contracts: OptionContract[], r = 
       point.putOI += c.oi;
     }
     point.netGex += gexContrib;
-    point.dex += g.delta * notional * spot * sign;
-    point.vex += g.vega * notional * sign;
-    point.vanna += g.vanna * notional * sign;
-    point.charm += g.charm * notional * sign;
+    point.dex += delta * notional * spot * sign;
+    point.vex += vega * notional * sign;
+    point.vanna += vanna * notional * sign;
+    point.charm += charm * notional * sign;
     map.set(c.strike, point);
   }
   return Array.from(map.values()).sort((a, b) => a.strike - b.strike);

@@ -106,7 +106,7 @@ export function Paywall(_props: PaywallProps) {
                   disabled={loading === key}
                   onClick={() => setChosen(key)}
                 >
-                  {loading === key ? "Cargando..." : "Empezar prueba"}
+                  {loading === key ? "Cargando..." : "Suscribirse →"}
                 </Button>
               </div>
             );
@@ -114,7 +114,7 @@ export function Paywall(_props: PaywallProps) {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Pago seguro vía Stripe · Cancela durante la prueba sin cargo · Crea tu cuenta tras pagar
+          Pago seguro vía Stripe · Sin permanencia · Crea tu cuenta tras pagar
         </p>
       </div>
 
@@ -154,7 +154,7 @@ export function Paywall(_props: PaywallProps) {
                 {loading === chosen ? "Redirigiendo a Stripe…" : "Continuar al pago →"}
               </Button>
               <p className="text-[11px] text-muted-foreground text-center">
-                Pago seguro · 7 días de prueba · Cancela cuando quieras
+                Pago seguro vía Stripe · Cancela cuando quieras
               </p>
             </form>
           </div>
