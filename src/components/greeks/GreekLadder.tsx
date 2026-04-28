@@ -336,7 +336,6 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
         style={{ borderBottom: "1px solid #1f1f1f", background: "#000" }}
       >
         {([
-          { id: "surface", label: "3D SURFACE" },
           { id: "ladder",  label: "GREEK LADDER" },
           { id: "delta",   label: "DELTA EXPOSURE" },
           { id: "striker", label: "STRIKER DELTA" },
@@ -451,16 +450,9 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
       )}
       </>}
 
-      {/* ═════ 3D SURFACE tab ═════ */}
-      {activeTab === "surface" && chain && dealerRows.length > 0 && (
-        <div className="p-3 border-t border-[#1f1f1f]" style={{ background: "#030303" }}>
-          <GreeksSurface3D symbol={symbol} points={surfacePoints} metric="GAMMA" />
-        </div>
-      )}
-
-      {/* ═════ DELTA EXPOSURE tab — only Gamma bars filling the entire card ═════ */}
+      {/* ═════ DELTA EXPOSURE tab — bars + 3D Surface below ═════ */}
       {activeTab === "delta" && chain && dealerRows.length > 0 && (
-        <div className="p-3 border-t border-[#1f1f1f]" style={{ background: "#000" }}>
+        <div className="p-3 border-t border-[#1f1f1f] space-y-4" style={{ background: "#000" }}>
           <DealerExposureBars
             rows={dealerRows}
             spot={chain.spot}
@@ -470,6 +462,12 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
             fullBleed
             title="GAMMA EXPOSURE / STRIKE"
           />
+          <div className="rounded-md border border-[#1f1f1f] p-2" style={{ background: "#030303" }}>
+            <div className="text-[10px] font-bold tracking-[0.2em] text-[#4a9eff] mb-2 uppercase">
+              Δ 3D Surface · Strike × DTE × Δ Exposure
+            </div>
+            <GreeksSurface3D symbol={symbol} points={surfacePoints} metric="DELTA" />
+          </div>
         </div>
       )}
 

@@ -84,7 +84,6 @@ export function VannaCharmWorkspace({ ticker, contracts }: Props) {
         <div className="flex items-center gap-1">
           <TabBtn active={tab === "heatmap"} onClick={() => setTab("heatmap")}>HEATMAP</TabBtn>
           <TabBtn active={tab === "strike"} onClick={() => setTab("strike")}>STRIKE CHART</TabBtn>
-          <TabBtn active={tab === "surface"} onClick={() => setTab("surface")}>3D SURFACE</TabBtn>
           <span className="ml-4 text-[10px] uppercase tracking-wider" style={{ color: MUTED }}>EXPIRY</span>
           <select
             value={String(expiry)}
@@ -108,7 +107,6 @@ export function VannaCharmWorkspace({ ticker, contracts }: Props) {
       <div className="flex-1 min-h-0 p-4">
         {tab === "heatmap" && <HeatmapTab spot={ticker.spot} vannaGrid={vannaGrid} charmGrid={charmGrid} expiries={expiries} expiryFilter={expiry} />}
         {tab === "strike" && <StrikeChartTab spot={ticker.spot} vannaGrid={vannaGrid} charmGrid={charmGrid} expiries={expiries} expiryFilter={expiry} setExpiryFilter={setExpiry} />}
-        {tab === "surface" && <SurfaceTab spot={ticker.spot} vannaGrid={vannaGrid} charmGrid={charmGrid} />}
       </div>
     </div>
   );
