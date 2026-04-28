@@ -11,6 +11,7 @@ import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./Volatili
 import { VolatilityDashboard } from "@/components/volatility/VolatilityDashboard";
 import { PriceGexChartContainer } from "@/components/chart/PriceGexChartContainer";
 import { IntegratedGEXChart } from "@/components/chart/IntegratedGEXChart";
+import { TradingViewGexChart } from "@/components/chart/TradingViewGexChart";
 import { GreekLadder } from "@/components/greeks/GreekLadder";
 import { OptionsFlowHeatmap } from "./OptionsFlowHeatmap";
 
@@ -99,7 +100,7 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 }
 
 // ─────── PRICE + GEX CHART (sección propia) ───────
-export function ChartView({ ticker }: Ctx) {
+export function ChartView({ ticker, exposures, levels }: Ctx) {
   return (
     <div className="h-full overflow-hidden">
       <TerminalTabs
@@ -108,7 +109,7 @@ export function ChartView({ ticker }: Ctx) {
           {
             key: "tradingview",
             label: "TRADINGVIEW",
-            content: <TradingViewRealtimeChart />,
+            content: <TradingViewGexChart ticker={ticker} exposures={exposures} levels={levels} />,
           },
           {
             key: "gex",
@@ -121,64 +122,6 @@ export function ChartView({ ticker }: Ctx) {
   );
 }
 
-const TRADINGVIEW_SYMBOLS = [
-  { label: "QQQ", symbol: "NASDAQ:QQQ" },
-  { label: "SPY", symbol: "AMEX:SPY" },
-  { label: "NQ", symbol: "CME_MINI:NQ1!" },
-];
-
-function TradingViewRealtimeChart() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [activeSymbol, setActiveSymbol] = useState(TRADINGVIEW_SYMBOLS[0].symbol);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = "";
-
-    const widgetHost = document.createElement("div");
-    widgetHost.className = "tradingview-widget-container__widget h-full w-full";
-
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.async = true;
-    script.type = "text/javascript";
-    script.text = JSON.stringify({
-      autosize: true,
-      symbol: activeSymbol,
-      interval: "1",
-      timezone: "America/New_York",
-      theme: "dark",
-      style: "1",
-      locale: "en",
-      enable_publishing: false,
-      allow_symbol_change: true,
-      calendar: false,
-      support_host: "https://www.tradingview.com",
-    });
-
-    containerRef.current.appendChild(widgetHost);
-    containerRef.current.appendChild(script);
-  }, [activeSymbol]);
-
-  return (
-    <Panel title="TradingView Realtime" subtitle="QQQ · SPY · NQ futures" noPad className="h-full flex flex-col overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-border bg-card/40 px-3 py-2">
-        {TRADINGVIEW_SYMBOLS.map((item) => (
-          <Button
-            key={item.symbol}
-            size="sm"
-            variant={activeSymbol === item.symbol ? "default" : "outline"}
-            className="h-7 px-3 text-[10px] font-bold tracking-widest"
-            onClick={() => setActiveSymbol(item.symbol)}
-          >
-            {item.label}
-          </Button>
-        ))}
-      </div>
-      <div ref={containerRef} className="tradingview-widget-container min-h-0 flex-1 bg-background" />
-    </Panel>
-  );
-}
 
 function KV({ k, v, tone }: { k: string; v: string; tone?: "call" | "put" | "warning" }) {
   const c = tone === "call" ? "text-call" : tone === "put" ? "text-put" : tone === "warning" ? "text-warning" : "text-foreground";
