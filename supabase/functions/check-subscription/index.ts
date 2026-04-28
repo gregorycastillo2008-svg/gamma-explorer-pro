@@ -8,9 +8,12 @@ const corsHeaders = {
 };
 
 const PRICE_TO_TIER: Record<string, { tier: string; interval: string }> = {
-  price_1TQrwlCZRgBPwOB9FoDolYiq: { tier: "starter", interval: "month" },
-  price_1TQrxOCZRgBPwOB9UbadcwFU: { tier: "pro", interval: "month" },
-  price_1TQry2CZRgBPwOB9bKH38XuV: { tier: "elite", interval: "month" },
+  price_1TRKWKCZRgBPwOB9awvuYUwA: { tier: "starter", interval: "month" },
+  price_1TRKUmCZRgBPwOB9EKTEEmLz: { tier: "starter", interval: "year" },
+  price_1TRKXwCZRgBPwOB97g6uSUfB: { tier: "pro", interval: "month" },
+  price_1TRKVBCZRgBPwOB995UiKA0S: { tier: "pro", interval: "year" },
+  price_1TRKYNCZRgBPwOB9RKZeO5Zb: { tier: "elite", interval: "month" },
+  price_1TRKVnCZRgBPwOB93yFgA2kX: { tier: "elite", interval: "year" },
 };
 
 serve(async (req) => {
@@ -42,7 +45,7 @@ serve(async (req) => {
       });
     }
 
-    // Aceptamos active O trialing (7 días de prueba)
+    // Aceptamos suscripciones activas; ya no se crean trials desde checkout.
     const subs = await stripe.subscriptions.list({
       customer: customers.data[0].id,
       status: "all",
