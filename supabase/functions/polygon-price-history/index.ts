@@ -23,7 +23,8 @@ function yahooParams(tf: string): { range: string; interval: string } {
 
 async function fetchYahoo(symbol: string, tf: string) {
   const { range, interval } = yahooParams(tf);
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`;
+  const yahooSymbol = symbol === "NQ" ? "NQ=F" : symbol;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${range}&interval=${interval}&includePrePost=false`;
   const r = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
