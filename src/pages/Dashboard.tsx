@@ -91,7 +91,7 @@ export default function Dashboard() {
     supabase.from("watchlist").select("ticker").order("created_at").then(({ data }) => {
       const list = data?.map((r) => r.ticker) ?? [];
       if (list.length === 0) {
-        const defaults = ["QQQ", "SPX", "SPY"];
+        const defaults = ["QQQ", "SPY", "NQ"];
         Promise.all(defaults.map((t) =>
           supabase.from("watchlist").insert({ user_id: user.id, ticker: t })
         )).then(() => setWatchlist(defaults));
@@ -131,7 +131,7 @@ export default function Dashboard() {
     const sym = newTicker.toUpperCase().trim();
     if (!sym || !user) return;
     if (!/^[A-Z]{1,6}$/.test(sym)) {
-      toast({ title: "Invalid symbol", description: "Use 1–6 letters (e.g. SPX, AAPL, MSFT).", variant: "destructive" });
+      toast({ title: "Invalid symbol", description: "Use 1–6 letters (e.g. QQQ, SPY, NQ).", variant: "destructive" });
       return;
     }
     if (watchlist.includes(sym)) { setAddOpen(false); setNewTicker(""); return; }
@@ -265,9 +265,9 @@ export default function Dashboard() {
               value={newTicker}
               onChange={(e) => setNewTicker(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTicker()}
-              placeholder="SPX, SPY, AAPL..."
+              placeholder="QQQ, SPY, NQ..."
             />
-            <p className="text-xs text-muted-foreground">Live data via CBOE for any US-listed symbol (SPX, SPY, QQQ, AAPL, NVDA, MSFT, AMD, META…).</p>
+            <p className="text-xs text-muted-foreground">Live data via CBOE for QQQ, SPY, NQ/NDX and US-listed symbols.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>

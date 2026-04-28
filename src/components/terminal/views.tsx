@@ -102,8 +102,81 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 export function ChartView({ ticker }: Ctx) {
   return (
     <div className="h-full overflow-hidden">
-      <IntegratedGEXChart defaultSymbol={ticker.symbol} />
+      <TerminalTabs
+        layoutId="chart-master-tab-bg"
+        tabs={[
+          {
+            key: "tradingview",
+            label: "TRADINGVIEW",
+            content: <TradingViewRealtimeChart />,
+          },
+          {
+            key: "gex",
+            label: "GEX CHART",
+            content: <IntegratedGEXChart defaultSymbol={ticker.symbol} />,
+          },
+        ]}
+      />
     </div>
+  );
+}
+
+const TRADINGVIEW_SYMBOLS = [
+  { label: "QQQ", symbol: "NASDAQ:QQQ" },
+  { label: "SPY", symbol: "AMEX:SPY" },
+  { label: "NQ", symbol: "CME_MINI:NQ1!" },
+];
+
+function TradingViewRealtimeChart() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [activeSymbol, setActiveSymbol] = useState(TRADINGVIEW_SYMBOLS[0].symbol);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    containerRef.current.innerHTML = "";
+
+    const widgetHost = document.createElement("div");
+    widgetHost.className = "tradingview-widget-container__widget h-full w-full";
+
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.async = true;
+    script.type = "text/javascript";
+    script.text = JSON.stringify({
+      autosize: true,
+      symbol: activeSymbol,
+      interval: "1",
+      timezone: "America/New_York",
+      theme: "dark",
+      style: "1",
+      locale: "en",
+      enable_publishing: false,
+      allow_symbol_change: true,
+      calendar: false,
+      support_host: "https://www.tradingview.com",
+    });
+
+    containerRef.current.appendChild(widgetHost);
+    containerRef.current.appendChild(script);
+  }, [activeSymbol]);
+
+  return (
+    <Panel title="TradingView Realtime" subtitle="QQQ · SPY · NQ futures" noPad className="h-full flex flex-col overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-border bg-card/40 px-3 py-2">
+        {TRADINGVIEW_SYMBOLS.map((item) => (
+          <Button
+            key={item.symbol}
+            size="sm"
+            variant={activeSymbol === item.symbol ? "default" : "outline"}
+            className="h-7 px-3 text-[10px] font-bold tracking-widest"
+            onClick={() => setActiveSymbol(item.symbol)}
+          >
+            {item.label}
+          </Button>
+        ))}
+      </div>
+      <div ref={containerRef} className="tradingview-widget-container min-h-0 flex-1 bg-background" />
+    </Panel>
   );
 }
 
@@ -379,8 +452,10 @@ export function LevelsView({ ticker, exposures, levels }: Ctx) {
               <div className="grid grid-cols-2 gap-2">
                 <StatBlock label="Call Wall" value={`$${levels.callWall}`} tone="call" sub={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
                 <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-                <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-                <StatBlock label="Spot" value={`$${ticker.spot}`} tone="primary" />
+                <StatBlock label="Major Wall" value={`$${levels.majorWall}`} tone="primary" sub={`${(((levels.majorWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                <StatBlock label="Max Pain" value={`$${levels.maxPain}`} tone="warning" sub={`${(((levels.maxPain - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
+                <StatBlock label="Vol Trigger" value={`$${levels.volTrigger}`} tone="primary" sub={levels.gammaFlip ? "gamma flip" : "zero-gamma proxy"} />
+                <StatBlock label="Total VT" value={`$${levels.totalVt}`} tone="call" sub="vega weighted" />
               </div>
               <div className="mt-3 p-3 rounded bg-secondary/40 text-xs leading-relaxed">
                 <div className="font-semibold mb-1 text-foreground">Reading</div>
