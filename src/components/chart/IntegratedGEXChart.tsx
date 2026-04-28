@@ -15,7 +15,7 @@ const TICKERS = ["QQQ", "SPY", "NQ", "IWM", "DIA", "AAPL", "MSFT", "NVDA", "TSLA
 const TIMEFRAMES = ["1D", "5D", "1M", "3M", "6M", "1Y"] as const;
 type TF = typeof TIMEFRAMES[number];
 type ChartMode = "line" | "candle";
-type DteFilter = "1" | "2" | "3";
+type DteFilter = "0" | "1" | "1D";
 
 interface PricePoint { time: number; value: number }
 interface OhlcPoint { time: number; open: number; high: number; low: number; close: number }
@@ -52,7 +52,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
   const [symbol, setSymbol] = useState(defaultSymbol);
   const [timeframe, setTimeframe] = useState<TF>("3M");
   const [chartMode, setChartMode] = useState<ChartMode>("line");
-  const [dteFilter, setDteFilter] = useState<DteFilter>("3");
+  const [dteFilter, setDteFilter] = useState<DteFilter>("1D");
   const [price, setPrice] = useState<PricePayload | null>(null);
   const [chain, setChain] = useState<ChainPayload | null>(null);
   const [loading, setLoading] = useState(true);
