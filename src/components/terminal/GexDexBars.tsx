@@ -106,8 +106,8 @@ export function GexDexBars({ data, spot, callWall, putWall, flip, metric }: Prop
             />
           )}
           <Tooltip content={<TooltipBody />} cursor={{ fill: "hsl(var(--muted) / 0.2)" }} />
-          <Bar dataKey="negative" stackId="x" fill="hsl(var(--put))" radius={[0, 0, 0, 0]} />
-          <Bar dataKey="positive" stackId="x" fill="hsl(var(--call))" radius={[0, 0, 0, 0]} />
+          <Bar dataKey="negative" stackId="x" radius={[0, 0, 0, 0]} shape={(p: any) => <HoverBar {...p} fill="hsl(var(--put))" orientation="horizontal" />} />
+          <Bar dataKey="positive" stackId="x" radius={[0, 0, 0, 0]} shape={(p: any) => <HoverBar {...p} fill="hsl(var(--call))" orientation="horizontal" />} />
         </BarChart>
       </ResponsiveContainer>
     </div>
