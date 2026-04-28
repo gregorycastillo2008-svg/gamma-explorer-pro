@@ -7,10 +7,12 @@ const corsHeaders = {
 };
 
 const VALID_PRICES = new Set([
-  "price_1TQrwlCZRgBPwOB9FoDolYiq", // Starter monthly
-  "price_1TQrxOCZRgBPwOB9UbadcwFU", // Pro monthly
-  "price_1TQry2CZRgBPwOB9bKH38XuV", // Elite monthly
-  // Yearly price IDs se añaden aquí cuando se creen en Stripe
+  "price_1TRKWKCZRgBPwOB9awvuYUwA", // Starter monthly
+  "price_1TRKUmCZRgBPwOB9EKTEEmLz", // Starter yearly
+  "price_1TRKXwCZRgBPwOB97g6uSUfB", // Pro monthly
+  "price_1TRKVBCZRgBPwOB995UiKA0S", // Pro yearly
+  "price_1TRKYNCZRgBPwOB9RKZeO5Zb", // Elite monthly
+  "price_1TRKVnCZRgBPwOB93yFgA2kX", // Elite yearly
 ]);
 
 serve(async (req) => {
@@ -38,8 +40,6 @@ serve(async (req) => {
       mode: "subscription",
       payment_method_types: ["card"],
       allow_promotion_codes: true,
-      // Cobro inmediato: anular cualquier trial configurado en el price
-      subscription_data: { trial_end: Math.floor(Date.now() / 1000) },
       // After paying, user lands on /auth to create their account
       success_url: `${origin}/auth?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pricing?checkout=cancel`,
