@@ -168,6 +168,7 @@ export const DEMO_TICKERS: DemoTicker[] = [
   { symbol: "SPX", name: "S&P 500 Index", spot: 5230, baseIV: 0.14, strikeStep: 25, expiries: STD_EXPIRIES },
   { symbol: "SPY", name: "SPDR S&P 500 ETF", spot: 522, baseIV: 0.13, strikeStep: 2, expiries: STD_EXPIRIES },
   { symbol: "QQQ", name: "Invesco QQQ Trust", spot: 445, baseIV: 0.18, strikeStep: 2, expiries: STD_EXPIRIES },
+  { symbol: "NQ", name: "Nasdaq 100 Futures", spot: 18250, baseIV: 0.18, strikeStep: 50, expiries: STD_EXPIRIES },
   { symbol: "NDX", name: "Nasdaq 100 Index", spot: 18250, baseIV: 0.18, strikeStep: 50, expiries: STD_EXPIRIES },
   { symbol: "AAPL", name: "Apple Inc.", spot: 195, baseIV: 0.25, strikeStep: 2.5, expiries: [7, 14, 21, 30, 60] },
   { symbol: "TSLA", name: "Tesla Inc.", spot: 248, baseIV: 0.55, strikeStep: 5, expiries: [7, 14, 21, 30, 60] },
