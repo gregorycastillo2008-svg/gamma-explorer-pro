@@ -454,7 +454,7 @@ export function LevelsView({ ticker, exposures, levels }: Ctx) {
                 <StatBlock label="Put Wall" value={`$${levels.putWall}`} tone="put" sub={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
                 <StatBlock label="Major Wall" value={`$${levels.majorWall}`} tone="primary" sub={`${(((levels.majorWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
                 <StatBlock label="Max Pain" value={`$${levels.maxPain}`} tone="warning" sub={`${(((levels.maxPain - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-                <StatBlock label="Vol Trigger" value={`$${levels.volTrigger}`} tone="flip" sub={levels.gammaFlip ? "gamma flip" : "zero-gamma proxy"} />
+                <StatBlock label="Vol Trigger" value={`$${levels.volTrigger}`} tone="primary" sub={levels.gammaFlip ? "gamma flip" : "zero-gamma proxy"} />
                 <StatBlock label="Total VT" value={`$${levels.totalVt}`} tone="call" sub="vega weighted" />
               </div>
               <div className="mt-3 p-3 rounded bg-secondary/40 text-xs leading-relaxed">
