@@ -76,7 +76,7 @@ export default function Dashboard() {
   }, [allowed, section, isAdmin, subscribed, adminLoading, subLoading]);
 
   const openManagePlan = async () => {
-    if (!subscribed) { nav("/pricing"); return; }
+    if (!subscribed) { setPricingOpen(true); return; }
     try {
       const { data, error } = await supabase.functions.invoke("customer-portal");
       if (error) throw error;
