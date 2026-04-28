@@ -52,6 +52,7 @@ export default function Dashboard() {
   const [expiry, setExpiry] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
   const [newTicker, setNewTicker] = useState("");
+  const [pricingOpen, setPricingOpen] = useState(false);
 
   useEffect(() => { if (!loading && !user) nav("/auth"); }, [user, loading, nav]);
 
