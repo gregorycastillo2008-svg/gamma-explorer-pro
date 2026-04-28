@@ -104,7 +104,7 @@ export function OiAnalyticsWorkspace({ ticker, contracts }: Props) {
       {/* ── 2 main panels ── */}
       <div className="grid grid-cols-2 gap-4">
         <NormalizedOIPanel rows={perStrike} maxPutStrike={totals.maxPut?.strike} maxCallStrike={totals.maxCall?.strike} />
-        <PCSkewPanel rows={perStrike} />
+        <OIMatrixPanel rows={perStrike} spot={ticker.spot} />
       </div>
     </div>
   );
