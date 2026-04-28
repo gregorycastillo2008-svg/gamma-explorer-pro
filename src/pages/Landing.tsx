@@ -3,18 +3,14 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem, Info, X, Mail } from "lucide-react";
+import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Sparkles, Copy, Info, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
-import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
 import { RadarMap } from "@/components/RadarMap";
 import { TestimonialsMarquee } from "@/components/TestimonialsMarquee";
+import { PlansSection } from "@/components/PlansSection";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { PLANS, type Tier } from "@/lib/plans";
 
 const features = [
   { icon: BarChart3, title: "GEX por strike", desc: "Visualiza Gamma Exposure agregada por strike con detección automática de Call/Put walls." },
@@ -34,94 +30,9 @@ const testimonials = [
   { name: "Sofía P.", role: "Swing Trader", rating: 5, text: "El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.", extra: "Suscriptora Pro Elite" },
 ];
 
-const plans = [
-  {
-    name: "Starter", price: 29.99, icon: Rocket, tone: "muted",
-    features: ["GEX básico SPX/SPY", "1 ticker en watchlist", "Datos con 15min delay", "Soporte por email"],
-  },
-  {
-    name: "Pro", price: 79.99, icon: Crown, tone: "primary", popular: true,
-    features: ["GEX/DEX/VEX en tiempo real", "Watchlist ilimitada", "Call/Put walls + Gamma Flip", "AI Bias diario", "Alertas push", "Soporte prioritario"],
-  },
-  {
-    name: "Elite", price: 159.99, icon: Gem, tone: "call",
-    features: ["Todo lo de Pro", "IV Surface 3D completo", "API access (10k req/día)", "Vanna & Charm exposure", "Reportes institucionales", "Onboarding 1-a-1", "Discord VIP traders"],
-  },
-];
-
-function StarRow({ n }: { n: number }) {
-  return (
-    <div className="flex gap-0.5">
-      {Array.from({ length: n }).map((_, i) => (
-        <motion.div
-          key={i}
-          animate={{ rotate: [0, 12, -12, 0], scale: [1, 1.15, 1] }}
-          transition={{ duration: 2, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
-        >
-          <Star className="h-4 w-4 fill-blue-500 text-blue-500" />
-        </motion.div>
-      ))}
-    </div>
-  );
-}
-
 export default function Landing() {
   const { user } = useAuth();
-  const [showPlansBubble, setShowPlansBubble] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [checkoutPlan, setCheckoutPlan] = useState<Tier | null>(null);
-  const [checkoutEmail, setCheckoutEmail] = useState("");
-
-  const handlePlanClick = async (planName: string) => {
-    const tier = planName.toLowerCase() as Tier;
-    const plan = PLANS[tier];
-    if (!plan) return;
-
-    if (user?.email) {
-      // Logged in → direct authenticated checkout
-      setCheckoutLoading(planName);
-      try {
-        const { data, error } = await supabase.functions.invoke("create-checkout", {
-          body: { priceId: plan.priceId },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        if (data?.url) window.location.href = data.url;
-      } catch (e: any) {
-        toast.error(e.message || "Error iniciando el pago");
-      } finally {
-        setCheckoutLoading(null);
-      }
-    } else {
-      // Not logged in → show email popup
-      setCheckoutPlan(tier);
-      setCheckoutEmail("");
-    }
-  };
-
-  const submitCheckoutEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!checkoutPlan) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(checkoutEmail)) {
-      toast.error("Introduce un email válido");
-      return;
-    }
-    const plan = PLANS[checkoutPlan];
-    setCheckoutLoading(checkoutPlan);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout-public", {
-        body: { priceId: plan.priceId, email: checkoutEmail.trim() },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.url) window.location.href = data.url;
-    } catch (e: any) {
-      toast.error(e.message || "Error iniciando el pago");
-    } finally {
-      setCheckoutLoading(null);
-    }
-  };
 
   // animated word in hero
   const heroWords = ["Gamma Exposure", "Dealer Flow", "Volatility Edge", "Market Bias"];
@@ -367,30 +278,7 @@ export default function Landing() {
       {/* 3D scroll-driven gallery */}
       <Scroll3DGallery />
 
-      {/* Plans CTA — los planes viven en /pricing */}
-      <section id="planes" className="relative z-10 container pb-20 scroll-mt-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center max-w-2xl mx-auto"
-        >
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight">
-            Elige tu <span className="text-primary">edge</span>
-          </h2>
-          <p className="text-muted-foreground mt-4 text-lg">
-            Tres planes pensados para cada perfil de trader. Sin permanencia, cancela cuando quieras.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            <Link to="/pricing">
-              <Button size="lg" className="font-bold">Ver planes y precios →</Button>
-            </Link>
-          </div>
-          <p className="text-xs text-muted-foreground mt-4">
-            Desde $29.99/mes · Pago seguro vía Stripe · Aplica códigos de descuento
-          </p>
-        </motion.div>
-      </section>
+      <PlansSection headingLevel="h2" />
 
       {/* Info section */}
       <section className="relative z-10 container pb-16">

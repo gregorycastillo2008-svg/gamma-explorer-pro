@@ -25,11 +25,12 @@ const plans = [
   },
 ];
 
-export function PlansSection({ showHeader = true }: { showHeader?: boolean }) {
+export function PlansSection({ showHeader = true, headingLevel = "h1" }: { showHeader?: boolean; headingLevel?: "h1" | "h2" }) {
   const { user } = useAuth();
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [checkoutPlan, setCheckoutPlan] = useState<Tier | null>(null);
   const [checkoutEmail, setCheckoutEmail] = useState("");
+  const Heading = headingLevel;
 
   const openStripeCheckout = (url: string) => {
     const checkoutWindow = window.open(url, "_blank", "noopener,noreferrer");
@@ -93,9 +94,9 @@ export function PlansSection({ showHeader = true }: { showHeader?: boolean }) {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight">
+            <Heading className="text-4xl md:text-5xl font-black tracking-tight">
               Elige tu <span className="text-primary">edge</span>
-            </h1>
+            </Heading>
             <p className="text-muted-foreground mt-3">
               Sin permanencia. Cancela cuando quieras. Aplica un código de descuento al pagar.
             </p>
