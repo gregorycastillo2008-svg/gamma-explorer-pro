@@ -3,12 +3,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Star, Check, Sparkles, Copy, Crown, Rocket, Gem, Info, X, Mail } from "lucide-react";
+import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Sparkles, Copy, Info, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
-import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
 import { RadarMap } from "@/components/RadarMap";
 import { TestimonialsMarquee } from "@/components/TestimonialsMarquee";
@@ -33,25 +30,8 @@ const testimonials = [
   { name: "Sofía P.", role: "Swing Trader", rating: 5, text: "El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.", extra: "Suscriptora Pro Elite" },
 ];
 
-function StarRow({ n }: { n: number }) {
-  return (
-    <div className="flex gap-0.5">
-      {Array.from({ length: n }).map((_, i) => (
-        <motion.div
-          key={i}
-          animate={{ rotate: [0, 12, -12, 0], scale: [1, 1.15, 1] }}
-          transition={{ duration: 2, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
-        >
-          <Star className="h-4 w-4 fill-blue-500 text-blue-500" />
-        </motion.div>
-      ))}
-    </div>
-  );
-}
-
 export default function Landing() {
   const { user } = useAuth();
-  const [showPlansBubble, setShowPlansBubble] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
 
   // animated word in hero
