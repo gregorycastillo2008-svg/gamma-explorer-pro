@@ -44,6 +44,7 @@ serve(async (req) => {
       mode: "subscription",
       payment_method_types: ["card"],
       allow_promotion_codes: true,
+      subscription_data: { trial_period_days: 0 },
       success_url: `${origin}/dashboard?checkout=success`,
       cancel_url: `${origin}/dashboard?checkout=cancel`,
     });
