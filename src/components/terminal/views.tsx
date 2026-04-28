@@ -948,16 +948,16 @@ function HorizontalBars({ exposures, metric, max, spot, maxPain }: {
               {isSpot && <span className="ml-1">●</span>}
               {isMaxPain && !isSpot && <span className="ml-1 text-[9px]">MP</span>}
             </span>
-            <div className="relative h-4 bg-secondary/30 rounded-sm">
+            <div className="group/bar relative h-4 bg-secondary/30 rounded-sm">
               <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
               {v >= 0 ? (
                 <div
-                  className="absolute inset-y-0 left-1/2 bg-call/70 rounded-r-sm transition-all"
+                  className="absolute inset-y-0 left-1/2 bg-call/70 rounded-r-sm origin-left transition-all duration-150 ease-out group-hover/bar:scale-y-[1.4] group-hover/bar:brightness-125"
                   style={{ width: `${pct}%`, boxShadow: isHover ? "0 0 10px hsl(var(--call) / 0.6)" : undefined }}
                 />
               ) : (
                 <div
-                  className="absolute inset-y-0 right-1/2 bg-put/70 rounded-l-sm transition-all"
+                  className="absolute inset-y-0 right-1/2 bg-put/70 rounded-l-sm origin-right transition-all duration-150 ease-out group-hover/bar:scale-y-[1.4] group-hover/bar:brightness-125"
                   style={{ width: `${pct}%`, boxShadow: isHover ? "0 0 10px hsl(var(--put) / 0.6)" : undefined }}
                 />
               )}
