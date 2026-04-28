@@ -64,7 +64,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const cboeSymbol = INDEX_SYMBOLS.has(raw) ? `_${raw}` : raw;
+    const dataSymbol = raw === "NQ" ? "NDX" : raw;
+    const cboeSymbol = INDEX_SYMBOLS.has(dataSymbol) ? `_${dataSymbol}` : dataSymbol;
     const target = `https://cdn.cboe.com/api/global/delayed_quotes/options/${cboeSymbol}.json`;
 
     const upstream = await fetch(target, {
@@ -122,6 +123,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         symbol: raw,
+        dataSymbol,
         spot,
         priceChange: Number(data.price_change) || 0,
         priceChangePct: Number(data.price_change_percent) || 0,
