@@ -240,8 +240,21 @@ export default function Dashboard() {
         </div>
       </div>
 
-      
+      {pricingOpen && (
+        <div className="fixed inset-0 z-[80]">
+          <button
+            type="button"
+            aria-label="Close pricing"
+            className="absolute top-4 right-4 z-[90] w-9 h-9 rounded-full bg-black/70 text-white text-lg flex items-center justify-center border border-white/20 hover:bg-black"
+            onClick={() => setPricingOpen(false)}
+          >
+            ✕
+          </button>
+          <Paywall email={user?.email ?? undefined} />
+        </div>
+      )}
 
+      
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add ticker</DialogTitle></DialogHeader>
