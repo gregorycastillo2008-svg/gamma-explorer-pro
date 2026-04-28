@@ -25,41 +25,65 @@ const SYMBOLS = [
   { label: "NQ", key: "NQ" },
 ];
 
-// Generate intraday-looking price walk anchored to spot
-function buildIntradayWalk(spot: number, points = 240): LineData[] {
+function buildIntradayWalk(spot: number, points = 260): LineData[] {
   const out: LineData[] = [];
-  // 6:30 AM PT today in UTC seconds
-  const now = new Date();
-  const start = new Date(now);
-  start.setUTCHours(13, 30, 0, 0); // 13:30 UTC = 6:30 PT / 9:30 ET
+  const start = new Date();
+  start.setUTCHours(13, 30, 0, 0);
   const startSec = Math.floor(start.getTime() / 1000);
   let v = spot * 0.998;
-  // bias drift toward spot at end
   for (let i = 0; i < points; i++) {
     const t = i / (points - 1);
-    const noise = (Math.sin(i / 7) + Math.sin(i / 13.7) * 0.6 + (Math.random() - 0.5) * 0.8);
+    const noise = Math.sin(i / 7) + Math.sin(i / 13.7) * 0.6 + (Math.random() - 0.5) * 0.8;
     v += noise * spot * 0.0004;
-    // pull back to spot
     const target = spot * (0.997 + 0.006 * t);
     v = v + (target - v) * 0.02;
     out.push({ time: (startSec + i * 60) as UTCTimestamp, value: +v.toFixed(2) });
   }
-  // ensure final ~ spot
   out[out.length - 1] = { ...out[out.length - 1], value: spot };
   return out;
+}
+
+/**
+ * Compute Zero Gamma (delta-neutral) strike via linear interpolation on cumulative netGex.
+ * This is the level where dealer gamma flips sign — same concept as the orange line in gexbot.
+ */
+function computeZeroGamma(exposures: ExposurePoint[]): number | null {
+  if (exposures.length < 2) return null;
+  const sorted = [...exposures].sort((a, b) => a.strike - b.strike);
+  let cum = 0;
+  const cumPoints: { strike: number; cum: number }[] = [];
+  for (const p of sorted) {
+    cum += p.netGex;
+    cumPoints.push({ strike: p.strike, cum });
+  }
+  for (let i = 1; i < cumPoints.length; i++) {
+    const a = cumPoints[i - 1];
+    const b = cumPoints[i];
+    if (a.cum === 0) return a.strike;
+    if (Math.sign(a.cum) !== Math.sign(b.cum)) {
+      // linear interp where cum = 0
+      const t = a.cum / (a.cum - b.cum);
+      return +(a.strike + t * (b.strike - a.strike)).toFixed(2);
+    }
+  }
+  return null;
 }
 
 export function TradingViewGexChart({ ticker, exposures, levels }: Props) {
   const [activeSymbol, setActiveSymbol] = useState(SYMBOLS[0].key);
 
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartApi = useRef<IChartApi | null>(null);
   const lineSeries = useRef<ISeriesApi<"Line"> | null>(null);
   const priceLines = useRef<IPriceLine[]>([]);
 
+  const [overlayTick, setOverlayTick] = useState(0);
   const data = useMemo(() => buildIntradayWalk(ticker.spot, 260), [ticker.spot, activeSymbol]);
 
-  // Init chart once
+  const zeroGamma = useMemo(() => computeZeroGamma(exposures), [exposures]);
+
+  // Init chart
   useEffect(() => {
     if (!chartContainerRef.current) return;
     const el = chartContainerRef.current;
@@ -75,9 +99,7 @@ export function TradingViewGexChart({ ticker, exposures, levels }: Props) {
         vertLines: { color: "rgba(148,163,184,0.07)" },
         horzLines: { color: "rgba(148,163,184,0.07)" },
       },
-      rightPriceScale: {
-        borderColor: "rgba(148,163,184,0.2)",
-      },
+      rightPriceScale: { borderColor: "rgba(148,163,184,0.2)" },
       timeScale: {
         borderColor: "rgba(148,163,184,0.2)",
         timeVisible: true,
@@ -101,7 +123,14 @@ export function TradingViewGexChart({ ticker, exposures, levels }: Props) {
     });
     lineSeries.current = series;
 
+    // re-render overlay on any visible-range / size change
+    const trigger = () => setOverlayTick((n) => n + 1);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(trigger);
+    const ro = new ResizeObserver(trigger);
+    ro.observe(el);
+
     return () => {
+      ro.disconnect();
       chart.remove();
       chartApi.current = null;
       lineSeries.current = null;
@@ -109,36 +138,43 @@ export function TradingViewGexChart({ ticker, exposures, levels }: Props) {
     };
   }, []);
 
-  // Update data + level lines
+  // Update data + level lines (Call Wall, Put Wall, Zero Gamma solid)
   useEffect(() => {
     if (!lineSeries.current || !chartApi.current) return;
     lineSeries.current.setData(data);
     chartApi.current.timeScale().fitContent();
 
-    // remove old
     priceLines.current.forEach((pl) => lineSeries.current?.removePriceLine(pl));
     priceLines.current = [];
 
-    const addLine = (price: number, color: string, title: string) => {
+    const addLine = (
+      price: number,
+      color: string,
+      title: string,
+      style: LineStyle = LineStyle.Dashed,
+      width: 1 | 2 = 1
+    ) => {
       const pl = lineSeries.current!.createPriceLine({
         price,
         color,
-        lineWidth: 1,
-        lineStyle: LineStyle.Dashed,
+        lineWidth: width,
+        lineStyle: style,
         axisLabelVisible: true,
         title,
       });
       priceLines.current.push(pl);
     };
+
     addLine(levels.callWall, "#22c55e", "Call Wall");
     addLine(levels.putWall, "#ef4444", "Put Wall");
-    if (levels.gammaFlip) addLine(levels.gammaFlip, "#eab308", "γ Flip");
-  }, [data, levels]);
+    if (zeroGamma) addLine(zeroGamma, "#f59e0b", "Zero Γ (Δ0)", LineStyle.Solid, 2);
+    setOverlayTick((n) => n + 1);
+  }, [data, levels, zeroGamma]);
 
   return (
     <Panel
       title="Realtime Chart + GEX Profile"
-      subtitle={`${activeSymbol} · spot $${ticker.spot.toFixed(2)} · mock intraday`}
+      subtitle={`${activeSymbol} · spot $${ticker.spot.toFixed(2)} · Zero Γ ${zeroGamma ?? "—"}`}
       noPad
       className="h-full flex flex-col overflow-hidden"
     >
@@ -155,15 +191,23 @@ export function TradingViewGexChart({ ticker, exposures, levels }: Props) {
           </Button>
         ))}
         <div className="ml-auto flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
-          <LegendDot color="#f97316" label="Call γ" />
-          <LegendDot color="#a855f7" label="Put γ" />
+          <LegendDot color="#22c55e" label="Call γ" />
+          <LegendDot color="#ef4444" label="Put γ" />
+          <LegendDot color="#f59e0b" label="Zero Γ (Δ0)" />
           <LegendDot color="#22d3ee" label="Price" />
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[1fr_220px]">
-        <div ref={chartContainerRef} className="min-h-0 w-full" />
-        <GexProfile exposures={exposures} spot={ticker.spot} levels={levels} />
+      <div ref={wrapperRef} className="relative min-h-0 flex-1">
+        <div ref={chartContainerRef} className="absolute inset-0" />
+        <GexOverlay
+          tick={overlayTick}
+          chart={chartApi.current}
+          series={lineSeries.current}
+          wrapper={wrapperRef.current}
+          exposures={exposures}
+          spot={ticker.spot}
+        />
       </div>
     </Panel>
   );
@@ -178,85 +222,93 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
-/** Vertical strike profile with horizontal call/put gamma bars (gexbot-style) */
-function GexProfile({
+/**
+ * Absolute overlay rendered ON TOP of the price chart.
+ * Bars are placed at each strike's Y coordinate via series.priceToCoordinate.
+ * Calls extend right from the zero-line, puts extend left.
+ */
+function GexOverlay({
+  tick,
+  chart,
+  series,
+  wrapper,
   exposures,
   spot,
-  levels,
 }: {
+  tick: number;
+  chart: IChartApi | null;
+  series: ISeriesApi<"Line"> | null;
+  wrapper: HTMLDivElement | null;
   exposures: ExposurePoint[];
   spot: number;
-  levels: KeyLevels;
 }) {
-  // Filter strikes within reasonable range around spot
-  const filtered = useMemo(() => {
-    const sorted = [...exposures].sort((a, b) => b.strike - a.strike);
-    return sorted.filter((p) => Math.abs(p.strike - spot) / spot < 0.05);
-  }, [exposures, spot]);
+  if (!chart || !series || !wrapper) return null;
 
-  const maxAbs = useMemo(
-    () => Math.max(1, ...filtered.map((p) => Math.max(Math.abs(p.callGex), Math.abs(p.putGex)))),
-    [filtered]
+  const width = wrapper.clientWidth;
+  const height = wrapper.clientHeight;
+  // Reserve right side for price scale
+  const priceScaleW = chart.priceScale("right").width();
+  const usableW = Math.max(50, width - priceScaleW);
+
+  // Filter strikes within ±3% of spot to avoid clutter
+  const visible = exposures.filter((p) => Math.abs(p.strike - spot) / spot < 0.03);
+  if (!visible.length) return null;
+
+  const maxAbs = Math.max(
+    1,
+    ...visible.map((p) => Math.max(Math.abs(p.callGex), Math.abs(p.putGex)))
   );
 
+  // Bars centered around the chart horizontal middle
+  const centerX = usableW / 2;
+  const halfMaxBarPx = usableW * 0.32; // each side max 32% of width
+  const barH = 4;
+
   return (
-    <div className="border-l border-border bg-background/40 overflow-y-auto">
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/60 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
-        <span>Strike</span>
-        <span>Gamma γ</span>
-      </div>
-      <div className="flex flex-col">
-        {filtered.map((p) => {
-          const isSpot = Math.abs(p.strike - spot) < 0.5;
-          const isCallWall = p.strike === levels.callWall;
-          const isPutWall = p.strike === levels.putWall;
-          const callPct = Math.min(100, (Math.abs(p.callGex) / maxAbs) * 100);
-          const putPct = Math.min(100, (Math.abs(p.putGex) / maxAbs) * 100);
-          return (
+    <div
+      className="pointer-events-none absolute inset-0"
+      // re-render when tick changes
+      data-tick={tick}
+    >
+      {/* zero line marker (vertical) */}
+      <div
+        className="absolute top-0 bottom-0 border-l border-dashed border-cyan-400/40"
+        style={{ left: centerX }}
+      />
+      {visible.map((p) => {
+        const y = series.priceToCoordinate(p.strike);
+        if (y == null) return null;
+        const callPx = (Math.abs(p.callGex) / maxAbs) * halfMaxBarPx;
+        const putPx = (Math.abs(p.putGex) / maxAbs) * halfMaxBarPx;
+        return (
+          <div key={p.strike}>
+            {/* Put bar (left, red) */}
             <div
-              key={p.strike}
-              className={`relative flex h-5 items-center border-b border-border/30 px-1 text-[9px] font-mono ${
-                isSpot ? "bg-cyan-500/10" : ""
-              }`}
-            >
-              <span
-                className={`w-10 shrink-0 text-right pr-1 ${
-                  isCallWall
-                    ? "text-call font-bold"
-                    : isPutWall
-                    ? "text-put font-bold"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {p.strike}
-              </span>
-              {/* bars area split in two: put on the left, call on the right */}
-              <div className="relative flex h-3 flex-1 items-center">
-                <div className="flex h-full w-1/2 justify-end pr-px">
-                  <div
-                    className="h-full rounded-l-sm"
-                    style={{ width: `${putPct}%`, background: "#a855f7" }}
-                    title={`Put γ ${p.putGex.toFixed(2)}`}
-                  />
-                </div>
-                <div className="absolute left-1/2 top-0 h-full w-px bg-border/60" />
-                <div className="flex h-full w-1/2 pl-px">
-                  <div
-                    className="h-full rounded-r-sm"
-                    style={{ width: `${callPct}%`, background: "#f97316" }}
-                    title={`Call γ ${p.callGex.toFixed(2)}`}
-                  />
-                </div>
-              </div>
-              {isSpot && (
-                <span className="absolute right-1 text-[8px] font-bold text-cyan-300">
-                  ● {spot.toFixed(2)}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              className="absolute"
+              style={{
+                top: y - barH / 2,
+                left: centerX - putPx,
+                width: putPx,
+                height: barH,
+                background: "rgba(239,68,68,0.75)",
+                borderRadius: 2,
+              }}
+            />
+            {/* Call bar (right, green) */}
+            <div
+              className="absolute"
+              style={{
+                top: y - barH / 2,
+                left: centerX,
+                width: callPx,
+                height: barH,
+                background: "rgba(34,197,94,0.75)",
+                borderRadius: 2,
+              }}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
