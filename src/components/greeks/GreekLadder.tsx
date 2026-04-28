@@ -336,7 +336,6 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
         style={{ borderBottom: "1px solid #1f1f1f", background: "#000" }}
       >
         {([
-          { id: "surface", label: "3D SURFACE" },
           { id: "ladder",  label: "GREEK LADDER" },
           { id: "delta",   label: "DELTA EXPOSURE" },
           { id: "striker", label: "STRIKER DELTA" },
