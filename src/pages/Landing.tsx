@@ -367,74 +367,29 @@ export default function Landing() {
       {/* 3D scroll-driven gallery */}
       <Scroll3DGallery />
 
-      {/* Plans */}
+      {/* Plans CTA — los planes viven en /pricing */}
       <section id="planes" className="relative z-10 container pb-20 scroll-mt-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-12"
+          className="text-center max-w-2xl mx-auto"
         >
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight">Elige tu <span className="bg-clip-text text-[#ff0000]" style={{ backgroundImage: "var(--gradient-primary)" }}>edge</span></h2>
-          <p className="text-muted-foreground mt-3">Sin permanencia. Cancela cuando quieras. Aplica un código de descuento al pagar.</p>
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight">
+            Elige tu <span className="text-primary">edge</span>
+          </h2>
+          <p className="text-muted-foreground mt-4 text-lg">
+            Tres planes pensados para cada perfil de trader. Sin permanencia, cancela cuando quieras.
+          </p>
+          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+            <Link to="/pricing">
+              <Button size="lg" className="font-bold">Ver planes y precios →</Button>
+            </Link>
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            Desde $29.99/mes · Pago seguro vía Stripe · Aplica códigos de descuento
+          </p>
         </motion.div>
-
-        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {plans.map((p, i) => (
-            <motion.div
-              key={p.name}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.15 }}
-              whileHover={{ y: -10 }}
-              className="relative"
-            >
-              {p.popular && (
-                <motion.div
-                  animate={{ scale: [1, 1.08, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-lg"
-                >
-                  ⭐ MÁS POPULAR
-                </motion.div>
-              )}
-              <Card
-                className={`p-7 h-full bg-card/85 backdrop-blur-sm relative overflow-hidden ${p.popular ? "border-primary border-2" : ""}`}
-                style={{ boxShadow: p.popular ? "0 20px 60px -15px hsl(var(--primary) / 0.5)" : "var(--shadow-card)" }}
-              >
-                {p.popular && <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />}
-                <div className="relative">
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center mb-4 ${p.tone === "primary" ? "bg-primary/15" : p.tone === "call" ? "bg-call/15" : "bg-muted"}`}>
-                    <p.icon className={`h-6 w-6 ${p.tone === "primary" ? "text-primary" : p.tone === "call" ? "text-call" : "text-muted-foreground"}`} />
-                  </div>
-                  <div className="font-bold text-2xl">{p.name}</div>
-                  <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-5xl font-black">${p.price}</span>
-                    <span className="text-sm text-muted-foreground">/mes</span>
-                  </div>
-                  <ul className="mt-6 space-y-2.5">
-                    {p.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm">
-                        <Check className={`h-4 w-4 mt-0.5 shrink-0 ${p.tone === "call" ? "text-call" : "text-primary"}`} />
-                        <span className="text-foreground/90">{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className="w-full mt-7"
-                    variant={p.popular ? "default" : "outline"}
-                    size="lg"
-                    disabled={checkoutLoading === p.name}
-                    onClick={() => handlePlanClick(p.name)}
-                  >
-                    {checkoutLoading === p.name ? "Redirigiendo…" : "Suscribirse →"}
-                  </Button>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
       </section>
 
       {/* Info section */}
@@ -501,66 +456,6 @@ export default function Landing() {
           GEXSATELIT · Plataforma verificada · Solo con fines educativos. Datos simulados.
         </div>
       </footer>
-
-      {/* Email popup for unauthenticated checkout */}
-      <AnimatePresence>
-        {checkoutPlan && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-            onClick={() => { setCheckoutPlan(null); setCheckoutEmail(""); }}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 22 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl"
-            >
-              <button
-                type="button"
-                onClick={() => { setCheckoutPlan(null); setCheckoutEmail(""); }}
-                className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <h2 className="text-xl font-bold mb-1">
-                Plan {PLANS[checkoutPlan].name} · ${PLANS[checkoutPlan].price}/mes
-              </h2>
-              <p className="text-sm text-muted-foreground mb-5">
-                Indica tu email para el pago. Después podrás crear tu cuenta con ese mismo email.
-              </p>
-              <form onSubmit={submitCheckoutEmail} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="plan-email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="plan-email"
-                      type="email"
-                      required
-                      autoFocus
-                      value={checkoutEmail}
-                      onChange={(e) => setCheckoutEmail(e.target.value)}
-                      placeholder="tu@email.com"
-                      className="pl-10 h-11"
-                    />
-                  </div>
-                </div>
-                <Button type="submit" className="w-full h-11 font-bold" disabled={!!checkoutLoading}>
-                  {checkoutLoading ? "Redirigiendo a Stripe…" : "Ir al pago →"}
-                </Button>
-                <p className="text-[11px] text-muted-foreground text-center">
-                  Pago seguro vía Stripe · Cancela cuando quieras
-                </p>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Fixed bottom discount-codes bar */}
       <div
