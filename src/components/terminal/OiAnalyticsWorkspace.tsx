@@ -182,8 +182,9 @@ function NormalizedOIPanel({
             >
               <span className="text-[9px] text-right tabular-nums" style={{ color: MUTED }}>${r.strike}</span>
               {/* PUT side (right-aligned, grows leftward) */}
-              <div className="flex justify-end h-3.5">
+              <div className="group/put flex justify-end h-3.5">
                 <div
+                  className="origin-right transition-all duration-150 ease-out group-hover/put:scale-y-[2] group-hover/put:brightness-125"
                   style={{
                     width: `${(putW / 50) * 100}%`,
                     height: "100%",
@@ -198,8 +199,9 @@ function NormalizedOIPanel({
                 />
               </div>
               {/* CALL side (left-aligned, grows rightward) */}
-              <div className="flex justify-start h-3.5">
+              <div className="group/call flex justify-start h-3.5">
                 <div
+                  className="origin-left transition-all duration-150 ease-out group-hover/call:scale-y-[2] group-hover/call:brightness-125"
                   style={{
                     width: `${(callW / 50) * 100}%`,
                     height: "100%",
