@@ -31,6 +31,11 @@ export function PlansSection({ showHeader = true }: { showHeader?: boolean }) {
   const [checkoutPlan, setCheckoutPlan] = useState<Tier | null>(null);
   const [checkoutEmail, setCheckoutEmail] = useState("");
 
+  const openStripeCheckout = (url: string) => {
+    const checkoutWindow = window.open(url, "_blank", "noopener,noreferrer");
+    if (!checkoutWindow) window.location.href = url;
+  };
+
   const handlePlanClick = async (tier: Tier) => {
     const plan = PLANS[tier];
     if (!plan) return;
@@ -43,7 +48,7 @@ export function PlansSection({ showHeader = true }: { showHeader?: boolean }) {
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-        if (data?.url) window.location.href = data.url;
+        if (data?.url) openStripeCheckout(data.url);
       } catch (e: any) {
         toast.error(e.message || "Error iniciando el pago");
       } finally {
@@ -70,7 +75,7 @@ export function PlansSection({ showHeader = true }: { showHeader?: boolean }) {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (data?.url) window.location.href = data.url;
+      if (data?.url) openStripeCheckout(data.url);
     } catch (e: any) {
       toast.error(e.message || "Error iniciando el pago");
     } finally {
