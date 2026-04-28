@@ -113,7 +113,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
           )}
           <Bar dataKey="value" radius={[3, 3, 0, 0]} shape={(props: any) => {
             const fill = props.payload.isPositive ? "hsl(var(--call))" : "hsl(var(--put))";
-            return <rect {...props} fill={fill} />;
+            return <HoverBar {...props} fill={fill} orientation="vertical" />;
           }} />
         </BarChart>
       </ResponsiveContainer>
