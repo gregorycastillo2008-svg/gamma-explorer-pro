@@ -30,6 +30,7 @@ interface Contract {
 
 interface ChainResult {
   symbol: string;
+  dataSymbol?: string;
   spot: number;
   timestamp: string;
   source: string;
