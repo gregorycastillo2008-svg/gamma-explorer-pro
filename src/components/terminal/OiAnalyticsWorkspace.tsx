@@ -240,148 +240,176 @@ function NormalizedOIPanel({
   );
 }
 
-// ─────────── P/C SKEW BY STRIKE ───────────
-function PCSkewPanel({
+// ─────────── OPEN INTEREST MATRIX (QuikStrike-style) ───────────
+function OIMatrixPanel({
   rows,
+  spot,
 }: {
   rows: { strike: number; callOI: number; putOI: number }[];
+  spot: number;
 }) {
   const data = useMemo(
-    () =>
-      [...rows]
-        .sort((a, b) => a.strike - b.strike)
-        .map((r) => ({
-          strike: r.strike,
-          ratio: Math.min(6, r.putOI / Math.max(r.callOI, 1)),
-          rawRatio: r.putOI / Math.max(r.callOI, 1),
-          putOI: r.putOI,
-          callOI: r.callOI,
-        })),
+    () => [...rows].sort((a, b) => a.strike - b.strike),
     [rows]
   );
 
-  const [tt, setTt] = useState<{ d: typeof data[number]; x: number; y: number } | null>(null);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const maxOI = useMemo(
+    () => Math.max(1, ...data.flatMap((r) => [r.callOI, r.putOI])),
+    [data]
+  );
 
-  const maxRatio = 6;
-  const chartH = 680;
-  const barWidthPct = 100 / data.length;
+  // ATM strike = closest to spot
+  const atmStrike = useMemo(() => {
+    if (!data.length) return null;
+    return data.reduce((best, r) =>
+      Math.abs(r.strike - spot) < Math.abs(best.strike - spot) ? r : best
+    ).strike;
+  }, [data, spot]);
 
-  function colorFor(ratio: number) {
-    if (ratio > 3) return { bg: "linear-gradient(180deg, #ff0066, #ff3366)", glow: "0 0 15px rgba(255,0,102,0.65)" };
-    if (ratio > 1.5) return { bg: "linear-gradient(180deg, #ff3366, #ff6699)", glow: "0 0 10px rgba(255,51,102,0.45)" };
-    if (ratio > 0.7) return { bg: YELLOW, glow: "0 0 8px rgba(251,191,36,0.35)" };
-    if (ratio > 0.3) return { bg: "linear-gradient(180deg, #00ff88, #00cc6a)", glow: "0 0 10px rgba(0,255,136,0.45)" };
-    return { bg: "linear-gradient(180deg, #00ffaa, #00ff88)", glow: "0 0 15px rgba(0,255,170,0.65)" };
-  }
+  const [hoverStrike, setHoverStrike] = useState<number | null>(null);
+
+  // Heatmap intensity → cyan tint with alpha
+  const cellBg = (oi: number) => {
+    if (!oi) return "transparent";
+    const t = Math.min(1, oi / maxOI);
+    // log-ish scaling so mid values still pop
+    const alpha = 0.08 + Math.pow(t, 0.55) * 0.65;
+    return `rgba(6,182,212,${alpha.toFixed(3)})`;
+  };
+
+  const totalCall = data.reduce((s, r) => s + r.callOI, 0);
+  const totalPut = data.reduce((s, r) => s + r.putOI, 0);
 
   return (
     <div
-      className="rounded-lg p-5 flex flex-col"
+      className="rounded-lg flex flex-col overflow-hidden"
       style={{ background: PANEL_BG, border: `1px solid ${BORDER}`, height: 800 }}
     >
-      <div className="text-[11px] uppercase tracking-wider mb-3" style={{ color: TEXT }}>P/C SKEW BY STRIKE</div>
-
-      <div className="flex-1 flex">
-        {/* Y axis */}
-        <div className="flex flex-col justify-between pr-2 text-[9px] text-right" style={{ color: MUTED, height: chartH }}>
-          {[6, 5, 4, 3, 2, 1, 0].map((v) => (
-            <span key={v}>{v}</span>
-          ))}
+      <div
+        className="flex items-center justify-between px-4 py-2.5 border-b"
+        style={{ borderColor: BORDER }}
+      >
+        <div className="text-[11px] uppercase tracking-wider" style={{ color: TEXT }}>
+          Open Interest Matrix
         </div>
-
-        {/* Chart area */}
-        <div
-          className="flex-1 relative"
-          style={{ height: chartH, borderLeft: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}
-          onMouseLeave={() => { setTt(null); setHoverIdx(null); }}
-        >
-          {/* horizontal grid */}
-          {[1, 2, 3, 4, 5].map((v) => (
-            <div
-              key={v}
-              className="absolute left-0 right-0"
-              style={{ bottom: `${(v / maxRatio) * 100}%`, borderTop: `1px dashed ${BORDER}` }}
-            />
-          ))}
-
-          {/* bars */}
-          <div className="absolute inset-0 flex items-end px-1">
-            {data.map((d, i) => {
-              const h = (d.ratio / maxRatio) * 100;
-              const c = colorFor(d.rawRatio);
-              const isHover = hoverIdx === i;
-              return (
-                <div
-                  key={d.strike}
-                  className="flex-1 flex justify-center items-end mx-[1px] cursor-crosshair"
-                  style={{ height: "100%" }}
-                  onMouseEnter={() => setHoverIdx(i)}
-                  onMouseMove={(e) => {
-                    const host = (e.currentTarget.parentElement?.parentElement as HTMLElement).getBoundingClientRect();
-                    setTt({ d, x: e.clientX - host.left, y: e.clientY - host.top });
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "85%",
-                      maxWidth: 14,
-                      height: `${h}%`,
-                      background: c.bg,
-                      boxShadow: c.glow,
-                      borderRadius: "2px 2px 0 0",
-                      transform: isHover ? "scaleY(1.05)" : "scaleY(1)",
-                      transformOrigin: "bottom",
-                      filter: isHover ? "brightness(1.2)" : "none",
-                      transition: "transform 150ms, filter 150ms",
-                    }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          {tt && (
-            <div
-              className="absolute pointer-events-none z-20 rounded px-2 py-1.5 text-[10px] leading-tight"
-              style={{
-                left: Math.min(tt.x + 12, 320),
-                top: tt.y + 12,
-                background: "rgba(10,10,10,0.95)",
-                border: `1px solid ${CYAN}`,
-                boxShadow: "0 0 8px rgba(6,182,212,0.4)",
-                minWidth: 130,
-              }}
-            >
-              <div style={{ color: CYAN, fontWeight: 700 }}>Strike: ${tt.d.strike}</div>
-              <div style={{ color: tt.d.rawRatio > 1 ? RED_NEON : GREEN_NEON }}>P/C Ratio: {tt.d.rawRatio.toFixed(2)}</div>
-              <div style={{ color: RED_NEON }}>Put OI: {formatNumber(tt.d.putOI, 0)}</div>
-              <div style={{ color: GREEN_NEON }}>Call OI: {formatNumber(tt.d.callOI, 0)}</div>
-            </div>
-          )}
+        <div className="flex items-center gap-3 text-[9px] font-mono" style={{ color: MUTED }}>
+          <span style={{ color: GREEN_NEON }}>● CALL {formatNumber(totalCall, 0)}</span>
+          <span style={{ color: RED_NEON }}>● PUT {formatNumber(totalPut, 0)}</span>
+          <span style={{ color: CYAN }}>● ATM ${atmStrike ?? "—"}</span>
         </div>
       </div>
 
-      {/* X axis: strike prices */}
-      <div className="flex pl-6 mt-2 text-[9px] font-mono" style={{ color: MUTED }}>
-        {data.map((d, i) => {
-          const step = Math.max(1, Math.floor(data.length / 14));
-          const show = i % step === 0 || i === data.length - 1;
-          const isHover = hoverIdx === i;
-          return (
-            <div
-              key={d.strike}
-              className="flex-1 text-center"
-              style={{
-                color: isHover ? CYAN : MUTED,
-                fontWeight: isHover ? 700 : 400,
-                transition: "color 120ms",
-              }}
-            >
-              {show ? `$${d.strike}` : ""}
-            </div>
-          );
-        })}
+      <div className="flex-1 overflow-y-auto">
+        <table className="w-full border-collapse text-[11px] font-mono">
+          <thead className="sticky top-0 z-10" style={{ background: PANEL_BG }}>
+            <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
+              <th
+                className="py-2 px-3 text-right font-semibold uppercase tracking-wider"
+                style={{ color: MUTED, fontSize: 9, width: "20%" }}
+              >
+                Call OI
+              </th>
+              <th
+                className="py-2 px-3 text-center font-bold uppercase tracking-wider"
+                style={{ color: TEXT_HI, fontSize: 10, width: 80 }}
+              >
+                Strike
+              </th>
+              <th
+                className="py-2 px-3 text-left font-semibold uppercase tracking-wider"
+                style={{ color: MUTED, fontSize: 9, width: "20%" }}
+              >
+                Put OI
+              </th>
+              <th
+                className="py-2 px-3 text-center font-semibold uppercase tracking-wider"
+                style={{ color: MUTED, fontSize: 9 }}
+              >
+                C / P Ratio
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((r) => {
+              const isAtm = r.strike === atmStrike;
+              const isHover = hoverStrike === r.strike;
+              const ratio = r.putOI > 0 ? r.callOI / r.putOI : r.callOI > 0 ? Infinity : 0;
+              const rowBg = isAtm
+                ? "rgba(6,182,212,0.08)"
+                : isHover
+                ? "rgba(255,255,255,0.03)"
+                : "transparent";
+
+              return (
+                <tr
+                  key={r.strike}
+                  onMouseEnter={() => setHoverStrike(r.strike)}
+                  onMouseLeave={() => setHoverStrike(null)}
+                  style={{
+                    background: rowBg,
+                    borderBottom: `1px solid ${BORDER}`,
+                    transition: "background 120ms",
+                  }}
+                >
+                  {/* Call OI cell — heatmap */}
+                  <td
+                    className="py-1.5 px-3 text-right tabular-nums"
+                    style={{
+                      background: cellBg(r.callOI),
+                      color: r.callOI > 0 ? TEXT_HI : MUTED,
+                      transition: "background 120ms",
+                    }}
+                  >
+                    {r.callOI > 0 ? formatNumber(r.callOI, 0) : "—"}
+                  </td>
+
+                  {/* Strike */}
+                  <td
+                    className="py-1.5 px-3 text-center tabular-nums"
+                    style={{
+                      color: isAtm ? CYAN : TEXT_HI,
+                      fontWeight: isAtm ? 800 : 600,
+                      borderLeft: `1px solid ${BORDER}`,
+                      borderRight: `1px solid ${BORDER}`,
+                    }}
+                  >
+                    {isAtm && <span style={{ color: CYAN, marginRight: 4 }}>▶</span>}
+                    {r.strike}
+                  </td>
+
+                  {/* Put OI cell — heatmap */}
+                  <td
+                    className="py-1.5 px-3 text-left tabular-nums"
+                    style={{
+                      background: cellBg(r.putOI),
+                      color: r.putOI > 0 ? TEXT_HI : MUTED,
+                      transition: "background 120ms",
+                    }}
+                  >
+                    {r.putOI > 0 ? formatNumber(r.putOI, 0) : "—"}
+                  </td>
+
+                  {/* C/P ratio */}
+                  <td
+                    className="py-1.5 px-3 text-center tabular-nums"
+                    style={{
+                      color:
+                        ratio === Infinity
+                          ? GREEN_NEON
+                          : ratio > 1.5
+                          ? GREEN_NEON
+                          : ratio < 0.67
+                          ? RED_NEON
+                          : YELLOW,
+                    }}
+                  >
+                    {ratio === Infinity ? "∞" : ratio === 0 ? "0" : ratio.toFixed(2)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
