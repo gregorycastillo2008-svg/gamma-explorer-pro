@@ -298,30 +298,7 @@ export default function Landing() {
       {/* 3D scroll-driven gallery */}
       <Scroll3DGallery />
 
-      {/* Plans CTA — los planes viven en /pricing */}
-      <section id="planes" className="relative z-10 container pb-20 scroll-mt-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center max-w-2xl mx-auto"
-        >
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight">
-            Elige tu <span className="text-primary">edge</span>
-          </h2>
-          <p className="text-muted-foreground mt-4 text-lg">
-            Tres planes pensados para cada perfil de trader. Sin permanencia, cancela cuando quieras.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            <Link to="/pricing">
-              <Button size="lg" className="font-bold">Ver planes y precios →</Button>
-            </Link>
-          </div>
-          <p className="text-xs text-muted-foreground mt-4">
-            Desde $29.99/mes · Pago seguro vía Stripe · Aplica códigos de descuento
-          </p>
-        </motion.div>
-      </section>
+      <PlansSection headingLevel="h2" />
 
       {/* Info section */}
       <section className="relative z-10 container pb-16">
