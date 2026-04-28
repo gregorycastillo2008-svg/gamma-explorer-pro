@@ -362,17 +362,26 @@ function PCSkewPanel({
         </div>
       </div>
 
-      {/* X axis labels */}
-      <div className="flex pl-6 mt-1 text-[8px]" style={{ color: MUTED }}>
-        {data.map((d, i) => (
-          <div
-            key={d.strike}
-            className="flex-1 text-center"
-            style={{ transform: "rotate(45deg)", transformOrigin: "top left", whiteSpace: "nowrap" }}
-          >
-            {i % Math.max(1, Math.floor(data.length / 12)) === 0 ? `$${d.strike}` : ""}
-          </div>
-        ))}
+      {/* X axis: strike prices */}
+      <div className="flex pl-6 mt-2 text-[9px] font-mono" style={{ color: MUTED }}>
+        {data.map((d, i) => {
+          const step = Math.max(1, Math.floor(data.length / 14));
+          const show = i % step === 0 || i === data.length - 1;
+          const isHover = hoverIdx === i;
+          return (
+            <div
+              key={d.strike}
+              className="flex-1 text-center"
+              style={{
+                color: isHover ? CYAN : MUTED,
+                fontWeight: isHover ? 700 : 400,
+                transition: "color 120ms",
+              }}
+            >
+              {show ? `$${d.strike}` : ""}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

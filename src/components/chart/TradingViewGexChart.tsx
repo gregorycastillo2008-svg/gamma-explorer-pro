@@ -263,13 +263,10 @@ function GexOverlay({
   const centerX = usableW / 2;
   const halfMaxBarPx = usableW * 0.32; // each side max 32% of width
   const barH = 4;
+  const hitH = 14; // invisible hit area for easier hover
 
   return (
-    <div
-      className="pointer-events-none absolute inset-0"
-      // re-render when tick changes
-      data-tick={tick}
-    >
+    <div className="pointer-events-none absolute inset-0" data-tick={tick}>
       {/* zero line marker (vertical) */}
       <div
         className="absolute top-0 bottom-0 border-l border-dashed border-cyan-400/40"
@@ -281,29 +278,43 @@ function GexOverlay({
         const callPx = (Math.abs(p.callGex) / maxAbs) * halfMaxBarPx;
         const putPx = (Math.abs(p.putGex) / maxAbs) * halfMaxBarPx;
         return (
-          <div key={p.strike}>
+          <div
+            key={p.strike}
+            className="group pointer-events-auto absolute"
+            style={{
+              top: y - hitH / 2,
+              left: centerX - putPx,
+              width: putPx + callPx,
+              height: hitH,
+            }}
+          >
+            {/* tooltip */}
+            <div
+              className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-cyan-500/40 bg-background/95 px-2 py-0.5 text-[10px] font-mono text-cyan-200 opacity-0 shadow-lg shadow-cyan-500/20 transition-opacity duration-150 group-hover:opacity-100"
+            >
+              ${p.strike} · C {p.callGex.toFixed(1)} · P {p.putGex.toFixed(1)}
+            </div>
             {/* Put bar (left, red) */}
             <div
-              className="absolute"
+              className="absolute origin-right rounded-l-sm transition-all duration-150 ease-out group-hover:scale-y-[2.2] group-hover:brightness-125"
               style={{
-                top: y - barH / 2,
-                left: centerX - putPx,
+                top: (hitH - barH) / 2,
+                left: 0,
                 width: putPx,
                 height: barH,
-                background: "rgba(239,68,68,0.75)",
-                borderRadius: 2,
+                background: "rgba(239,68,68,0.8)",
+                boxShadow: "0 0 0 rgba(239,68,68,0)",
               }}
             />
             {/* Call bar (right, green) */}
             <div
-              className="absolute"
+              className="absolute origin-left rounded-r-sm transition-all duration-150 ease-out group-hover:scale-y-[2.2] group-hover:brightness-125"
               style={{
-                top: y - barH / 2,
-                left: centerX,
+                top: (hitH - barH) / 2,
+                left: putPx,
                 width: callPx,
                 height: barH,
-                background: "rgba(34,197,94,0.75)",
-                borderRadius: 2,
+                background: "rgba(34,197,94,0.8)",
               }}
             />
           </div>
