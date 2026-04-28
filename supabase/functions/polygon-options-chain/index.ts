@@ -107,8 +107,9 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const dataSymbol = symbol === "NQ" ? "NDX" : symbol;
     const expirationParam = url.searchParams.get("expiration") || "";
-    const cacheKey = `${symbol}|${expirationParam}`;
+    const cacheKey = `${dataSymbol}|${expirationParam}`;
     const hit = cache.get(cacheKey);
     if (hit && Date.now() - hit.ts < TTL_MS) {
       return new Response(JSON.stringify(hit.data), {
@@ -117,8 +118,8 @@ Deno.serve(async (req) => {
     }
 
     const [cboe, hv30] = await Promise.all([
-      fetchCboe(symbol),
-      fetchHV30Polygon(symbol),
+      fetchCboe(dataSymbol),
+      fetchHV30Polygon(dataSymbol),
     ]);
 
     const spot = Number(cboe.current_price) || 0;
@@ -183,6 +184,7 @@ Deno.serve(async (req) => {
 
     const data: ChainResult = {
       symbol,
+      dataSymbol,
       spot,
       timestamp: new Date().toISOString(),
       source: "cboe",
