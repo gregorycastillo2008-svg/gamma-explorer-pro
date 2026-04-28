@@ -44,7 +44,7 @@ serve(async (req) => {
       mode: "subscription",
       payment_method_types: ["card"],
       allow_promotion_codes: true,
-      subscription_data: { trial_end: "now" },
+      subscription_data: { trial_end: Math.floor(Date.now() / 1000) },
       success_url: `${origin}/dashboard?checkout=success`,
       cancel_url: `${origin}/dashboard?checkout=cancel`,
     });

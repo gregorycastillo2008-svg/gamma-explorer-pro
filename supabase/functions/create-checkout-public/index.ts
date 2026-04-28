@@ -38,7 +38,7 @@ serve(async (req) => {
       payment_method_types: ["card"],
       allow_promotion_codes: true,
       // Cobro inmediato: anular cualquier trial configurado en el price
-      subscription_data: { trial_end: "now" },
+      subscription_data: { trial_end: Math.floor(Date.now() / 1000) },
       // After paying, user lands on /auth to create their account
       success_url: `${origin}/auth?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pricing?checkout=cancel`,
