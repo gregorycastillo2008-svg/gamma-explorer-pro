@@ -266,9 +266,9 @@ export function DepthView({ ticker, contracts }: Ctx) {
                 )}
 
                 {/* Put bar — right-aligned, going left */}
-                <div className="flex justify-end h-3.5">
+                <div className="group/put flex justify-end h-3.5">
                   <div
-                    className="h-full rounded-l-sm transition-all"
+                    className="h-full rounded-l-sm origin-right transition-all duration-150 ease-out group-hover/put:scale-y-[1.4] group-hover/put:brightness-125"
                     style={{
                       width: `${putPct}%`,
                       background: "linear-gradient(90deg, hsl(0 95% 35%), hsl(0 100% 58%))",
@@ -287,9 +287,9 @@ export function DepthView({ ticker, contracts }: Ctx) {
                 </div>
 
                 {/* Call bar — left-aligned, going right */}
-                <div className="flex h-3.5">
+                <div className="group/call flex h-3.5">
                   <div
-                    className="h-full rounded-r-sm transition-all"
+                    className="h-full rounded-r-sm origin-left transition-all duration-150 ease-out group-hover/call:scale-y-[1.4] group-hover/call:brightness-125"
                     style={{
                       width: `${callPct}%`,
                       background: "linear-gradient(90deg, hsl(140 100% 50%), hsl(140 95% 35%))",
