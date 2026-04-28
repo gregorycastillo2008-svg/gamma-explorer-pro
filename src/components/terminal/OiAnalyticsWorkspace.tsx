@@ -184,7 +184,7 @@ function NormalizedOIPanel({
               {/* PUT side (right-aligned, grows leftward) */}
               <div className="group/put flex justify-end h-3.5">
                 <div
-                  className="origin-right transition-all duration-150 ease-out group-hover/put:scale-y-[2] group-hover/put:brightness-125"
+                  className="origin-right transition-all duration-150 ease-out group-hover/put:scale-y-[1.4] group-hover/put:brightness-125"
                   style={{
                     width: `${(putW / 50) * 100}%`,
                     height: "100%",
