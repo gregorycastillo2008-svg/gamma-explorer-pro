@@ -1,6 +1,7 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine, ReferenceDot, CartesianGrid, LabelList } from "recharts";
 import type { ExposurePoint } from "@/lib/gex";
 import { formatNumber } from "@/lib/gex";
+import { HoverBar } from "@/components/terminal/HoverBar";
 
 interface Props {
   data: ExposurePoint[];
