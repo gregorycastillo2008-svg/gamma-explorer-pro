@@ -7,9 +7,10 @@ const corsHeaders = {
 };
 
 const VALID_PRICES = new Set([
-  "price_1TQrwlCZRgBPwOB9FoDolYiq", // Starter
-  "price_1TQrxOCZRgBPwOB9UbadcwFU", // Pro
-  "price_1TQry2CZRgBPwOB9bKH38XuV", // Elite
+  "price_1TQrwlCZRgBPwOB9FoDolYiq", // Starter monthly
+  "price_1TQrxOCZRgBPwOB9UbadcwFU", // Pro monthly
+  "price_1TQry2CZRgBPwOB9bKH38XuV", // Elite monthly
+  // Yearly price IDs se añaden aquí cuando se creen en Stripe
 ]);
 
 serve(async (req) => {

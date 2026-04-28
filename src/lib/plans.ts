@@ -6,7 +6,9 @@ export const PLANS = {
   starter: {
     name: "Starter",
     price: 29.99,
+    priceYearly: 251.92, // 29.99 * 12 * 0.7
     priceId: "price_1TQrwlCZRgBPwOB9FoDolYiq",
+    priceIdYearly: "" as string, // TODO: pegar price ID anual de Stripe
     icon: "rocket" as const,
     features: [
       "GEX básico SPX/SPY",
@@ -19,7 +21,9 @@ export const PLANS = {
   pro: {
     name: "Pro",
     price: 79.99,
+    priceYearly: 671.92, // 79.99 * 12 * 0.7
     priceId: "price_1TQrxOCZRgBPwOB9UbadcwFU",
+    priceIdYearly: "" as string,
     icon: "crown" as const,
     features: [
       "GEX/DEX/VEX en tiempo real",
@@ -34,7 +38,9 @@ export const PLANS = {
   elite: {
     name: "Elite",
     price: 159.99,
+    priceYearly: 1343.92, // 159.99 * 12 * 0.7
     priceId: "price_1TQry2CZRgBPwOB9bKH38XuV",
+    priceIdYearly: "" as string,
     icon: "gem" as const,
     features: [
       "Todo lo de Pro",
