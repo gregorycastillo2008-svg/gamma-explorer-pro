@@ -12,9 +12,8 @@ import { AllGammaLogo } from "@/components/AllGammaLogo";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
 import { RadarMap } from "@/components/RadarMap";
 import { TestimonialsMarquee } from "@/components/TestimonialsMarquee";
+import { PlansSection } from "@/components/PlansSection";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { PLANS, type Tier } from "@/lib/plans";
 
 const features = [
   { icon: BarChart3, title: "GEX por strike", desc: "Visualiza Gamma Exposure agregada por strike con detección automática de Call/Put walls." },
@@ -32,21 +31,6 @@ const testimonials = [
   { name: "Ana L.", role: "Options Trader · QQQ", rating: 5, text: "Las call/put walls funcionan como imanes. Es la herramienta más precisa que he probado.", extra: "Win rate subió del 54% al 71%" },
   { name: "David R.", role: "Quant · Hedge Fund", rating: 5, text: "La latencia y la calidad de datos son institucionales. El precio es ridículamente bajo para lo que entrega.", extra: "Reemplazó software de $2k/mes" },
   { name: "Sofía P.", role: "Swing Trader", rating: 5, text: "El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.", extra: "Suscriptora Pro Elite" },
-];
-
-const plans = [
-  {
-    name: "Starter", price: 29.99, icon: Rocket, tone: "muted",
-    features: ["GEX básico SPX/SPY", "1 ticker en watchlist", "Datos con 15min delay", "Soporte por email"],
-  },
-  {
-    name: "Pro", price: 79.99, icon: Crown, tone: "primary", popular: true,
-    features: ["GEX/DEX/VEX en tiempo real", "Watchlist ilimitada", "Call/Put walls + Gamma Flip", "AI Bias diario", "Alertas push", "Soporte prioritario"],
-  },
-  {
-    name: "Elite", price: 159.99, icon: Gem, tone: "call",
-    features: ["Todo lo de Pro", "IV Surface 3D completo", "API access (10k req/día)", "Vanna & Charm exposure", "Reportes institucionales", "Onboarding 1-a-1", "Discord VIP traders"],
-  },
 ];
 
 function StarRow({ n }: { n: number }) {
@@ -69,59 +53,6 @@ export default function Landing() {
   const { user } = useAuth();
   const [showPlansBubble, setShowPlansBubble] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [checkoutPlan, setCheckoutPlan] = useState<Tier | null>(null);
-  const [checkoutEmail, setCheckoutEmail] = useState("");
-
-  const handlePlanClick = async (planName: string) => {
-    const tier = planName.toLowerCase() as Tier;
-    const plan = PLANS[tier];
-    if (!plan) return;
-
-    if (user?.email) {
-      // Logged in → direct authenticated checkout
-      setCheckoutLoading(planName);
-      try {
-        const { data, error } = await supabase.functions.invoke("create-checkout", {
-          body: { priceId: plan.priceId },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        if (data?.url) window.location.href = data.url;
-      } catch (e: any) {
-        toast.error(e.message || "Error iniciando el pago");
-      } finally {
-        setCheckoutLoading(null);
-      }
-    } else {
-      // Not logged in → show email popup
-      setCheckoutPlan(tier);
-      setCheckoutEmail("");
-    }
-  };
-
-  const submitCheckoutEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!checkoutPlan) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(checkoutEmail)) {
-      toast.error("Introduce un email válido");
-      return;
-    }
-    const plan = PLANS[checkoutPlan];
-    setCheckoutLoading(checkoutPlan);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout-public", {
-        body: { priceId: plan.priceId, email: checkoutEmail.trim() },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.url) window.location.href = data.url;
-    } catch (e: any) {
-      toast.error(e.message || "Error iniciando el pago");
-    } finally {
-      setCheckoutLoading(null);
-    }
-  };
 
   // animated word in hero
   const heroWords = ["Gamma Exposure", "Dealer Flow", "Volatility Edge", "Market Bias"];
