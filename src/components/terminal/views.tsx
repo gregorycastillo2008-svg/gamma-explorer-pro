@@ -11,6 +11,7 @@ import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./Volatili
 import { VolatilityDashboard } from "@/components/volatility/VolatilityDashboard";
 import { PriceGexChartContainer } from "@/components/chart/PriceGexChartContainer";
 import { IntegratedGEXChart } from "@/components/chart/IntegratedGEXChart";
+import { TradingViewGexChart } from "@/components/chart/TradingViewGexChart";
 import { GreekLadder } from "@/components/greeks/GreekLadder";
 import { OptionsFlowHeatmap } from "./OptionsFlowHeatmap";
 
@@ -99,7 +100,7 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 }
 
 // ─────── PRICE + GEX CHART (sección propia) ───────
-export function ChartView({ ticker }: Ctx) {
+export function ChartView({ ticker, exposures, levels }: Ctx) {
   return (
     <div className="h-full overflow-hidden">
       <TerminalTabs
@@ -108,7 +109,7 @@ export function ChartView({ ticker }: Ctx) {
           {
             key: "tradingview",
             label: "TRADINGVIEW",
-            content: <TradingViewRealtimeChart />,
+            content: <TradingViewGexChart ticker={ticker} exposures={exposures} levels={levels} />,
           },
           {
             key: "gex",
