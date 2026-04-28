@@ -201,7 +201,7 @@ function NormalizedOIPanel({
               {/* CALL side (left-aligned, grows rightward) */}
               <div className="group/call flex justify-start h-3.5">
                 <div
-                  className="origin-left transition-all duration-150 ease-out group-hover/call:scale-y-[2] group-hover/call:brightness-125"
+                  className="origin-left transition-all duration-150 ease-out group-hover/call:scale-y-[1.4] group-hover/call:brightness-125"
                   style={{
                     width: `${(callW / 50) * 100}%`,
                     height: "100%",
