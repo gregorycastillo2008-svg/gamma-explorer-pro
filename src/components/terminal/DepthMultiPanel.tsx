@@ -42,12 +42,12 @@ export function DepthMultiPanel({ ticker, contracts }: Props) {
   const [realChain, setRealChain] = useState<RealChain | null>(null);
   const fetchSeq = useRef(0);
 
-  // Fetch real options chain from Polygon for this symbol
+  // Fetch real options chain (ALL near-term expirations) from edge function
   useEffect(() => {
     const seq = ++fetchSeq.current;
     const load = async () => {
       try {
-        const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/polygon-options-chain?symbol=${ticker.symbol}`;
+        const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/polygon-options-chain?symbol=${ticker.symbol}&all=1`;
         const r = await fetch(url, {
           headers: {
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
@@ -85,12 +85,22 @@ export function DepthMultiPanel({ ticker, contracts }: Props) {
   const realSpot = realChain?.spot ?? ticker.spot;
   const liveTicker = { ...ticker, spot: realSpot };
 
-  // Solo 1/2/3 DTE — muestra contratos REALES cuya expiración cae dentro del rango
-  const dteOptions: PanelConfig[] = useMemo(() => [
-    { key: "1dte", label: "1 DTE", filter: (c) => c.expiry <= 1 },
-    { key: "2dte", label: "2 DTE", filter: (c) => c.expiry <= 2 },
-    { key: "3dte", label: "3 DTE", filter: (c) => c.expiry <= 3 },
-  ], []);
+  // Available DTE buckets: only show buckets that actually have real contracts
+  const availableDtes = useMemo(() => {
+    const set = new Set<number>();
+    for (const c of sourceContracts) set.add(c.expiry);
+    return [...set].filter((d) => d <= 7).sort((a, b) => a - b);
+  }, [sourceContracts]);
+
+  // Each panel bucket = contracts with EXACT DTE match (real gamma for that day)
+  const dteOptions: PanelConfig[] = useMemo(() => {
+    const list = availableDtes.length > 0 ? availableDtes : [0, 1, 2, 3];
+    return list.map((d) => ({
+      key: `${d}dte`,
+      label: d === 0 ? "0 DTE" : `${d} DTE`,
+      filter: (c: OptionContract) => c.expiry === d,
+    }));
+  }, [availableDtes]);
 
   const [leftKey, setLeftKey] = useState<string>("1dte");
   const [rightKey, setRightKey] = useState<string>("3dte");
