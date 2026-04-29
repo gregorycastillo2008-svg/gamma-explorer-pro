@@ -435,10 +435,15 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
 
           <div className="flex-1 border-l border-[#1f1f1f] overflow-hidden">
             {chain && chain.contracts.length > 0 ? (
-              <NetGexProfile
-                symbol={symbol}
+              <GEXBarsPanel
+                rows={strikeRows.map((r) => ({
+                  strike: r.strike,
+                  callGEX: r.callGEX,
+                  putGEX: r.putGEX,
+                  callOI: r.callOI,
+                  putOI: r.putOI,
+                }))}
                 spot={chain.spot}
-                contracts={chain.contracts}
               />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
