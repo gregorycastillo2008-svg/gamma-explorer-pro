@@ -593,7 +593,7 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
           key: "classic",
           label: "EXPOSURE MAP",
           content: (
-    <div className="space-y-3">
+    <div className="h-full overflow-y-auto space-y-3 pr-1 terminal-scrollbar">
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <div className="kpi-card rounded border border-border bg-card/60 px-3 py-2">
