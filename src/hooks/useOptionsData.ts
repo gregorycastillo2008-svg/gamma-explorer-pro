@@ -53,13 +53,13 @@ export function useOptionsData(symbol: string): OptionsData {
     setStatus("loading");
 
     const upper = symbol.toUpperCase();
-    const cached = CACHE.get(upper);
-    if (cached && Date.now() - cached.at < TTL_MS) {
-      apply(cached.resp);
-      return;
-    }
 
-    (async () => {
+    const fetchNow = async (force = false) => {
+      const cached = CACHE.get(upper);
+      if (!force && cached && Date.now() - cached.at < TTL_MS) {
+        apply(cached.resp);
+        return;
+      }
       try {
         // Edge function reads ?symbol= from query string — use direct fetch
         // (supabase-js invoke v2 does not pass query strings on GET reliably)
@@ -88,9 +88,10 @@ export function useOptionsData(symbol: string): OptionsData {
         setIv30(null);
         setPriceChangePct(0);
       }
-    })();
+    };
 
     function apply(json: CboeResp) {
+      if (aborted.current) return;
       const base = getDemoTicker(json.symbol);
       const expiries = json.expiries.length ? json.expiries : [1, 7, 30];
       const strikes = json.strikes;
@@ -105,7 +106,6 @@ export function useOptionsData(symbol: string): OptionsData {
         strikeStep: step,
         expiries,
       });
-      // Pass real greeks from CBOE so GEX is computed with actual gamma, not BS estimate
       setContracts(json.contracts.map((c) => ({
         strike: c.strike, expiry: c.expiry, type: c.type, iv: c.iv, oi: c.oi,
         gamma: c.gamma, delta: c.delta, vega: c.vega, theta: c.theta,
@@ -117,7 +117,19 @@ export function useOptionsData(symbol: string): OptionsData {
       setPriceChangePct(json.priceChangePct || 0);
     }
 
-    return () => { aborted.current = true; };
+    fetchNow(false);
+    // Auto-refresh every 60s so the entire dashboard updates as the options
+    // chain changes or contracts approach expiry.
+    const intervalId = window.setInterval(() => fetchNow(true), 60_000);
+    // Refresh immediately when the tab regains focus
+    const onVis = () => { if (document.visibilityState === "visible") fetchNow(true); };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      aborted.current = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVis);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, reloadKey]);
 
