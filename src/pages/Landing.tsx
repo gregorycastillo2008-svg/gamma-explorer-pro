@@ -36,9 +36,10 @@ const testimonials = [
 export default function Landing() {
   const { user } = useAuth();
   const [showInfo, setShowInfo] = useState(false);
-
-  // animated word in hero
-  const heroWords = ["Gamma Exposure", "Dealer Flow", "Volatility Edge", "Market Bias"];
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminName, setAdminName] = useState("");
+  const [adminPwd, setAdminPwd] = useState("");
+  const navigate = useNavigate();
   const [wordIdx, setWordIdx] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setWordIdx((i) => (i + 1) % heroWords.length), 2600);
