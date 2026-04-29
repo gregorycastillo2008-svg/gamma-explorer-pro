@@ -281,7 +281,7 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
               <XAxis dataKey="strike" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={20} />
               <YAxis yAxisId="bars" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={60} />
               <YAxis yAxisId="cum" orientation="right" tick={{ fontSize: 11, fill: "#ffcc00" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={60} />
-              <Tooltip
+              <RTooltip
                 contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                 formatter={(v: number, name: string) => [formatNumber(v), name]}
                 labelFormatter={(l) => `Strike $${l}`}
@@ -328,7 +328,7 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
                   <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="t" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} minTickGap={24} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} width={30} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
+                  <RTooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
                   <ReferenceLine y={50} stroke="hsl(var(--border))" strokeDasharray="3 3" />
                   <ReferenceLine y={60} stroke="#00ff88" strokeOpacity={0.3} strokeDasharray="2 2" />
                   <ReferenceLine y={40} stroke="#ff4466" strokeOpacity={0.3} strokeDasharray="2 2" />
