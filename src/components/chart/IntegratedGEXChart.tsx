@@ -136,12 +136,17 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
     };
   }, []);
 
-  // Build strike rows (filtered by DTE) from chain
+  // Build strike rows (filtered by selected expiration window) from chain
   const strikeRows: StrikeRow[] = useMemo(() => {
     if (!chain || !chain.contracts.length) return [];
     const spot = chain.spot;
-    const maxDte = parseInt(dteFilter, 10);
-    const filtered = chain.contracts.filter((c) => daysUntil(c.expiration) <= maxDte);
+    // 0 = today only, 1 = tomorrow only, 1D = today + tomorrow
+    const filtered = chain.contracts.filter((c) => {
+      const d = daysUntil(c.expiration);
+      if (dteFilter === "0") return d === 0;
+      if (dteFilter === "1") return d === 1;
+      return d <= 1; // "1D"
+    });
     const map = new Map<number, StrikeRow>();
     filtered.forEach((c) => {
       const cur = map.get(c.strike) ?? { strike: c.strike, callGEX: 0, putGEX: 0, callOI: 0, putOI: 0 };
@@ -150,7 +155,10 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
       else { cur.putGEX += gex; cur.putOI += c.oi; }
       map.set(c.strike, cur);
     });
-    const all = Array.from(map.values()).sort((a, b) => Math.abs(a.strike - spot) - Math.abs(b.strike - spot)).slice(0, 28);
+    // Show all strikes within ±10% of spot, sorted by strike
+    const all = Array.from(map.values())
+      .filter((r) => Math.abs(r.strike - spot) / spot < 0.10)
+      .sort((a, b) => b.strike - a.strike);
     return all;
   }, [chain, dteFilter]);
 
@@ -342,9 +350,9 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
           <div className="ml-2 flex items-center gap-1">
             <span className="text-[9px] tracking-widest text-muted-foreground font-bold">GAMMA</span>
             {([
-              { v: "1" as const, label: "1D" },
-              { v: "2" as const, label: "2D" },
-              { v: "3" as const, label: "3D" },
+              { v: "0" as const, label: "HOY" },
+              { v: "1" as const, label: "MAÑANA" },
+              { v: "1D" as const, label: "1D" },
             ]).map((d) => (
               <button
                 key={d.v}
