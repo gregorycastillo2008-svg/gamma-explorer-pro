@@ -218,6 +218,31 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
     return { totalVega: tv, totalTheta: tt, putVol: pv, callVol: cv, ivRank: ivR };
   }, [contracts, selectedExpiry, spot, T, iv]);
 
+  // ─── Vanna / Charm exposure per strike (dealer convention: short calls, long puts ⇒ sign)
+  const vannaCharmSeries = useMemo(() => {
+    const m = new Map<number, { strike: number; vanna: number; charm: number; vannaCall: number; vannaPut: number; charmCall: number; charmPut: number }>();
+    contracts.filter((c) => c.expiry === selectedExpiry).forEach((c) => {
+      const sigma = c.iv > 0 ? c.iv : iv;
+      const va = vanna(spot, c.strike, T, r, sigma);
+      const ch = c.type === "call" ? charmCall(spot, c.strike, T, r, sigma) : charmPut(spot, c.strike, T, r, sigma);
+      const notional = c.oi * 100;
+      const sign = c.type === "call" ? 1 : -1; // dealer-short calls / long puts
+      const cur = m.get(c.strike) ?? { strike: c.strike, vanna: 0, charm: 0, vannaCall: 0, vannaPut: 0, charmCall: 0, charmPut: 0 };
+      cur.vanna += va * notional * sign;
+      cur.charm += ch * notional * sign;
+      if (c.type === "call") { cur.vannaCall += va * notional; cur.charmCall += ch * notional; }
+      else { cur.vannaPut += va * notional; cur.charmPut += ch * notional; }
+      m.set(c.strike, cur);
+    });
+    return Array.from(m.values())
+      .filter((x) => x.strike >= spot * 0.92 && x.strike <= spot * 1.08)
+      .sort((a, b) => a.strike - b.strike);
+  }, [contracts, selectedExpiry, spot, T, iv]);
+
+  const totalVanna = vannaCharmSeries.reduce((s, p) => s + p.vanna, 0);
+  const totalCharm = vannaCharmSeries.reduce((s, p) => s + p.charm, 0);
+  const peakVanna = vannaCharmSeries.reduce((b, p) => Math.abs(p.vanna) > Math.abs(b.vanna) ? p : b, vannaCharmSeries[0] ?? { strike: 0, vanna: 0, charm: 0 } as any);
+  const peakCharm = vannaCharmSeries.reduce((b, p) => Math.abs(p.charm) > Math.abs(b.charm) ? p : b, vannaCharmSeries[0] ?? { strike: 0, vanna: 0, charm: 0 } as any);
 
   // ─── Theta decay timeline
   const decaySeries = useMemo(() => {
