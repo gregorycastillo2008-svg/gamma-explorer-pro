@@ -121,9 +121,15 @@ export function GEXBarsPanel({ rows, spot }: Props) {
     el.scrollTop = Math.max(0, target);
   }, [spotRowIndex, totalH]);
 
+  const [hover, setHover] = useState<{ row: StrikeRow; x: number; y: number } | null>(null);
+
   return (
     <div className="relative h-full w-full font-mono text-[10px]" style={{ background: "#000" }}>
-      <div ref={scrollerRef} className="overflow-y-auto h-full pr-1 relative">
+      <div
+        ref={scrollerRef}
+        className="overflow-y-auto h-full pr-1 relative"
+        onMouseLeave={() => setHover(null)}
+      >
         <div className="relative" style={{ minHeight: totalH }}>
           {/* Horizontal key-level lines */}
           <HLine idx={callWallIdx} color="#facc15" label={`CALL WALL ${callWall?.strike ?? ""}`} />
