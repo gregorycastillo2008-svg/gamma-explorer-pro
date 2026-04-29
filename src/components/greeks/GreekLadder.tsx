@@ -410,7 +410,7 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
                 return (
                   <tr
                     key={r.strike}
-                    className="hover:brightness-150 transition-all"
+                    className="group/row transition-all duration-150 ease-out hover:brightness-125 hover:[&>td]:bg-cyan-500/10 hover:shadow-[inset_0_0_0_1px_rgba(6,182,212,0.5)]"
                     style={{
                       background: r.isAtm
                         ? "rgba(6, 182, 212, 0.10)"
