@@ -128,7 +128,10 @@ export function computeExposures(spot: number, contracts: OptionContract[], r = 
       point.putOI += c.oi;
     }
     point.netGex += gexContrib;
-    point.dex += delta * notional * spot * sign;
+    // DEX (Delta Exposure) — standard industry convention:
+    // Σ delta × OI × contract_size × spot. Put deltas are already negative,
+    // so DO NOT flip their sign here (that would double-count direction).
+    point.dex += delta * notional * spot;
     point.vex += vega * notional * sign;
     point.vanna += vanna * notional * sign;
     point.charm += charm * notional * sign;
