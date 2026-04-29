@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { computeExposures, computeKeyLevels, formatNumber } from "@/lib/gex";
 import type { DemoTicker, OptionContract, ExposurePoint, KeyLevels } from "@/lib/gex";
 
 interface Props {
   ticker: DemoTicker;
-  contracts: OptionContract[];
+  contracts: OptionContract[]; // fallback (demo)
 }
 
 const GREEN = "#10b981";
@@ -22,8 +22,68 @@ interface PanelConfig {
   filter: (c: OptionContract) => boolean;
 }
 
+interface RealChainContract {
+  ticker: string; strike: number; expiration: string; side: "call" | "put";
+  bid: number; ask: number; last: number; iv: number; oi: number; volume: number;
+  delta: number; gamma: number; theta: number; vega: number;
+}
+interface RealChain {
+  symbol: string; spot: number; selectedExpiration: string; expirations: string[];
+  contracts: RealChainContract[]; error?: string;
+}
+
+function daysUntil(iso: string): number {
+  const exp = new Date(iso + "T21:00:00Z").getTime();
+  return Math.max(0, Math.round((exp - Date.now()) / 86_400_000));
+}
+
 export function DepthMultiPanel({ ticker, contracts }: Props) {
   const [hoverStrike, setHoverStrike] = useState<number | null>(null);
+  const [realChain, setRealChain] = useState<RealChain | null>(null);
+  const fetchSeq = useRef(0);
+
+  // Fetch real options chain from Polygon for this symbol
+  useEffect(() => {
+    const seq = ++fetchSeq.current;
+    const load = async () => {
+      try {
+        const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/polygon-options-chain?symbol=${ticker.symbol}`;
+        const r = await fetch(url, {
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+        });
+        const j: RealChain = await r.json();
+        if (seq !== fetchSeq.current) return;
+        if (!j.error) setRealChain(j);
+      } catch {}
+    };
+    load();
+    const t = setInterval(load, 30_000);
+    return () => clearInterval(t);
+  }, [ticker.symbol]);
+
+  // Map real chain to OptionContract[] expected by computeExposures
+  const realContracts: OptionContract[] = useMemo(() => {
+    if (!realChain || !realChain.contracts.length) return [];
+    return realChain.contracts.map((c) => ({
+      strike: c.strike,
+      expiry: daysUntil(c.expiration),
+      type: c.side,
+      iv: c.iv || 0.25,
+      oi: c.oi || 0,
+      gamma: c.gamma,
+      delta: c.delta,
+      vega: c.vega,
+      theta: c.theta,
+    }));
+  }, [realChain]);
+
+  // Use REAL contracts when available, otherwise fall back to demo
+  const sourceContracts = realContracts.length > 0 ? realContracts : contracts;
+  const realSpot = realChain?.spot ?? ticker.spot;
+  const liveTicker = { ...ticker, spot: realSpot };
 
   // Solo 1/2/3 DTE — muestra contratos REALES cuya expiración cae dentro del rango
   const dteOptions: PanelConfig[] = useMemo(() => [
@@ -39,8 +99,8 @@ export function DepthMultiPanel({ ticker, contracts }: Props) {
   const rightCfg = dteOptions.find((o) => o.key === rightKey) ?? dteOptions[0];
 
   const buildPanel = (cfg: PanelConfig) => {
-    const filtered = contracts.filter(cfg.filter);
-    const exposures = computeExposures(ticker.spot, filtered);
+    const filtered = sourceContracts.filter(cfg.filter);
+    const exposures = computeExposures(realSpot, filtered);
     const levels = computeKeyLevels(exposures);
     return { exposures, levels };
   };
