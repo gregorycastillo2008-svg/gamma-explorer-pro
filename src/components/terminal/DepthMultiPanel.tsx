@@ -105,8 +105,9 @@ export function DepthMultiPanel({ ticker, contracts }: Props) {
   const [leftKey, setLeftKey] = useState<string>("1dte");
   const [rightKey, setRightKey] = useState<string>("3dte");
 
+  // Ensure selected keys exist in current dteOptions; otherwise fall back
   const leftCfg = dteOptions.find((o) => o.key === leftKey) ?? dteOptions[0];
-  const rightCfg = dteOptions.find((o) => o.key === rightKey) ?? dteOptions[0];
+  const rightCfg = dteOptions.find((o) => o.key === rightKey) ?? dteOptions[Math.min(2, dteOptions.length - 1)] ?? dteOptions[0];
 
   const buildPanel = (cfg: PanelConfig) => {
     const filtered = sourceContracts.filter(cfg.filter);
