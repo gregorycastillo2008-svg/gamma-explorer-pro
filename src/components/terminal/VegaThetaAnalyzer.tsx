@@ -633,6 +633,44 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
         </div>
       </Panel>
 
+      {/* Vanna / Charm Exposure */}
+      <Panel title="Vanna / Charm Exposure" subtitle={`${selectedExpiry}D · dealer convention · per 1% IV / per day`}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <MetricCard title="Net Vanna" value={formatNumber(totalVanna)} subtitle="ΔΔ per +1% IV" color="#00e5ff" icon="∂Δ/∂σ" />
+          <MetricCard title="Net Charm" value={formatNumber(totalCharm)} subtitle="ΔΔ per day" color="#ff8800" icon="∂Δ/∂t" />
+          <MetricCard title="Peak Vanna Strike" value={`$${peakVanna?.strike ?? 0}`} subtitle={`${formatNumber(peakVanna?.vanna ?? 0)}`} color="#00e5ff" />
+          <MetricCard title="Peak Charm Strike" value={`$${peakCharm?.strike ?? 0}`} subtitle={`${formatNumber(peakCharm?.charm ?? 0)}`} color="#ff8800" />
+        </div>
+        <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={vannaCharmSeries} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
+              <CartesianGrid stroke={COL.border} strokeDasharray="2 4" />
+              <XAxis dataKey="strike" tick={{ fill: COL.txt2, fontSize: 10 }} />
+              <YAxis yAxisId="v" tick={{ fill: "#00e5ff", fontSize: 10 }} tickFormatter={(v) => formatNumber(Number(v), 1)} />
+              <YAxis yAxisId="c" orientation="right" tick={{ fill: "#ff8800", fontSize: 10 }} tickFormatter={(v) => formatNumber(Number(v), 1)} />
+              <RTooltip
+                contentStyle={{ background: COL.bg2, border: `1px solid ${COL.border}`, fontSize: 11 }}
+                formatter={(v: number, name: string) => [formatNumber(v), name === "vanna" ? "Vanna" : "Charm"]}
+                labelFormatter={(l) => `Strike $${l}`}
+              />
+              <ReferenceLine x={Math.round(spot / ticker.strikeStep) * ticker.strikeStep} yAxisId="v" stroke={COL.yellow} strokeDasharray="3 3" label={{ value: `Spot ${spot.toFixed(0)}`, fill: COL.yellow, fontSize: 10, position: "top" }} />
+              <ReferenceLine y={0} yAxisId="v" stroke={COL.border} />
+              <Bar yAxisId="v" dataKey="vanna" name="Vanna" fill="#00e5ff" opacity={0.7} />
+              <Line yAxisId="c" type="monotone" dataKey="charm" name="Charm" stroke="#ff8800" strokeWidth={2} dot={false} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]" style={{ color: COL.txt2 }}>
+          <div style={{ background: COL.bg2, padding: 8, borderRadius: 4, borderLeft: `3px solid #00e5ff` }}>
+            <span style={{ color: "#00e5ff", fontWeight: 700 }}>VANNA</span> · ∂Δ/∂σ — si la IV sube +1%, los dealers ganan/pierden delta. Net positivo ⇒ deben <strong>vender</strong> spot al subir vol (acentúa caídas).
+          </div>
+          <div style={{ background: COL.bg2, padding: 8, borderRadius: 4, borderLeft: `3px solid #ff8800` }}>
+            <span style={{ color: "#ff8800", fontWeight: 700 }}>CHARM</span> · -∂Δ/∂t — flujo de delta hacia 0DTE. Net negativo ⇒ los dealers <strong>compran</strong> spot al pasar el tiempo (típico al cierre / overnight).
+          </div>
+        </div>
+      </Panel>
+
       {/* Alerts */}
       {alerts.length > 0 && (
         <Panel title="Alerts" subtitle={`${alerts.length} active`}>
