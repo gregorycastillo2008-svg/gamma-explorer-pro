@@ -425,15 +425,15 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
 
       {/* BODY */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex flex-1 overflow-hidden min-h-0">
-          <div className="relative" style={{ width: "68%" }}>
+        <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0">
+          <div className="relative w-full h-[320px] lg:h-auto lg:w-[55%] xl:w-[62%] 2xl:w-[68%] shrink-0">
             <div ref={chartRef} className="absolute inset-0" />
             {loading && !price && (
               <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">Loading price…</div>
             )}
           </div>
 
-          <div className="flex-1 border-l border-[#1f1f1f] overflow-hidden">
+          <div className="flex-1 min-h-[260px] lg:min-h-0 border-t lg:border-t-0 lg:border-l border-[#1f1f1f] overflow-hidden">
             {chain && chain.contracts.length > 0 ? (
               <GEXBarsPanel
                 rows={strikeRows.map((r) => ({
@@ -452,23 +452,25 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
             )}
           </div>
 
-          <GEXSidebar
-            symbol={symbol}
-            spot={chain?.spot ?? 0}
-            keyLevels={metrics.keyLevels}
-            aggregates={metrics.aggregates}
-            maxChanges={maxChanges}
-            tickers={TICKERS}
-            onTickerChange={setSymbol}
-            onLoadHistory={fetchPrice}
-            onClearCache={() => { setPrice(null); setChain(null); fetchPrice(); fetchChain(); }}
-            expirationLatest={expirationsSorted[0]}
-            expirationNext={expirationsSorted[1]}
-          />
+          <div className="hidden lg:block">
+            <GEXSidebar
+              symbol={symbol}
+              spot={chain?.spot ?? 0}
+              keyLevels={metrics.keyLevels}
+              aggregates={metrics.aggregates}
+              maxChanges={maxChanges}
+              tickers={TICKERS}
+              onTickerChange={setSymbol}
+              onLoadHistory={fetchPrice}
+              onClearCache={() => { setPrice(null); setChain(null); fetchPrice(); fetchChain(); }}
+              expirationLatest={expirationsSorted[0]}
+              expirationNext={expirationsSorted[1]}
+            />
+          </div>
         </div>
 
         {/* Gexbot-style sub-chart with live Zero Gamma evolving over time */}
-        <div className="h-[540px] shrink-0 mt-6 border-t-2 border-[#1f1f1f]">
+        <div className="h-[320px] sm:h-[420px] lg:h-[540px] shrink-0 mt-4 sm:mt-6 border-t-2 border-[#1f1f1f]">
           <GexbotStyleChart
             symbol={symbol}
             spot={price?.spot ?? chain?.spot ?? 0}
