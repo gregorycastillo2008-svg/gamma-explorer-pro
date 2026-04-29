@@ -27,7 +27,7 @@ export function Scroll3DGallery() {
         </motion.div>
         <h2 className="text-4xl md:text-6xl font-black tracking-tight">
           Desliza para descubrir <br />
-          <span className="bg-clip-text text-[#ff0000]" style={{ backgroundImage: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)" }}>
+          <span className="bg-clip-text text-primary" style={{ backgroundImage: "linear-gradient(90deg, #b8860b, #ffd700, #fff5cc, #ffd700, #b8860b)" }}>
             la plataforma
           </span>
         </h2>
@@ -88,7 +88,7 @@ function Slide3D({ img, title, desc, index }: { img: string; title: string; desc
 
         {/* Text */}
         <div style={{ transform: "translateZ(20px)" }}>
-          <div className="text-7xl md:text-8xl font-black mb-2 leading-none bg-clip-text text-[#ff0000]"
+          <div className="text-7xl md:text-8xl font-black mb-2 leading-none bg-clip-text text-primary"
             style={{ backgroundImage: "linear-gradient(180deg, rgba(255,215,0,0.3), rgba(255,215,0,0.05))" }}
           >
             0{index + 1}
