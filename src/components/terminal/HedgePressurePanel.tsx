@@ -126,7 +126,7 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
 
   /* ── DEX / GEX bands (used by lower panels) ── */
   const netDex = exposures.reduce((s, p) => s + p.dex, 0);
-  const netGex = exposures.reduce((s, p) => s + p.gex, 0);
+  const netGex = exposures.reduce((s, p) => s + p.netGex, 0);
   const totalOI = contracts.reduce((s, c) => s + c.oi, 0);
 
   /* ── Charm (∂Δ/∂t) per strike — daily delta decay ── */
