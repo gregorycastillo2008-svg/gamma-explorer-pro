@@ -14,6 +14,7 @@ import { IntegratedGEXChart } from "@/components/chart/IntegratedGEXChart";
 import { TradingViewGexChart } from "@/components/chart/TradingViewGexChart";
 import { GreekLadder } from "@/components/greeks/GreekLadder";
 import { OptionsFlowHeatmap } from "./OptionsFlowHeatmap";
+import { RiskCalculator } from "./RiskCalculator";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
