@@ -143,9 +143,9 @@ export function GEXBarsPanel({ rows, spot }: Props) {
             const isAtm = Math.abs(r.strike - spot) < (sorted[0].strike - sorted[1]?.strike || 1) * 0.6;
 
             return (
-              <div key={r.strike} className="flex items-center" style={{ height: ROW_H }}>
+              <div key={r.strike} className="flex items-center group/row" style={{ height: ROW_H }}>
                 <div
-                  className="text-right pr-1.5 tabular-nums shrink-0"
+                  className="text-right pr-1.5 tabular-nums shrink-0 transition-all duration-150 group-hover/row:text-cyan-400 group-hover/row:font-bold"
                   style={{
                     width: STRIKE_W,
                     color: isAtm ? "#06b6d4" : "#9ca3af",
@@ -159,7 +159,7 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                 <div className="relative shrink-0" style={{ width: HALF, height: 14 }}>
                   {putW > 0 && (
                     <div
-                      className="absolute right-0 top-0 h-full rounded-sm overflow-hidden"
+                      className="absolute right-0 top-0 h-full rounded-sm overflow-hidden origin-right transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
                       style={{
                         width: putW,
                         background: "linear-gradient(270deg, #ef4444, #dc2626)",
@@ -178,7 +178,7 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                 <div className="relative shrink-0" style={{ width: HALF, height: 14 }}>
                   {callW > 0 && (
                     <div
-                      className="absolute left-0 top-0 h-full rounded-sm overflow-hidden"
+                      className="absolute left-0 top-0 h-full rounded-sm overflow-hidden origin-left transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
                       style={{
                         width: callW,
                         background: "linear-gradient(90deg, #10b981, #059669)",
