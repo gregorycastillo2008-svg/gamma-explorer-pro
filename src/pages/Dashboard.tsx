@@ -180,7 +180,11 @@ export default function Dashboard() {
     if (active === sym && next[0]) setActive(next[0]);
   };
 
-  const signOut = async () => { await supabase.auth.signOut(); nav("/"); };
+  const signOut = async () => {
+    if (adminBypass) clearAdminBypass();
+    if (user) await supabase.auth.signOut();
+    nav("/");
+  };
 
   const renderView = () => {
     switch (section) {
