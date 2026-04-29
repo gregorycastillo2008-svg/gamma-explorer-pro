@@ -162,9 +162,9 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                       className="absolute right-0 top-0 h-full rounded-sm overflow-hidden origin-right transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
                       style={{
                         width: putW,
-                        background: "linear-gradient(270deg, #ef4444, #dc2626)",
-                        opacity: 0.9,
-                        boxShadow: "0 0 6px rgba(239,68,68,0.35)",
+                        background: "linear-gradient(270deg, #ff1a1a, #b30000)",
+                        opacity: 0.95,
+                        boxShadow: "0 0 8px rgba(255,26,26,0.55)",
                       }}
                     >
                       {Array.from({ length: putSegs }).map((_, i) => (
