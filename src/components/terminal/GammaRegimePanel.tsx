@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, ReferenceLine, Cell, AreaChart, Area,
+  CartesianGrid, Tooltip as RTooltip, ReferenceLine, Cell, AreaChart, Area,
 } from "recharts";
 import type { ExposurePoint, KeyLevels, DemoTicker, OptionContract } from "@/lib/gex";
 import { formatNumber } from "@/lib/gex";
 import {
   TrendingUp, TrendingDown, AlertTriangle, Magnet,
-  Target, Activity, ArrowDown, ArrowUp, Minus, Zap,
+  Target, Activity, ArrowDown, ArrowUp, Minus, Zap, Info,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Props {
   ticker: DemoTicker;
