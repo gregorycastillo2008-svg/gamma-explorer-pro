@@ -339,7 +339,7 @@ function OIMatrixPanel({
               const rowBg = isAtm
                 ? "rgba(6,182,212,0.08)"
                 : isHover
-                ? "rgba(255,255,255,0.03)"
+                ? "rgba(6,182,212,0.10)"
                 : "transparent";
 
               return (
@@ -350,7 +350,9 @@ function OIMatrixPanel({
                   style={{
                     background: rowBg,
                     borderBottom: `1px solid ${BORDER}`,
-                    transition: "background 120ms",
+                    transition: "background 120ms, box-shadow 120ms",
+                    boxShadow: isHover ? "inset 0 0 0 1px rgba(6,182,212,0.5), 0 0 12px rgba(6,182,212,0.2)" : undefined,
+                    filter: isHover ? "brightness(1.15)" : undefined,
                   }}
                 >
                   {/* Call OI cell — heatmap */}
