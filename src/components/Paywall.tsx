@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Check, Mail, X, Info } from "lucide-react";
+import { Check, Mail, X, Info, Shield, Lock } from "lucide-react";
 import { PLANS, type Tier } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { applyDiscount, PLAN_DISCOUNTS, tryAdminLogin } from "@/lib/adminBypass";
 
 interface PaywallProps {
   email?: string;
