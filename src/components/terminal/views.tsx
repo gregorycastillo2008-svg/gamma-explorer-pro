@@ -1133,10 +1133,21 @@ export function RiskView({ ticker, exposures, levels, contracts }: Ctx) {
   ));
   const tone = riskScore > 60 ? "put" : riskScore > 35 ? "warning" : "call";
 
+  // ATM IV (annualized %) from contracts near spot
+  const atmContracts = contracts.filter((c) => Math.abs(c.strike - ticker.spot) < ticker.strikeStep * 1.5);
+  const atmIv = atmContracts.length
+    ? (atmContracts.reduce((s, c) => s + c.iv, 0) / atmContracts.length) * 100
+    : ticker.baseIV * 100;
+
   return (
     <TerminalTabs
       layoutId="risk-master-tab-bg"
       tabs={[
+        {
+          key: "calculator",
+          label: "CALCULATOR",
+          content: <RiskCalculator ticker={ticker} levels={levels} atmIv={atmIv} />,
+        },
         {
           key: "score",
           label: "RISK SCORE",
