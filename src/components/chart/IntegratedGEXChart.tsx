@@ -421,7 +421,12 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
 
           <div className="flex-1 border-l border-[#1f1f1f] overflow-hidden">
             {chain && strikeRows.length > 0 ? (
-              <GEXBarsPanel rows={strikeRows} spot={chain.spot} />
+              <NetGexProfile
+                symbol={symbol}
+                spot={chain.spot}
+                dte={dteFilter === "0" ? 0 : dteFilter === "1" ? 1 : 1}
+                rows={strikeRows}
+              />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
                 {dteFilter === "0" ? "Sin opciones 0DTE (hoy)" : dteFilter === "1" ? "Sin opciones 1DTE (mañana)" : "Sin opciones para hoy/mañana"}
