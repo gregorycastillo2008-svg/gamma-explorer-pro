@@ -181,9 +181,9 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                       className="absolute left-0 top-0 h-full rounded-sm overflow-hidden origin-left transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
                       style={{
                         width: callW,
-                        background: "linear-gradient(90deg, #10b981, #059669)",
-                        opacity: 0.9,
-                        boxShadow: "0 0 6px rgba(16,185,129,0.35)",
+                        background: "linear-gradient(90deg, #fde047, #ca8a04)",
+                        opacity: 0.95,
+                        boxShadow: "0 0 8px rgba(253,224,71,0.55)",
                       }}
                     >
                       {Array.from({ length: callSegs }).map((_, i) => (
