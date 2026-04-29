@@ -20,6 +20,9 @@ interface Props {
   zeroGamma?: number;
   majorCall?: number;
   majorPut?: number;
+  callWall?: number;
+  putWall?: number;
+  maxPain?: number;
 }
 
 const HEADER_BG = "#0f1419";
@@ -30,6 +33,7 @@ export function GexbotStyleChart({
   symbol, spot, points,
   zeroGammaSeries, majorCallSeries, majorPutSeries,
   zeroGamma, majorCall, majorPut,
+  callWall, putWall, maxPain,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -169,6 +173,38 @@ export function GexbotStyleChart({
     if (putRef.current) putRef.current.setData(toLine(majorPutSeries));
   }, [majorPutSeries]);
 
+  // Reference price-lines for major levels (Major Call, Major Put, Call Wall, Put Wall, Max Pain)
+  const refLinesRef = useRef<any[]>([]);
+  useEffect(() => {
+    const series = priceRef.current;
+    if (!series) return;
+    // Clear previous
+    refLinesRef.current.forEach((pl) => {
+      try { series.removePriceLine(pl); } catch {}
+    });
+    refLinesRef.current = [];
+
+    const levels: { price?: number; color: string; title: string }[] = [
+      { price: majorCall, color: "#00ff88", title: `Major Call ${majorCall?.toFixed(2) ?? ""}` },
+      { price: majorPut,  color: "#ff4466", title: `Major Put ${majorPut?.toFixed(2) ?? ""}` },
+      { price: callWall,  color: "#22d3ee", title: `Call Wall ${callWall?.toFixed(2) ?? ""}` },
+      { price: putWall,   color: "#f472b6", title: `Put Wall ${putWall?.toFixed(2) ?? ""}` },
+      { price: maxPain,   color: "#a78bfa", title: `Max Pain ${maxPain?.toFixed(2) ?? ""}` },
+    ];
+    for (const l of levels) {
+      if (l.price == null || !Number.isFinite(l.price)) continue;
+      const pl = series.createPriceLine({
+        price: l.price,
+        color: l.color,
+        lineWidth: 1,
+        lineStyle: 2, // dashed
+        axisLabelVisible: true,
+        title: l.title,
+      });
+      refLinesRef.current.push(pl);
+    }
+  }, [majorCall, majorPut, callWall, putWall, maxPain, points]);
+
   // Header datetime
   const dt = new Date();
   const dtStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}:${String(dt.getSeconds()).padStart(2, "0")}`;
@@ -219,6 +255,18 @@ export function GexbotStyleChart({
           <div>
             <span className="text-white font-bold">major put: </span>
             <span className="font-bold tabular-nums" style={{ color: "#ff4466" }}>${majorPut?.toFixed(2) ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-white font-bold">call wall: </span>
+            <span className="font-bold tabular-nums" style={{ color: "#22d3ee" }}>${callWall?.toFixed(2) ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-white font-bold">put wall: </span>
+            <span className="font-bold tabular-nums" style={{ color: "#f472b6" }}>${putWall?.toFixed(2) ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-white font-bold">max pain: </span>
+            <span className="font-bold tabular-nums" style={{ color: "#a78bfa" }}>${maxPain?.toFixed(2) ?? "—"}</span>
           </div>
         </div>
       </div>
