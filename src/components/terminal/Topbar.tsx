@@ -81,7 +81,7 @@ export function Topbar({
       {/* ROW 1 — original walls */}
       <div className="flex items-center px-4 gap-4 h-14 overflow-x-auto">
         <div className="flex items-center gap-3 shrink-0">
-          <span className="font-black text-base tracking-[0.2em] bg-gradient-to-r from-[#b8860b] via-[#ffd700] to-[#fff5cc] bg-clip-text text-secondary-foreground text-[#fffafa]">
+          <span className="font-black tracking-[0.2em] bg-gradient-to-r from-[#b8860b] via-[#ffd700] to-[#fff5cc] bg-clip-text bg-black text-[#828487] font-mono text-sm">
             GEXSATELIT
           </span>
           <span className="text-primary font-mono font-bold text-base tabular-nums">
