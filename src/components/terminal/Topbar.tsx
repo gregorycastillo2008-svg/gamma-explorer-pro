@@ -20,6 +20,9 @@ interface Props {
   priceChangePct?: number;
   onReload?: () => void;
   levels: KeyLevels;
+  atmIv?: number;
+  pcr?: number;
+  netDex?: number;
 }
 
 function useElapsed(fetchedAt: string | null | undefined) {
