@@ -1,7 +1,7 @@
 import { Plus, Minus, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DemoTicker, KeyLevels } from "@/lib/gex";
+import { DemoTicker, KeyLevels, formatNumber } from "@/lib/gex";
 import type { DataStatus } from "@/hooks/useOptionsData";
 import { useEffect, useState } from "react";
 
@@ -20,6 +20,9 @@ interface Props {
   priceChangePct?: number;
   onReload?: () => void;
   levels: KeyLevels;
+  atmIv?: number;
+  pcr?: number;
+  netDex?: number;
 }
 
 function useElapsed(fetchedAt: string | null | undefined) {
@@ -57,6 +60,7 @@ function Wall({ label, value, tone }: WallProps) {
 export function Topbar({
   ticker, watchlist, active, onActive, onAdd, onRemove, expiry, onExpiry,
   status = "loading", source, fetchedAt, priceChangePct = 0, onReload, levels,
+  atmIv, pcr, netDex,
 }: Props) {
   const elapsed = useElapsed(fetchedAt);
   const isLive = status === "live";
@@ -69,66 +73,94 @@ export function Topbar({
   const badgeLabel = isLive ? "LIVE" : isLoading ? "SYNC" : "DEMO";
   const changeCls = priceChangePct >= 0 ? "text-call" : "text-put";
 
+  const pcrTone = (pcr ?? 0) > 1 ? "put" : "call";
+  const dexTone = (netDex ?? 0) >= 0 ? "call" : "put";
+
   return (
-    <header className="border-b border-border flex items-center px-4 gap-4 shrink-0 h-14 overflow-x-auto bg-black">
-      {/* LEFT — Brand + Ticker + Spot */}
-      <div className="flex items-center gap-3 shrink-0">
-        <span className="font-black text-base tracking-[0.2em] bg-gradient-to-r from-[#b8860b] via-[#ffd700] to-[#fff5cc] bg-clip-text text-secondary-foreground text-[#fffafa]">
-          GEXSATELIT
-        </span>
-        <span className="text-primary font-mono font-bold text-base tabular-nums">
-          ${ticker.spot.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-        </span>
-        {isLive && priceChangePct !== 0 && (
-          <span className={`font-mono text-xs ${changeCls}`}>
-            {priceChangePct >= 0 ? "+" : ""}{priceChangePct.toFixed(2)}%
+    <header className="border-b border-border bg-black shrink-0 flex flex-col">
+      {/* ROW 1 — original walls */}
+      <div className="flex items-center px-4 gap-4 h-14 overflow-x-auto">
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="font-black text-base tracking-[0.2em] bg-gradient-to-r from-[#b8860b] via-[#ffd700] to-[#fff5cc] bg-clip-text text-secondary-foreground text-[#fffafa]">
+            GEXSATELIT
           </span>
-        )}
+          <span className="text-primary font-mono font-bold text-base tabular-nums">
+            ${ticker.spot.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          </span>
+          {isLive && priceChangePct !== 0 && (
+            <span className={`font-mono text-xs ${changeCls}`}>
+              {priceChangePct >= 0 ? "+" : ""}{priceChangePct.toFixed(2)}%
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <Select value={active} onValueChange={onActive}>
+            <SelectTrigger className="h-7 w-20 text-xs font-mono font-bold bg-card/60"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {watchlist.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="icon" variant="outline" className="h-7 w-7" onClick={onAdd}><Plus className="h-3 w-3" /></Button>
+          <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onRemove(active)} disabled={watchlist.length <= 1}><Minus className="h-3 w-3" /></Button>
+        </div>
+
+        <div className="flex items-center gap-5 shrink-0 border-l border-border/60 pl-4">
+          <Wall label="Call Wall" value={levels.callWall} tone="call" />
+          <Wall label="Put Wall"  value={levels.putWall}  tone="put" />
+          <Wall label="Major Wall" value={levels.majorWall} tone="primary" />
+          <Wall label="Max Pain"  value={levels.maxPain}  tone="warning" />
+          <Wall label="Vol Trigger" value={levels.volTrigger} tone="flip" />
+          <Wall label="Total VT"  value={levels.totalVt}  tone="call" />
+        </div>
+
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <Select value={expiry} onValueChange={onExpiry}>
+            <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All expiries</SelectItem>
+              {ticker.expiries.map((e) => (
+                <SelectItem key={e} value={String(e)}>{e === 1 ? "0DTE" : `${e}d`}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-[10px] text-muted-foreground font-mono" title={source}>
+            {isLoading ? "Fetching…" : elapsed ? `Updated ${elapsed}` : status === "demo" ? "Demo" : "—"}
+          </span>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badgeCls}`}>{badgeLabel}</span>
+          {onReload && (
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onReload} disabled={isLoading} title="Reload">
+              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Ticker selector */}
-      <div className="flex items-center gap-1 shrink-0">
-        <Select value={active} onValueChange={onActive}>
-          <SelectTrigger className="h-7 w-20 text-xs font-mono font-bold bg-card/60"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {watchlist.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Button size="icon" variant="outline" className="h-7 w-7" onClick={onAdd}><Plus className="h-3 w-3" /></Button>
-        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onRemove(active)} disabled={watchlist.length <= 1}><Minus className="h-3 w-3" /></Button>
-      </div>
-
-      {/* WALLS TICKER — Altaris style */}
-      <div className="flex items-center gap-5 shrink-0 border-l border-border/60 pl-4">
-        <Wall label="Call Wall" value={levels.callWall} tone="call" />
-        <Wall label="Put Wall"  value={levels.putWall}  tone="put" />
-        <Wall label="Major Wall" value={levels.majorWall} tone="primary" />
-        <Wall label="Max Pain"  value={levels.maxPain}  tone="warning" />
-        <Wall label="Vol Trigger" value={levels.volTrigger} tone="flip" />
-        <Wall label="Total VT"  value={levels.totalVt}  tone="call" />
-      </div>
-
-      {/* RIGHT — Expiry + status */}
-      <div className="ml-auto flex items-center gap-2 shrink-0">
-        <Select value={expiry} onValueChange={onExpiry}>
-          <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All expiries</SelectItem>
-            {ticker.expiries.map((e) => (
-              <SelectItem key={e} value={String(e)}>{e === 1 ? "0DTE" : `${e}d`}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-[10px] text-muted-foreground font-mono" title={source}>
-          {isLoading ? "Fetching…" : elapsed ? `Updated ${elapsed}` : status === "demo" ? "Demo" : "—"}
-        </span>
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badgeCls}`}>{badgeLabel}</span>
-        {onReload && (
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onReload} disabled={isLoading} title="Reload">
-            {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-          </Button>
-        )}
-      </div>
+      {/* ROW 2 — Vol Trigger %, P/C Ratio, Net DEX (live calculations from real options data) */}
+      {(atmIv !== undefined || pcr !== undefined || netDex !== undefined) && (
+        <div className="flex items-center px-4 gap-5 h-9 border-t border-border/50 overflow-x-auto bg-black/60">
+          {atmIv !== undefined && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] tracking-[0.15em] uppercase text-primary/80 font-mono font-bold">Vol Tr</span>
+              <span className="font-mono font-bold text-sm tabular-nums text-primary">{atmIv.toFixed(1)}%</span>
+            </div>
+          )}
+          {pcr !== undefined && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className={`text-[10px] tracking-[0.15em] uppercase font-mono font-bold ${pcrTone === "put" ? "text-put/80" : "text-call/80"}`}>P/C Ratio</span>
+              <span className={`font-mono font-bold text-sm tabular-nums ${pcrTone === "put" ? "text-put" : "text-call"}`}>{pcr.toFixed(2)}</span>
+            </div>
+          )}
+          {netDex !== undefined && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className={`text-[10px] tracking-[0.15em] uppercase font-mono font-bold ${dexTone === "put" ? "text-put/80" : "text-call/80"}`}>Net DEX</span>
+              <span className={`font-mono font-bold text-sm tabular-nums ${dexTone === "put" ? "text-put" : "text-call"}`}>
+                {netDex >= 0 ? "+" : ""}{formatNumber(netDex)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 }
