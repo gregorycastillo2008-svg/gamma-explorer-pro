@@ -436,7 +436,7 @@ export default function Landing() {
             GEXSATELIT · Plataforma verificada · Solo con fines educativos. Datos simulados.
           </div>
           <a
-            href="https://discord.gg/bNAq5PA3Y"
+            href="https://discord.gg/f7UpW2Kx8"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[#5865F2] text-white font-semibold text-sm shadow-md hover:bg-[#4752c4] hover:shadow-lg transition-all hover-scale"
