@@ -386,37 +386,51 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
       </div>
 
       {/* BODY */}
-      <div className="flex flex-1 overflow-hidden">
-        <div className="relative" style={{ width: "55%" }}>
-          <div ref={chartRef} className="absolute inset-0" />
-          {loading && !price && (
-            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">Loading price…</div>
-          )}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden min-h-0">
+          <div className="relative" style={{ width: "55%" }}>
+            <div ref={chartRef} className="absolute inset-0" />
+            {loading && !price && (
+              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">Loading price…</div>
+            )}
+          </div>
+
+          <div className="flex-1 border-l border-[#1f1f1f] overflow-hidden">
+            {chain && strikeRows.length > 0 ? (
+              <GEXBarsPanel rows={strikeRows} spot={chain.spot} />
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
+                {dteFilter === "0" ? "Sin opciones 0DTE (hoy)" : dteFilter === "1" ? "Sin opciones 1DTE (mañana)" : "Sin opciones para hoy/mañana"}
+              </div>
+            )}
+          </div>
+
+          <GEXSidebar
+            symbol={symbol}
+            spot={chain?.spot ?? 0}
+            keyLevels={metrics.keyLevels}
+            aggregates={metrics.aggregates}
+            maxChanges={maxChanges}
+            tickers={TICKERS}
+            onTickerChange={setSymbol}
+            onLoadHistory={fetchPrice}
+            onClearCache={() => { setPrice(null); setChain(null); fetchPrice(); fetchChain(); }}
+            expirationLatest={expirationsSorted[0]}
+            expirationNext={expirationsSorted[1]}
+          />
         </div>
 
-        <div className="flex-1 border-l border-[#1f1f1f] overflow-hidden">
-          {chain && strikeRows.length > 0 ? (
-            <GEXBarsPanel rows={strikeRows} spot={chain.spot} />
-          ) : (
-            <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
-              {dteFilter === "0" ? "Sin opciones 0DTE (hoy)" : dteFilter === "1" ? "Sin opciones 1DTE (mañana)" : "Sin opciones para hoy/mañana"}
-            </div>
-          )}
+        {/* Gexbot-style sub-chart with live Zero Gamma */}
+        <div className="h-[260px] shrink-0">
+          <GexbotStyleChart
+            symbol={symbol}
+            spot={price?.spot ?? chain?.spot ?? 0}
+            points={price?.points ?? []}
+            zeroGamma={metrics.keyLevels.zeroGamma}
+            majorCall={metrics.keyLevels.callWall}
+            majorPut={metrics.keyLevels.putWall}
+          />
         </div>
-
-        <GEXSidebar
-          symbol={symbol}
-          spot={chain?.spot ?? 0}
-          keyLevels={metrics.keyLevels}
-          aggregates={metrics.aggregates}
-          maxChanges={maxChanges}
-          tickers={TICKERS}
-          onTickerChange={setSymbol}
-          onLoadHistory={fetchPrice}
-          onClearCache={() => { setPrice(null); setChain(null); fetchPrice(); fetchChain(); }}
-          expirationLatest={expirationsSorted[0]}
-          expirationNext={expirationsSorted[1]}
-        />
       </div>
     </div>
   );
