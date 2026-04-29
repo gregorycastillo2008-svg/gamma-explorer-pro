@@ -401,17 +401,50 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max, spot }: 
         else mm?.dispose?.();
       });
     };
-  }, [sortedStrikes, sortedExpiries, cellMap, min, max, showDataPts, showRefPlane]);
+  }, [sortedStrikes, sortedExpiries, cellMap, min, max, showDataPts, showRefPlane, spot]);
 
   return (
     <div
       ref={wrapRef}
-      style={{ width: "100%", background: "#111", borderRadius: 12, padding: 12, boxSizing: "border-box" }}
+      style={{ width: "100%", background: "#111", borderRadius: 12, padding: 12, boxSizing: "border-box", position: "relative" }}
     >
       <canvas
         ref={canvasRef}
         style={{ width: "100%", height: 500, display: "block", borderRadius: 8 }}
       />
+      {hover && (
+        <div
+          style={{
+            position: "absolute",
+            left: Math.min(hover.x + 24, (wrapRef.current?.clientWidth ?? 600) - 200),
+            top: Math.max(hover.y + 12, 12),
+            background: "rgba(10,10,12,0.92)",
+            border: "1px solid #2a2a2e",
+            borderRadius: 8,
+            padding: "8px 10px",
+            fontFamily: "JetBrains Mono, ui-monospace, monospace",
+            fontSize: 11,
+            color: "#e5e7eb",
+            pointerEvents: "none",
+            boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
+            zIndex: 20,
+            minWidth: 170,
+          }}
+        >
+          <div style={{ color: "#9ca3af", fontSize: 10, marginBottom: 4 }}>
+            Strike <span style={{ color: "#fff", fontWeight: 700 }}>${hover.strike.toFixed(2)}</span>
+            <span style={{ marginLeft: 8 }}>· {hover.expiryDays}d</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 8, rowGap: 2 }}>
+            <span style={{ color: "#fbbf24" }}>IV</span>
+            <span style={{ textAlign: "right", color: "#fff", fontWeight: 700 }}>{(hover.iv * 100).toFixed(2)}%</span>
+            <span style={{ color: "#22d3ee" }}>Δ Delta</span>
+            <span style={{ textAlign: "right", color: "#fff", fontWeight: 700 }}>{hover.delta.toFixed(4)}</span>
+            <span style={{ color: "#a78bfa" }}>Γ Gamma</span>
+            <span style={{ textAlign: "right", color: "#fff", fontWeight: 700 }}>{hover.gamma.toFixed(6)}</span>
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}>
         <span style={{ color: "#666", fontSize: 11, fontFamily: "monospace" }}>
           🖱 drag: rotar &nbsp;|&nbsp; scroll: zoom
