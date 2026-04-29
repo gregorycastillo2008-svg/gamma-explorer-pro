@@ -465,3 +465,12 @@ function DepthPanel({
     </div>
   );
 }
+
+function DepthRow({ label, value, color, bold }: { label: string; value: string; color: string; bold?: boolean }) {
+  return (
+    <div className="flex justify-between text-[11px] py-0.5" style={{ gap: 12 }}>
+      <span style={{ color: "#666", letterSpacing: "0.05em" }} className="uppercase tracking-wider">{label}</span>
+      <span style={{ color, fontWeight: bold ? 700 : 500 }}>{value}</span>
+    </div>
+  );
+}
