@@ -117,10 +117,14 @@ Deno.serve(async (req) => {
         type: parsed.cp === "C" ? "call" : "put",
         iv,
         oi,
+        volume: Number(o.volume) || 0,
         delta: Number(o.delta) || 0,
         gamma: Number(o.gamma) || 0,
         vega: Number(o.vega) || 0,
         theta: Number(o.theta) || 0,
+        bid: Number(o.bid) || 0,
+        ask: Number(o.ask) || 0,
+        last: Number(o.last_trade_price) || 0,
       });
       totalOI += oi;
     }
