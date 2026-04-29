@@ -291,52 +291,62 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
     }
   }
 
-  // ─── Live flow simulation
+  // ─── Real positions from CBOE contracts, sorted by premium (OI × price)
   const [orders, setOrders] = useState<FlowOrder[]>([]);
-  const [live, setLive] = useState(true);
   useEffect(() => {
-    if (!live) return;
-    let n = 0;
-    const id = setInterval(() => {
-      const types: ("CALL" | "PUT")[] = ["CALL", "PUT"];
-      const sides: ("BID" | "ASK")[] = ["BID", "ASK"];
-      const type = types[Math.floor(Math.random() * 2)];
-      const side = sides[Math.floor(Math.random() * 2)];
-      const step = ticker.strikeStep;
-      const K = Math.round((spot + (Math.random() - 0.5) * spot * 0.1) / step) * step;
-      const ctr = Math.floor(Math.random() * 500) + 10;
-      const price = Math.random() * 50 + 5;
-      const dteList = expiries.length ? expiries : [17, 45, 80];
-      const dte = dteList[Math.floor(Math.random() * dteList.length)];
-      const Tt = dte / 365;
-      const exch = Math.random() > 0.7 ? ["CBOE", "ISE"] : ["CBOE"];
-      const d = type === "CALL" ? deltaCall(spot, K, Tt, r, iv) : deltaPut(spot, K, Tt, r, iv);
-      const v = vega(spot, K, Tt, r, iv);
-      const th = type === "CALL" ? thetaCall(spot, K, Tt, r, iv) : thetaPut(spot, K, Tt, r, iv);
-      const premium = price * ctr * 100;
-      let orderType = "STANDARD";
-      if (premium > 100000) orderType = "BLOCK";
-      else if (exch.length > 1) orderType = "SWEEP";
-      else if (type === "CALL" && side === "ASK") orderType = "AGGRESSIVE CALL";
-      else if (type === "PUT" && side === "BID") orderType = "AGGRESSIVE PUT";
-      let sentiment: FlowOrder["sentiment"] = "neutral";
-      if (type === "CALL" && side === "ASK") sentiment = "bullish";
-      else if (type === "PUT" && side === "BID") sentiment = "bearish";
-      else if (type === "PUT" && K < spot * 0.95) sentiment = "protective";
-      const order: FlowOrder = {
-        id: ++n + Date.now(),
-        ticker: ticker.symbol,
-        type, strike: K, expiry: `+${dte}D`,
-        contracts: ctr, price, side,
-        timestamp: new Date().toLocaleTimeString(),
-        exchanges: exch,
-        delta: d, vega: v, theta: th, premium,
-        orderType, sentiment,
-      };
-      setOrders((prev) => [order, ...prev].slice(0, 40));
-    }, 2000);
-    return () => clearInterval(id);
-  }, [live, spot, iv, ticker.symbol, ticker.strikeStep, expiries]);
+    if (!contracts.length) return;
+    const derived: FlowOrder[] = contracts
+      .filter((c) => c.oi > 0)
+      .map((c, i) => {
+        const Tt = Math.max(c.expiry, 1) / 365;
+        const sigma = c.iv > 0 ? c.iv : iv;
+        const price = c.type === "call"
+          ? bsCall(spot, c.strike, Tt, r, sigma)
+          : bsPut(spot, c.strike, Tt, r, sigma);
+        const d = c.delta ?? (c.type === "call"
+          ? deltaCall(spot, c.strike, Tt, r, sigma)
+          : deltaPut(spot, c.strike, Tt, r, sigma));
+        const v = c.vega ?? vega(spot, c.strike, Tt, r, sigma);
+        const th = c.theta ?? (c.type === "call"
+          ? thetaCall(spot, c.strike, Tt, r, sigma)
+          : thetaPut(spot, c.strike, Tt, r, sigma));
+        const premium = price * c.oi * 100;
+        const type = c.type === "call" ? "CALL" as const : "PUT" as const;
+        const side: "BID" | "ASK" = c.type === "call"
+          ? (d > 0.4 ? "ASK" : "BID")
+          : (Math.abs(d) > 0.4 ? "BID" : "ASK");
+        let orderType = "STANDARD";
+        if (premium > 10_000_000) orderType = "BLOCK";
+        else if (c.oi > 10000) orderType = "SWEEP";
+        else if (type === "CALL" && side === "ASK") orderType = "AGGRESSIVE CALL";
+        else if (type === "PUT" && side === "BID") orderType = "AGGRESSIVE PUT";
+        let sentiment: FlowOrder["sentiment"] = "neutral";
+        if (type === "CALL" && side === "ASK") sentiment = "bullish";
+        else if (type === "PUT" && side === "BID") sentiment = "bearish";
+        else if (type === "PUT" && c.strike < spot * 0.95) sentiment = "protective";
+        return {
+          id: i,
+          ticker: ticker.symbol,
+          type,
+          strike: c.strike,
+          expiry: `+${c.expiry}D`,
+          contracts: c.oi,
+          price: Math.round(price * 100) / 100,
+          side,
+          timestamp: new Date().toLocaleTimeString(),
+          exchanges: ["CBOE"],
+          delta: d,
+          vega: v,
+          theta: th,
+          premium,
+          orderType,
+          sentiment,
+        };
+      })
+      .sort((a, b) => b.premium - a.premium)
+      .slice(0, 40);
+    setOrders(derived);
+  }, [contracts, spot, iv]);
 
   // ─── Alerts (derived)
   const alerts = useMemo<Alert[]>(() => {
@@ -397,8 +407,8 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
             {expiries.map((d) => <option key={d} value={d} style={{ background: COL.bg2 }}>{d}D</option>)}
           </select>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: live ? COL.green : COL.txt3 }} />
-            <button onClick={() => setLive((v) => !v)} style={{ color: live ? COL.green : COL.txt3 }}>LIVE FEED</button>
+            <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: COL.green }} />
+            <span style={{ color: COL.green }}>CBOE · TOP OI</span>
           </span>
         </div>
       </div>

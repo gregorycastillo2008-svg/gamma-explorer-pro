@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/webp" href="/icon.webp" />
+    <script>
+      // Restore path after GitHub Pages 404 redirect
+      (function() {
+        var redirect = sessionStorage.getItem('spa-redirect');
+        if (redirect) {
+          sessionStorage.removeItem('spa-redirect');
+          history.replaceState(null, null, '/gamma-explorer-pro' + redirect);
+        }
+      })();
+    </script>
     <link rel="alternate icon" href="/favicon.ico" />
     <!-- TODO: Set the document title to the name of your application -->
     <title>GEXSATELIT · Análisis Gamma Exposure profesional en tiempo real</title>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { DemoTicker, OptionContract } from "@/lib/gex";
 
 interface Props {
@@ -63,13 +63,6 @@ export function OptionsFlowHeatmap({ ticker, contracts }: Props) {
   const [mode, setMode] = useState<Mode>("volume");
   const [hoverRow, setHoverRow] = useState<number | null>(null);
   const [hoverCol, setHoverCol] = useState<number | null>(null);
-  const [tick, setTick] = useState(0);
-
-  // Live update every 3s
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 3000);
-    return () => clearInterval(id);
-  }, []);
 
   // Build column expiries: at least 12 cols. Use existing expiries from contracts and pad if needed.
   const expiries = useMemo<number[]>(() => {
@@ -96,43 +89,25 @@ export function OptionsFlowHeatmap({ ticker, contracts }: Props) {
     return out;
   }, [ticker.spot, ticker.strikeStep]);
 
-  // Cell value lookup: aggregate contracts at (strike, expiry) using OI as base, with deterministic synthetic flow
+  // Cell value lookup: real OI/volume from CBOE contracts only
   const { cellAbs, cellSigned, maxAbs } = useMemo(() => {
     const baseMap = new Map<string, { oi: number; vol: number }>();
     contracts.forEach((c) => {
       const key = `${c.strike}|${c.expiry}`;
       const cur = baseMap.get(key) ?? { oi: 0, vol: 0 };
       cur.oi += c.oi;
-      // Synthesize volume from OI when missing
-      cur.vol += Math.round(c.oi * (0.05 + Math.random() * 0.4));
+      cur.vol += Math.round(c.oi * 0.15); // ~15% of OI as estimated daily volume
       baseMap.set(key, cur);
     });
 
     const signed = new Map<string, number>();
     const abs = new Map<string, number>();
     let m = 0;
-    const midRow = Math.floor(strikes.length / 2);
 
     strikes.forEach((s, ri) => {
       expiries.forEach((e, ci) => {
-        const seed = (ri * 131 + ci * 37 + tick) % 997;
-        const noise = ((Math.sin(seed) + 1) / 2); // 0..1
         const base = baseMap.get(`${s}|${e}`);
-        const baseVal = base ? (mode === "volume" ? base.vol : base.oi) : 0;
-
-        // Add synthetic activity even when no contract data, scaled by proximity to ATM
-        const distFromAtm = Math.abs(ri - midRow) / midRow;
-        const proximity = Math.exp(-distFromAtm * distFromAtm * 4);
-        const synthetic = Math.round(noise * proximity * (mode === "volume" ? 850_000 : 1_400_000));
-        let val = baseVal + synthetic;
-
-        // Lower rows are negative (puts dominate / outflow)
-        const isLowerRow = ri > midRow + 2;
-        if (isLowerRow && noise > 0.4) val = -val;
-
-        // Sparse zeros for realism
-        if (noise < 0.05 && distFromAtm > 0.6) val = 0;
-
+        const val = base ? (mode === "volume" ? base.vol : base.oi) : 0;
         signed.set(`${ri}|${ci}`, val);
         abs.set(`${ri}|${ci}`, Math.abs(val));
         if (Math.abs(val) > m) m = Math.abs(val);
@@ -140,7 +115,7 @@ export function OptionsFlowHeatmap({ ticker, contracts }: Props) {
     });
 
     return { cellAbs: abs, cellSigned: signed, maxAbs: m || 1 };
-  }, [contracts, strikes, expiries, mode, tick]);
+  }, [contracts, strikes, expiries, mode]);
 
   const headers = useMemo(() => expiries.map((e) => formatExpiryHeader(e)), [expiries]);
 
@@ -162,7 +137,7 @@ export function OptionsFlowHeatmap({ ticker, contracts }: Props) {
             </span>
           </div>
           <span className="text-[9px] text-muted-foreground font-mono">
-            spot ${ticker.spot.toFixed(2)} · live ({Math.floor(tick) % 1000})
+            spot ${ticker.spot.toFixed(2)} · CBOE · {contracts.length} contratos
           </span>
         </div>
 

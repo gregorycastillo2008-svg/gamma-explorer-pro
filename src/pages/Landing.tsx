@@ -286,8 +286,7 @@ export default function Landing() {
                 <section>
                   <h3 className="font-bold text-base text-primary mb-1.5">Aviso legal</h3>
                   <p className="text-xs text-muted-foreground">
-                    GEX SATELIT es una herramienta educativa. Los datos mostrados pueden ser simulados con
-                    fines demostrativos. No constituye asesoramiento financiero.
+                    GEX SATELIT utiliza datos reales de mercado (CBOE, ~15 min de retraso). No constituye asesoramiento financiero.
                   </p>
                 </section>
               </div>
@@ -438,7 +437,7 @@ export default function Landing() {
         <div className="flex flex-col items-center justify-center gap-4">
           <div className="flex items-center justify-center gap-2">
             <BadgeCheck className="h-4 w-4 text-primary" />
-            GEXSATELIT · Plataforma verificada · Solo con fines educativos. Datos simulados.
+            GEXSATELIT · Plataforma verificada · Datos en tiempo real · Retraso ~15 min (CBOE)
           </div>
           <a
             href="https://discord.gg/f7UpW2Kx8"
