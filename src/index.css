@@ -196,3 +196,7 @@ All colors MUST be HSL.
 .terminal-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary-glow));
 }
+
+.recharts-surface {
+  background-color: black !important;
+}
