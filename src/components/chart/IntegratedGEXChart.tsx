@@ -194,6 +194,24 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
     };
   }, [strikeRows, chain]);
 
+  // Push current key levels into rolling history each time chain refreshes
+  useEffect(() => {
+    if (!chain) return;
+    const t = Math.floor(Date.now() / 1000);
+    const MAX = 600; // ~5 hours at 30s intervals
+    const push = (arr: { time: number; value: number }[], v: number | undefined) => {
+      if (v == null || !Number.isFinite(v)) return arr;
+      const last = arr[arr.length - 1];
+      if (last && last.time >= t) return arr;
+      const next = [...arr, { time: t, value: v }];
+      return next.length > MAX ? next.slice(next.length - MAX) : next;
+    };
+    setZgHist((a) => push(a, metrics.keyLevels.zeroGamma));
+    setCallHist((a) => push(a, metrics.keyLevels.callWall));
+    setPutHist((a) => push(a, metrics.keyLevels.putWall));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metrics.keyLevels.zeroGamma, metrics.keyLevels.callWall, metrics.keyLevels.putWall]);
+
   // Switch series when chartMode changes (or on mount once chart exists)
   useEffect(() => {
     const chart = chartApi.current;
