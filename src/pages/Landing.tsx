@@ -111,6 +111,101 @@ export default function Landing() {
         </div>
       </header>
 
+      {/* Admin access modal — same teal interface used in Paywall */}
+      <AnimatePresence>
+        {adminOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+            style={{
+              background: "radial-gradient(ellipse at top, rgba(20,80,70,0.35), rgba(0,0,0,0.95) 60%), rgba(2,10,9,0.85)",
+              backdropFilter: "blur(8px)",
+            }}
+            onClick={() => { setAdminOpen(false); setAdminName(""); setAdminPwd(""); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+              style={{
+                background: "linear-gradient(180deg, rgba(8,30,28,0.95), rgba(4,18,18,0.98))",
+                border: "1.5px solid #2DD4BF",
+                boxShadow: "0 0 50px -10px rgba(45,212,191,0.35)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => { setAdminOpen(false); setAdminName(""); setAdminPwd(""); }}
+                className="absolute top-3 right-3 text-white/60 hover:text-white"
+                aria-label="Cerrar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="h-5 w-5" style={{ color: "#2DD4BF" }} />
+                <h2 className="text-xl font-bold text-white">Acceso admin</h2>
+              </div>
+              <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.55)" }}>
+                Acceso directo al terminal sin pago.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (tryAdminLogin(adminName, adminPwd)) {
+                    toast.success("Acceso admin concedido");
+                    setAdminOpen(false);
+                    navigate("/dashboard");
+                  } else {
+                    toast.error("Credenciales incorrectas");
+                  }
+                }}
+                className="space-y-3"
+              >
+                <div className="space-y-1.5">
+                  <Label htmlFor="landing-admin-name" className="text-white">Nombre</Label>
+                  <Input
+                    id="landing-admin-name"
+                    required
+                    autoFocus
+                    value={adminName}
+                    onChange={(e) => setAdminName(e.target.value)}
+                    placeholder="admin"
+                    className="h-11 bg-black/40 text-white"
+                    style={{ borderColor: "rgba(45,212,191,0.35)" }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="landing-admin-pwd" className="text-white">Contraseña</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#2DD4BF" }} />
+                    <Input
+                      id="landing-admin-pwd"
+                      type="password"
+                      required
+                      value={adminPwd}
+                      onChange={(e) => setAdminPwd(e.target.value)}
+                      className="pl-10 h-11 bg-black/40 text-white"
+                      style={{ borderColor: "rgba(45,212,191,0.35)" }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full h-11 font-bold rounded-full"
+                  style={{
+                    background: "linear-gradient(180deg, #2DD4BF, #14b8a6)",
+                    color: "#021a18",
+                    boxShadow: "0 8px 28px -8px rgba(45,212,191,0.45)",
+                  }}
+                >
+                  Entrar
+                </Button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Info modal */}
       <AnimatePresence>
         {showInfo && (
