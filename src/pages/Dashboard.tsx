@@ -92,7 +92,11 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Admin bypass: no DB session — load default watchlist locally
+      if (adminBypass && watchlist.length === 0) setWatchlist(["QQQ", "SPY", "NQ"]);
+      return;
+    }
     supabase.from("watchlist").select("ticker").order("created_at").then(({ data }) => {
       const list = data?.map((r) => r.ticker) ?? [];
       if (list.length === 0) {
@@ -180,7 +184,11 @@ export default function Dashboard() {
     if (active === sym && next[0]) setActive(next[0]);
   };
 
-  const signOut = async () => { await supabase.auth.signOut(); nav("/"); };
+  const signOut = async () => {
+    if (adminBypass) clearAdminBypass();
+    if (user) await supabase.auth.signOut();
+    nav("/");
+  };
 
   const renderView = () => {
     switch (section) {
@@ -205,7 +213,8 @@ export default function Dashboard() {
   };
 
   // Mientras carga el estado de admin/sub, no decidimos nada (evita parpadeo del paywall).
-  const checking = adminLoading || subLoading;
+  // El bypass admin (contraseña maestra) salta toda la verificación.
+  const checking = adminBypass ? false : (adminLoading || subLoading);
   const showPaywall = !checking && !hasAccess;
 
   // Si el usuario no ha pagado (y no es admin) → SOLO el paywall, sin dashboard detrás.
@@ -218,7 +227,8 @@ export default function Dashboard() {
   }
 
   // Pantalla de carga mientras verificamos suscripción/admin (evita flash del dashboard).
-  if (checking || !user) {
+  // Si está en bypass admin, NO esperamos a `user` (no hay sesión real).
+  if (checking || (!user && !adminBypass)) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-3">
