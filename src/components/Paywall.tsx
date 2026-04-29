@@ -20,6 +20,10 @@ export function Paywall(_props: PaywallProps) {
   const [chosen, setChosen] = useState<Tier | null>(null);
   const [email, setEmail] = useState("");
   const [billing, setBilling] = useState<Billing>("monthly");
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminName, setAdminName] = useState("");
+  const [adminPwd, setAdminPwd] = useState("");
+  const navigate = useNavigate();
 
   const startCheckout = async (tier: Tier, emailToUse: string) => {
     const plan = PLANS[tier];
