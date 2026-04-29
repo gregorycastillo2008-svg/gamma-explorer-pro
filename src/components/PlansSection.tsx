@@ -186,7 +186,88 @@ export function PlansSection({ showHeader = true, headingLevel = "h1" }: { showH
             </motion.div>
           ))}
         </div>
+
+        <div className="mt-10 flex justify-center">
+          <button
+            onClick={() => setAdminOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border/60 bg-card/40 hover:bg-card/70 transition text-xs font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Acceso admin
+          </button>
+        </div>
       </section>
+
+      <AnimatePresence>
+        {adminOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-background/85 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => { setAdminOpen(false); setAdminName(""); setAdminPwd(""); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm"
+            >
+              <Card className="p-6 relative" style={{ boxShadow: "var(--shadow-elegant)" }}>
+                <button
+                  onClick={() => { setAdminOpen(false); setAdminName(""); setAdminPwd(""); }}
+                  className="absolute top-3 right-3 p-1 rounded-md hover:bg-muted"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-primary" />
+                  <h3 className="text-xl font-bold">Acceso admin</h3>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Acceso directo al terminal sin pago.
+                </p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (tryAdminLogin(adminName, adminPwd)) {
+                      toast.success("Acceso admin concedido");
+                      setAdminOpen(false);
+                      navigate("/dashboard");
+                    } else {
+                      toast.error("Credenciales incorrectas");
+                    }
+                  }}
+                  className="space-y-3 mt-4"
+                >
+                  <div>
+                    <Label htmlFor="admin-name">Nombre</Label>
+                    <Input
+                      id="admin-name"
+                      value={adminName}
+                      onChange={(e) => setAdminName(e.target.value)}
+                      placeholder="admin"
+                      autoFocus
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="admin-pwd">Contraseña</Label>
+                    <div className="relative mt-1">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="admin-pwd"
+                        type="password"
+                        value={adminPwd}
+                        onChange={(e) => setAdminPwd(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full">Entrar</Button>
+                </form>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {checkoutPlan && (
