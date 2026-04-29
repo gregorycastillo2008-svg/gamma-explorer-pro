@@ -109,15 +109,39 @@ export default function Dashboard() {
   const levels = computeKeyLevels(exposures);
   const ctx = { ticker, exposures, levels, contracts: filtered };
 
-  // Persistent global stats (shown across every section)
-  const totalCallOI = exposures.reduce((s, p) => s + p.callOI, 0);
-  const totalPutOI = exposures.reduce((s, p) => s + p.putOI, 0);
-  const pcr = totalPutOI / Math.max(totalCallOI, 1);
-  const netDex = exposures.reduce((s, p) => s + p.dex, 0);
-  const atmContracts = filtered.filter((c) => Math.abs(c.strike - ticker.spot) < ticker.strikeStep * 1.5);
-  const atmIv = atmContracts.length
-    ? (atmContracts.reduce((s, c) => s + c.iv, 0) / atmContracts.length) * 100
-    : ticker.baseIV * 100;
+  // Persistent global stats (shown across every section).
+  // These are MARKET-WIDE indicators → always computed from the FULL chain
+  // (all expiries), regardless of the UI expiry filter, to match industry
+  // conventions used by SpotGamma / MenthorQ / CBOE.
+  // ── P/C Ratio: standard is Volume-based, fallback to OI when volume missing
+  let pcCallVol = 0, pcPutVol = 0, pcCallOI = 0, pcPutOI = 0;
+  for (const c of liveContracts) {
+    const v = (c as any).volume ?? 0;
+    if (c.type === "call") { pcCallVol += v; pcCallOI += c.oi; }
+    else { pcPutVol += v; pcPutOI += c.oi; }
+  }
+  const pcr = pcCallVol + pcPutVol > 0
+    ? pcPutVol / Math.max(pcCallVol, 1)
+    : pcPutOI / Math.max(pcCallOI, 1);
+
+  // ── Net DEX: full-chain dealer delta exposure in $
+  const fullExposures = computeExposures(ticker.spot, liveContracts);
+  const netDex = fullExposures.reduce((s, p) => s + p.dex, 0);
+
+  // ── ATM IV: OI-weighted across the NEAREST expiry, ±1 strike step from spot
+  const nearestExpiry = liveContracts.reduce(
+    (min, c) => (c.expiry < min ? c.expiry : min),
+    Number.POSITIVE_INFINITY,
+  );
+  const atmContracts = liveContracts.filter(
+    (c) => c.expiry === nearestExpiry && Math.abs(c.strike - ticker.spot) <= ticker.strikeStep * 1.5,
+  );
+  const atmOiSum = atmContracts.reduce((s, c) => s + c.oi, 0);
+  const atmIv = atmOiSum > 0
+    ? (atmContracts.reduce((s, c) => s + c.iv * c.oi, 0) / atmOiSum) * 100
+    : atmContracts.length
+      ? (atmContracts.reduce((s, c) => s + c.iv, 0) / atmContracts.length) * 100
+      : ticker.baseIV * 100;
   const globalStats: import("@/components/terminal/FloatingStatBar").FloatingStat[] = [
     { label: "ATM IV",    value: `${atmIv.toFixed(1)}%`,           tone: "primary" },
     { label: "P/C Ratio", value: pcr.toFixed(2),                   tone: pcr > 1 ? "put" : "call" },
