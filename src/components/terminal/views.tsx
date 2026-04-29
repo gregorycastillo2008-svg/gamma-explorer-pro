@@ -1053,7 +1053,7 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
             {
               key: "surface",
               label: "3D SURFACE",
-              content: <IvSurface3DReal strikes={strikes} expiries={expiries} cellMap={cellMap} min={min} max={max} />,
+              content: <IvSurface3DReal strikes={strikes} expiries={expiries} cellMap={cellMap} min={min} max={max} spot={ticker.spot} />,
             },
             {
               key: "flow",
