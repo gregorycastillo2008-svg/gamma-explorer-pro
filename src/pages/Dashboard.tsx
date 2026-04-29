@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useSubscription } from "@/hooks/useSubscription";
+import { isAdminBypass, clearAdminBypass } from "@/lib/adminBypass";
 import { allowedSections } from "@/lib/plans";
 import { useToast } from "@/hooks/use-toast";
 import {
