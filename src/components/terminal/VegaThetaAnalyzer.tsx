@@ -336,7 +336,7 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
   };
 
   return (
-    <div className="space-y-3" style={{ background: COL.bg, color: COL.txt, padding: 12, borderRadius: 6 }}>
+    <div className="h-full overflow-y-auto space-y-3 terminal-scrollbar" style={{ background: COL.bg, color: COL.txt, padding: 12, borderRadius: 6 }}>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3 px-3 py-2 rounded"
         style={{ background: "linear-gradient(135deg, #0a0e17 0%, #151922 100%)", border: `1px solid ${COL.border}` }}>
