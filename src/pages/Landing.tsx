@@ -309,7 +309,7 @@ export default function Landing() {
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8 }}
-          className="absolute -top-2 left-2 md:left-6 z-0 pointer-events-none"
+          className="absolute -top-2 -left-4 md:-left-16 lg:-left-24 z-0 pointer-events-none"
         >
           <RadarMap size={260} />
         </motion.div>
