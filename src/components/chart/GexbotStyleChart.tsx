@@ -213,12 +213,12 @@ export function GexbotStyleChart({
     <div className="w-full h-full flex flex-col" style={{ background: CHART_BG }}>
       {/* HEADER */}
       <div
-        className="flex items-stretch justify-between px-4 py-2 gap-6 border-b bg-[#383838]"
+        className="flex items-stretch justify-between px-4 py-2 gap-6 border-b"
         style={{ background: HEADER_BG, borderColor: "#1f2937" }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-2 bg-[#383838]">
-          <div className="flex flex-col gap-[2px] bg-black">
+        <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-[2px]">
             <span className="block bg-white" style={{ width: 18, height: 2, borderRadius: 1 }} />
             <span className="block bg-white" style={{ width: 22, height: 2, borderRadius: 1 }} />
             <span className="block bg-white" style={{ width: 14, height: 2, borderRadius: 1 }} />
@@ -229,21 +229,21 @@ export function GexbotStyleChart({
         </div>
 
         {/* Metadata */}
-        <div className="flex flex-col text-[10px] font-mono leading-tight justify-center bg-[#383838]">
+        <div className="flex flex-col text-[10px] font-mono leading-tight justify-center">
           <div><span className="text-white font-bold">source: </span><span className="text-slate-300">gexbot.com</span></div>
           <div><span className="text-white font-bold">chart type: </span><span className="text-slate-300">classic</span></div>
           <div><span className="text-white font-bold">model: </span><span className="text-slate-300">gex by oi · live</span></div>
         </div>
 
         {/* Ticker info */}
-        <div className="flex flex-col text-[10px] font-mono leading-tight justify-center flex-1 text-[#9e7070] bg-[#383838]">
+        <div className="flex flex-col text-[10px] font-mono leading-tight justify-center flex-1">
           <div><span className="text-white font-bold">ticker: </span><span className="text-white font-bold tracking-wider">{symbol}</span></div>
           <div><span className="text-white font-bold">spot: </span><span className="text-white tabular-nums">${spot?.toFixed(2) ?? "—"}</span></div>
           <div><span className="text-white font-bold">datetime: </span><span className="text-slate-400">{dtStr}</span></div>
         </div>
 
         {/* Critical levels */}
-        <div className="flex flex-col text-[10px] font-mono leading-tight justify-center text-right bg-[#383838]">
+        <div className="flex flex-col text-[10px] font-mono leading-tight justify-center text-right">
           <div>
             <span className="text-white font-bold">major call: </span>
             <span className="font-bold tabular-nums" style={{ color: "#00ff88" }}>${majorCall?.toFixed(2) ?? "—"}</span>
