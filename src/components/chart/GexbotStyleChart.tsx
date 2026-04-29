@@ -188,7 +188,7 @@ export function GexbotStyleChart({
             <span className="block bg-white" style={{ width: 14, height: 2, borderRadius: 1 }} />
           </div>
           <div className="text-white font-bold text-sm leading-tight tracking-tight">
-            gex<br/>bot
+            gex<br/>satelit
           </div>
         </div>
 
