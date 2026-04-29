@@ -134,14 +134,10 @@ export function GEXBarsPanel({ rows, spot }: Props) {
               const norm = Math.abs(v) / maxGEX;
               if (norm <= 0) return 0;
               const w = Math.sqrt(norm) * HALF;
-              return Math.max(2, w); // min visible width
+              return Math.max(2, w);
             };
             const callW = r.callGEX !== 0 ? scale(r.callGEX) : 0;
             const putW = r.putGEX !== 0 ? scale(r.putGEX) : 0;
-            const totalOI = r.callOI + r.putOI;
-            const oiPct = (totalOI / maxOI) * 100;
-            const callDots = r.callOI > 0 ? dotsCount((r.callOI / maxOI) * 100) : 0;
-            const putDots = r.putOI > 0 ? dotsCount((r.putOI / maxOI) * 100) : 0;
             const callSegs = Math.max(1, Math.floor(callW / 50));
             const putSegs = Math.max(1, Math.floor(putW / 50));
             const isAtm = Math.abs(r.strike - spot) < (sorted[0].strike - sorted[1]?.strike || 1) * 0.6;
@@ -174,9 +170,6 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                       {Array.from({ length: putSegs }).map((_, i) => (
                         <div key={i} className="absolute top-0 h-full" style={{ right: `${((i + 1) / (putSegs + 1)) * putW}px`, width: 10, background: "#000", opacity: 0.55, borderLeft: "1px solid rgba(255,255,255,0.18)" }} />
                       ))}
-                      {Array.from({ length: putDots }).map((_, i) => (
-                        <div key={i} className="absolute top-1/2 -translate-y-1/2 rounded-full" style={{ right: `${((i + 1) / (putDots + 1)) * putW - 3}px`, width: 6, height: 6, background: "#3b82f6", border: "1px solid #1e40af", boxShadow: "0 0 5px rgba(59,130,246,0.8)", zIndex: 3 }} />
-                      ))}
                     </div>
                   )}
                 </div>
@@ -196,9 +189,6 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                       {Array.from({ length: callSegs }).map((_, i) => (
                         <div key={i} className="absolute top-0 h-full" style={{ left: `${((i + 1) / (callSegs + 1)) * callW}px`, width: 10, background: "#000", opacity: 0.55, borderLeft: "1px solid rgba(255,255,255,0.18)" }} />
                       ))}
-                      {Array.from({ length: callDots }).map((_, i) => (
-                        <div key={i} className="absolute top-1/2 -translate-y-1/2 rounded-full" style={{ left: `${((i + 1) / (callDots + 1)) * callW - 3}px`, width: 6, height: 6, background: "#3b82f6", border: "1px solid #1e40af", boxShadow: "0 0 5px rgba(59,130,246,0.8)", zIndex: 3 }} />
-                      ))}
                     </div>
                   )}
                 </div>
@@ -209,12 +199,4 @@ export function GEXBarsPanel({ rows, spot }: Props) {
       </div>
     </div>
   );
-}
-
-function dotsCount(oiPct: number): number {
-  if (oiPct >= 70) return 8;
-  if (oiPct >= 50) return 6;
-  if (oiPct >= 30) return 4;
-  if (oiPct >= 10) return 2;
-  return 1;
 }
