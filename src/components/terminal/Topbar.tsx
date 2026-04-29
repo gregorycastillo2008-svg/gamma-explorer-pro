@@ -60,6 +60,7 @@ function Wall({ label, value, tone }: WallProps) {
 export function Topbar({
   ticker, watchlist, active, onActive, onAdd, onRemove, expiry, onExpiry,
   status = "loading", source, fetchedAt, priceChangePct = 0, onReload, levels,
+  atmIv, pcr, netDex,
 }: Props) {
   const elapsed = useElapsed(fetchedAt);
   const isLive = status === "live";
