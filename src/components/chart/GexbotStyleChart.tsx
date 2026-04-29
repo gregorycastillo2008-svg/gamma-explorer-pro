@@ -20,6 +20,9 @@ interface Props {
   zeroGamma?: number;
   majorCall?: number;
   majorPut?: number;
+  callWall?: number;
+  putWall?: number;
+  maxPain?: number;
 }
 
 const HEADER_BG = "#0f1419";
