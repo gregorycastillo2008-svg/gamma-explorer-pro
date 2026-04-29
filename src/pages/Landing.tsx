@@ -324,8 +324,15 @@ export default function Landing() {
             <span className="text-white/70">​</span>
           </div>
 
-          <h1 className="text-5xl md:text-6xl xl:text-7xl font-black tracking-tight mb-6 leading-[1.02] text-white">
-            Trading de{" "}
+          <h1 className="text-5xl md:text-6xl xl:text-7xl font-black tracking-tight mb-6 leading-[1.02] text-white flex items-center justify-center flex-wrap gap-x-4 gap-y-2">
+            {/* Punto azul izquierdo */}
+            <span className="relative inline-flex h-3 w-3 shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60 animate-ping" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.9)]" />
+            </span>
+
+            <span>Trading de</span>
+
             <AnimatePresence mode="wait">
               <motion.span
                 key={wordIdx}
@@ -339,7 +346,14 @@ export default function Landing() {
                 {heroWords[wordIdx]}
               </motion.span>
             </AnimatePresence>
+
+            {/* Punto azul derecho */}
+            <span className="relative inline-flex h-3 w-3 shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60 animate-ping" style={{ animationDelay: "0.6s" }} />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.9)]" />
+            </span>
           </h1>
+
 
           <p className="text-base text-white/60 max-w-md mb-8">
             GEX, walls y gamma flips en tiempo real.
