@@ -65,7 +65,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3">
+      <nav className="flex-1 overflow-y-auto py-3 bg-black">
         {groups.map((g) => (
           <div key={g} className="mb-3">
             {!collapsed && <div className="px-3 mb-1 text-[10px] font-bold tracking-widest text-sidebar-foreground/50">{g}</div>}
