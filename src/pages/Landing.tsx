@@ -316,13 +316,6 @@ export default function Landing() {
 
         {/* Hero copy — centrado, debajo del radar */}
         <div className="relative z-10 flex flex-col items-center text-center pt-[240px] md:pt-[200px]">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[11px] font-mono mb-6">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-400"></span>
-            </span>
-            <span className="text-white/70">​</span>
-          </div>
 
           <h1 className="text-5xl md:text-6xl xl:text-7xl font-black tracking-tight mb-6 leading-[1.02] text-white flex items-center justify-center flex-wrap gap-x-4 gap-y-2">
             {/* Punto azul izquierdo */}
