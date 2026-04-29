@@ -747,6 +747,10 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
         </div>
       </Panel>
     </div>
+          ),
+        },
+      ]}
+    />
   );
 }
 
