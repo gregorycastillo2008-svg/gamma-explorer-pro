@@ -17,6 +17,7 @@ import { OptionsFlowHeatmap } from "./OptionsFlowHeatmap";
 import { RiskCalculator } from "./RiskCalculator";
 import { VegaThetaAnalyzer } from "./VegaThetaAnalyzer";
 import { PCSkewByStrike } from "./PCSkewByStrike";
+import { GammaRegimePanel } from "./GammaRegimePanel";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -108,8 +109,13 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
 // ─────── PRICE + GEX CHART (sección propia) ───────
 export function ChartView({ ticker, exposures, levels }: Ctx) {
   return (
-    <div className="h-full overflow-hidden">
-      <IntegratedGEXChart defaultSymbol={ticker.symbol} />
+    <div className="h-full overflow-y-auto">
+      <div className="h-[70vh] min-h-[500px]">
+        <IntegratedGEXChart defaultSymbol={ticker.symbol} />
+      </div>
+      <div className="p-2">
+        <GammaRegimePanel ticker={ticker} exposures={exposures} levels={levels} />
+      </div>
     </div>
   );
 }
