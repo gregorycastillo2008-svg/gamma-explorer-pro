@@ -387,6 +387,8 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max, spot }: 
       canvas.removeEventListener("wheel", onWheel as EventListener);
       canvas.removeEventListener("touchstart", onTouchStart as EventListener);
       canvas.removeEventListener("touchmove", onTouchMove as EventListener);
+      canvas.removeEventListener("mousemove", onCanvasMove);
+      canvas.removeEventListener("mouseleave", onCanvasLeave);
       elevRef.current?.removeEventListener("input", onElevInput);
       azimRef.current?.removeEventListener("input", onAzimInput);
       geo.dispose();
