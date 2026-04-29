@@ -426,7 +426,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
       {/* BODY */}
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="flex flex-1 overflow-hidden min-h-0">
-          <div className="relative" style={{ width: "55%" }}>
+          <div className="relative" style={{ width: "68%" }}>
             <div ref={chartRef} className="absolute inset-0" />
             {loading && !price && (
               <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">Loading price…</div>
@@ -468,7 +468,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
         </div>
 
         {/* Gexbot-style sub-chart with live Zero Gamma evolving over time */}
-        <div className="h-[460px] shrink-0">
+        <div className="h-[540px] shrink-0 mt-6 border-t-2 border-[#1f1f1f]">
           <GexbotStyleChart
             symbol={symbol}
             spot={price?.spot ?? chain?.spot ?? 0}
