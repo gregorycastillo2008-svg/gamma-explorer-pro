@@ -163,7 +163,7 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
                   return (
                     <td
                       key={e}
-                      className="px-3 py-1.5 text-right transition-colors duration-200 cursor-default relative"
+                      className="px-3 py-1.5 text-right transition-all duration-150 cursor-default relative hover:scale-110 hover:z-20 hover:shadow-[0_0_14px_rgba(6,182,212,0.7)] hover:outline hover:outline-1 hover:outline-cyan-400"
                       style={{
                         background: bg,
                         color: isPeak ? "#ffffff" : fg,
