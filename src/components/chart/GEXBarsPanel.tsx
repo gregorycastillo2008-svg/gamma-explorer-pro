@@ -155,41 +155,35 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                   ${r.strike.toFixed(r.strike >= 100 ? 0 : 1)}
                 </div>
 
-                {/* Puts side */}
-                <div className="relative shrink-0" style={{ width: HALF, height: 14 }}>
+                {/* Puts side (negative — red gradient + glow) */}
+                <div className="relative shrink-0" style={{ width: HALF, height: 10, marginTop: 2, marginBottom: 2 }}>
                   {putW > 0 && (
                     <div
-                      className="absolute right-0 top-0 h-full rounded-sm overflow-hidden origin-right transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
+                      className="absolute right-0 top-0 origin-right transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
                       style={{
                         width: putW,
-                        background: "linear-gradient(270deg, #ff1a1a, #b30000)",
-                        opacity: 0.95,
-                        boxShadow: "0 0 8px rgba(255,26,26,0.55)",
+                        height: 10,
+                        borderRadius: 2,
+                        background: "linear-gradient(270deg, #ff4466 0%, #ff6688 100%)",
+                        boxShadow: "0 0 8px #ff446644, 0 0 4px #ff446666",
                       }}
-                    >
-                      {Array.from({ length: putSegs }).map((_, i) => (
-                        <div key={i} className="absolute top-0 h-full" style={{ right: `${((i + 1) / (putSegs + 1)) * putW}px`, width: 10, background: "#000", opacity: 0.55, borderLeft: "1px solid rgba(255,255,255,0.18)" }} />
-                      ))}
-                    </div>
+                    />
                   )}
                 </div>
 
-                {/* Calls side */}
-                <div className="relative shrink-0" style={{ width: HALF, height: 14 }}>
+                {/* Calls side (positive — green gradient + glow) */}
+                <div className="relative shrink-0" style={{ width: HALF, height: 10, marginTop: 2, marginBottom: 2 }}>
                   {callW > 0 && (
                     <div
-                      className="absolute left-0 top-0 h-full rounded-sm overflow-hidden origin-left transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
+                      className="absolute left-0 top-0 origin-left transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
                       style={{
                         width: callW,
-                        background: "linear-gradient(90deg, #fde047, #ca8a04)",
-                        opacity: 0.95,
-                        boxShadow: "0 0 8px rgba(253,224,71,0.55)",
+                        height: 10,
+                        borderRadius: 2,
+                        background: "linear-gradient(90deg, #00ff88 0%, #00ffaa 100%)",
+                        boxShadow: "0 0 8px #00ff8844, 0 0 4px #00ff8866",
                       }}
-                    >
-                      {Array.from({ length: callSegs }).map((_, i) => (
-                        <div key={i} className="absolute top-0 h-full" style={{ left: `${((i + 1) / (callSegs + 1)) * callW}px`, width: 10, background: "#000", opacity: 0.55, borderLeft: "1px solid rgba(255,255,255,0.18)" }} />
-                      ))}
-                    </div>
+                    />
                   )}
                 </div>
               </div>
