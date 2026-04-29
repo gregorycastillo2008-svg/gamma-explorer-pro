@@ -1,0 +1,547 @@
+import { useEffect, useMemo, useState } from "react";
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend } from "recharts";
+import { Panel } from "./Panel";
+import type { DemoTicker, OptionContract } from "@/lib/gex";
+import { formatNumber } from "@/lib/gex";
+
+// ─────── Black-Scholes core ───────
+function normalCDF(x: number) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989423 * Math.exp((-x * x) / 2);
+  const prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return x > 0 ? 1 - prob : prob;
+}
+function normalPDF(x: number) {
+  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+}
+function d1d2(S: number, K: number, T: number, r: number, sigma: number) {
+  const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+  return { d1, d2: d1 - sigma * Math.sqrt(T) };
+}
+function bsCall(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  return S * normalCDF(d1) - K * Math.exp(-r * T) * normalCDF(d2);
+}
+function bsPut(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  return K * Math.exp(-r * T) * normalCDF(-d2) - S * normalCDF(-d1);
+}
+function vega(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1 } = d1d2(S, K, T, r, sigma);
+  return (S * normalPDF(d1) * Math.sqrt(T)) / 100;
+}
+function thetaCall(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  return (-(S * normalPDF(d1) * sigma) / (2 * Math.sqrt(T)) - r * K * Math.exp(-r * T) * normalCDF(d2)) / 365;
+}
+function thetaPut(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  return (-(S * normalPDF(d1) * sigma) / (2 * Math.sqrt(T)) + r * K * Math.exp(-r * T) * normalCDF(-d2)) / 365;
+}
+function deltaCall(S: number, K: number, T: number, r: number, sigma: number) {
+  return normalCDF(d1d2(S, K, T, r, sigma).d1);
+}
+function deltaPut(S: number, K: number, T: number, r: number, sigma: number) {
+  return normalCDF(d1d2(S, K, T, r, sigma).d1) - 1;
+}
+function gamma(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1 } = d1d2(S, K, T, r, sigma);
+  return normalPDF(d1) / (S * sigma * Math.sqrt(T));
+}
+
+const COL = {
+  bg: "#0a0e17",
+  bg2: "#1a2332",
+  border: "#2a3444",
+  txt: "#e0e6ed",
+  txt2: "#8894a8",
+  txt3: "#6b7a94",
+  green: "#00ff88",
+  red: "#ff4466",
+  yellow: "#ffaa00",
+  purple: "#8844ff",
+};
+
+interface Props {
+  ticker: DemoTicker;
+  contracts: OptionContract[];
+}
+
+interface FlowOrder {
+  id: number;
+  ticker: string;
+  type: "CALL" | "PUT";
+  strike: number;
+  expiry: string;
+  contracts: number;
+  price: number;
+  side: "BID" | "ASK";
+  timestamp: string;
+  exchanges: string[];
+  delta: number;
+  vega: number;
+  theta: number;
+  premium: number;
+  orderType: string;
+  sentiment: "bullish" | "bearish" | "protective" | "neutral";
+}
+
+interface Alert {
+  id: number;
+  severity: "high" | "medium";
+  icon: string;
+  title: string;
+  message: string;
+  timestamp: string;
+}
+
+const r = 0.05;
+
+export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
+  const spot = ticker.spot;
+
+  // ATM IV from contracts
+  const iv = useMemo(() => {
+    const atm = contracts.filter((c) => Math.abs(c.strike - spot) < ticker.strikeStep * 1.5);
+    const avg = atm.reduce((s, c) => s + c.iv, 0) / Math.max(1, atm.length);
+    return avg > 0 ? avg : 0.22;
+  }, [contracts, spot, ticker.strikeStep]);
+
+  // Available expiries
+  const expiries = useMemo(() => {
+    const set = new Set<number>();
+    contracts.forEach((c) => set.add(c.expiry));
+    return Array.from(set).sort((a, b) => a - b);
+  }, [contracts]);
+
+  const [selectedExpiry, setSelectedExpiry] = useState<number>(expiries[0] ?? 30);
+  useEffect(() => {
+    if (!expiries.includes(selectedExpiry) && expiries.length) setSelectedExpiry(expiries[0]);
+  }, [expiries, selectedExpiry]);
+
+  const T = Math.max(1, selectedExpiry) / 365;
+
+  // ─── Options chain rows (puts | strike | calls)
+  const chainRows = useMemo(() => {
+    const step = ticker.strikeStep;
+    const rows: any[] = [];
+    const lo = Math.round((spot * 0.95) / step) * step;
+    const hi = Math.round((spot * 1.05) / step) * step;
+    for (let K = lo; K <= hi; K += step) {
+      const cIv = iv;
+      const cPrice = bsCall(spot, K, T, r, cIv);
+      const pPrice = bsPut(spot, K, T, r, cIv);
+      rows.push({
+        strike: K,
+        isATM: Math.abs(K - spot) < step / 2,
+        call: {
+          bid: cPrice * 0.98,
+          ask: cPrice * 1.02,
+          last: cPrice,
+          iv: cIv,
+          delta: deltaCall(spot, K, T, r, cIv),
+          gamma: gamma(spot, K, T, r, cIv),
+          vega: vega(spot, K, T, r, cIv),
+          theta: thetaCall(spot, K, T, r, cIv),
+          volume: Math.floor(500 + Math.random() * 4000),
+          oi: Math.floor(2000 + Math.random() * 12000),
+        },
+        put: {
+          bid: pPrice * 0.98,
+          ask: pPrice * 1.02,
+          last: pPrice,
+          iv: cIv,
+          delta: deltaPut(spot, K, T, r, cIv),
+          gamma: gamma(spot, K, T, r, cIv),
+          vega: vega(spot, K, T, r, cIv),
+          theta: thetaPut(spot, K, T, r, cIv),
+          volume: Math.floor(500 + Math.random() * 4000),
+          oi: Math.floor(2000 + Math.random() * 12000),
+        },
+      });
+    }
+    return rows;
+  }, [spot, T, iv, ticker.strikeStep]);
+
+  // ─── Aggregated metrics
+  const { totalVega, totalTheta, putVol, callVol, ivRank } = useMemo(() => {
+    let tv = 0, tt = 0, pv = 0, cv = 0;
+    chainRows.forEach((r) => {
+      tv += r.call.vega * r.call.oi + r.put.vega * r.put.oi;
+      tt += r.call.theta * r.call.oi + r.put.theta * r.put.oi;
+      cv += r.call.volume;
+      pv += r.put.volume;
+    });
+    const ivR = Math.min(99, Math.max(1, (iv / 0.6) * 100));
+    return { totalVega: tv, totalTheta: tt, putVol: pv, callVol: cv, ivRank: ivR };
+  }, [chainRows, iv]);
+
+  // ─── Theta decay timeline
+  const decaySeries = useMemo(() => {
+    const days = Math.max(1, selectedExpiry);
+    const atmK = Math.round(spot / ticker.strikeStep) * ticker.strikeStep;
+    const itmK = Math.round((spot * 0.97) / ticker.strikeStep) * ticker.strikeStep;
+    const otmK = Math.round((spot * 1.03) / ticker.strikeStep) * ticker.strikeStep;
+    const out: any[] = [];
+    for (let day = 0; day <= days; day++) {
+      const Tt = Math.max(0.001, (days - day) / 365);
+      out.push({
+        daysLeft: days - day,
+        atm: bsCall(spot, atmK, Tt, r, iv),
+        itm: bsCall(spot, itmK, Tt, r, iv),
+        otm: bsCall(spot, otmK, Tt, r, iv),
+      });
+    }
+    return out;
+  }, [selectedExpiry, spot, iv, ticker.strikeStep]);
+
+  // ─── Heatmap (vega/theta toggle)
+  const [showVega, setShowVega] = useState(true);
+  const heatmap = useMemo(() => {
+    const dtes = [7, 14, 30, 60, 90, 180];
+    const step = ticker.strikeStep;
+    const strikes: number[] = [];
+    const lo = Math.round((spot * 0.92) / step) * step;
+    const hi = Math.round((spot * 1.08) / step) * step;
+    for (let K = lo; K <= hi; K += step) strikes.push(K);
+    const rows = strikes.map((K) =>
+      dtes.map((dte) => {
+        const Tt = dte / 365;
+        return { strike: K, dte, value: showVega ? vega(spot, K, Tt, r, iv) : thetaCall(spot, K, Tt, r, iv) };
+      })
+    );
+    return { dtes, strikes, rows };
+  }, [showVega, spot, iv, ticker.strikeStep]);
+
+  function heatColor(v: number, isVega: boolean) {
+    if (isVega) {
+      const intensity = Math.min(Math.abs(v) / 1.2, 1);
+      return `hsl(${240 - intensity * 240}, 80%, ${20 + intensity * 30}%)`;
+    } else {
+      const intensity = Math.min(Math.abs(v) / 0.5, 1);
+      return `hsl(${120 - intensity * 120}, 80%, ${20 + intensity * 30}%)`;
+    }
+  }
+
+  // ─── Live flow simulation
+  const [orders, setOrders] = useState<FlowOrder[]>([]);
+  const [live, setLive] = useState(true);
+  useEffect(() => {
+    if (!live) return;
+    let n = 0;
+    const id = setInterval(() => {
+      const types: ("CALL" | "PUT")[] = ["CALL", "PUT"];
+      const sides: ("BID" | "ASK")[] = ["BID", "ASK"];
+      const type = types[Math.floor(Math.random() * 2)];
+      const side = sides[Math.floor(Math.random() * 2)];
+      const step = ticker.strikeStep;
+      const K = Math.round((spot + (Math.random() - 0.5) * spot * 0.1) / step) * step;
+      const ctr = Math.floor(Math.random() * 500) + 10;
+      const price = Math.random() * 50 + 5;
+      const dteList = expiries.length ? expiries : [17, 45, 80];
+      const dte = dteList[Math.floor(Math.random() * dteList.length)];
+      const Tt = dte / 365;
+      const exch = Math.random() > 0.7 ? ["CBOE", "ISE"] : ["CBOE"];
+      const d = type === "CALL" ? deltaCall(spot, K, Tt, r, iv) : deltaPut(spot, K, Tt, r, iv);
+      const v = vega(spot, K, Tt, r, iv);
+      const th = type === "CALL" ? thetaCall(spot, K, Tt, r, iv) : thetaPut(spot, K, Tt, r, iv);
+      const premium = price * ctr * 100;
+      let orderType = "STANDARD";
+      if (premium > 100000) orderType = "BLOCK";
+      else if (exch.length > 1) orderType = "SWEEP";
+      else if (type === "CALL" && side === "ASK") orderType = "AGGRESSIVE CALL";
+      else if (type === "PUT" && side === "BID") orderType = "AGGRESSIVE PUT";
+      let sentiment: FlowOrder["sentiment"] = "neutral";
+      if (type === "CALL" && side === "ASK") sentiment = "bullish";
+      else if (type === "PUT" && side === "BID") sentiment = "bearish";
+      else if (type === "PUT" && K < spot * 0.95) sentiment = "protective";
+      const order: FlowOrder = {
+        id: ++n + Date.now(),
+        ticker: ticker.symbol,
+        type, strike: K, expiry: `+${dte}D`,
+        contracts: ctr, price, side,
+        timestamp: new Date().toLocaleTimeString(),
+        exchanges: exch,
+        delta: d, vega: v, theta: th, premium,
+        orderType, sentiment,
+      };
+      setOrders((prev) => [order, ...prev].slice(0, 40));
+    }, 2000);
+    return () => clearInterval(id);
+  }, [live, spot, iv, ticker.symbol, ticker.strikeStep, expiries]);
+
+  // ─── Alerts (derived)
+  const alerts = useMemo<Alert[]>(() => {
+    const out: Alert[] = [];
+    if (Math.abs(totalVega) > 10000)
+      out.push({ id: 1, severity: "high", icon: "⚠️", title: "High Vega Exposure",
+        message: `Total vega: ${formatNumber(totalVega)} — consider hedging`, timestamp: new Date().toLocaleTimeString() });
+    if (Math.abs(totalTheta) > 500)
+      out.push({ id: 2, severity: "medium", icon: "θ", title: "High Theta Decay",
+        message: `Daily decay: $${formatNumber(Math.abs(totalTheta))}`, timestamp: new Date().toLocaleTimeString() });
+    if (ivRank > 80)
+      out.push({ id: 3, severity: "medium", icon: "📈", title: "Elevated IV Rank",
+        message: `IV Rank ${ivRank.toFixed(0)}% — premium-selling environment`, timestamp: new Date().toLocaleTimeString() });
+    if (ivRank < 20)
+      out.push({ id: 4, severity: "medium", icon: "📉", title: "Low IV Rank",
+        message: `IV Rank ${ivRank.toFixed(0)}% — long premium favored`, timestamp: new Date().toLocaleTimeString() });
+    const big = orders.find((o) => o.premium > 500000);
+    if (big) out.push({ id: 5, severity: "high", icon: "💥", title: "Large Block",
+      message: `${big.ticker} ${big.strike}${big.type[0]} ${big.expiry} — ${big.contracts} ctr @ ${big.side} · $${formatNumber(big.premium)}`,
+      timestamp: big.timestamp });
+    return out;
+  }, [totalVega, totalTheta, ivRank, orders]);
+
+  // ─── Scenario analyzer
+  const [ivChange, setIvChange] = useState(0);
+  const [daysFwd, setDaysFwd] = useState(0);
+  const vegaPnL = (totalVega * ivChange) / 100;
+  const thetaPnL = totalTheta * daysFwd;
+  const netPnL = vegaPnL + thetaPnL;
+
+  const exportCSV = () => {
+    const header = ["strike","callBid","callAsk","callIV","callDelta","callGamma","callVega","callTheta","putBid","putAsk","putDelta","putVega","putTheta"];
+    const lines = chainRows.map((r) => [r.strike, r.call.bid, r.call.ask, r.call.iv, r.call.delta, r.call.gamma, r.call.vega, r.call.theta, r.put.bid, r.put.ask, r.put.delta, r.put.vega, r.put.theta].map((x: any) => typeof x === "number" ? x.toFixed(4) : x).join(","));
+    const csv = [header.join(","), ...lines].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `chain_${ticker.symbol}_${selectedExpiry}D.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-3" style={{ background: COL.bg, color: COL.txt, padding: 12, borderRadius: 6 }}>
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3 px-3 py-2 rounded"
+        style={{ background: "linear-gradient(135deg, #0a0e17 0%, #151922 100%)", border: `1px solid ${COL.border}` }}>
+        <div className="flex items-center gap-2">
+          <span style={{ fontSize: 20, color: COL.purple }}>Θν</span>
+          <span className="font-bold tracking-wider text-sm" style={{ color: COL.txt }}>VEGA / THETA ANALYZER</span>
+        </div>
+        <div className="flex items-center gap-3 text-xs font-mono">
+          <span style={{ color: COL.txt2 }}>{ticker.symbol}</span>
+          <span style={{ color: COL.txt3 }}>·</span>
+          <span style={{ color: COL.yellow }}>${spot.toFixed(2)}</span>
+          <span style={{ color: COL.txt3 }}>·</span>
+          <select value={selectedExpiry} onChange={(e) => setSelectedExpiry(Number(e.target.value))}
+            className="bg-transparent border rounded px-2 py-0.5" style={{ borderColor: COL.border, color: COL.txt }}>
+            {expiries.map((d) => <option key={d} value={d} style={{ background: COL.bg2 }}>{d}D</option>)}
+          </select>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: live ? COL.green : COL.txt3 }} />
+            <button onClick={() => setLive((v) => !v)} style={{ color: live ? COL.green : COL.txt3 }}>LIVE FEED</button>
+          </span>
+        </div>
+      </div>
+
+      {/* Metric cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricCard title="Total Vega Exposure" value={formatNumber(totalVega)} subtitle="Sensitivity per 1 vol pt" color={COL.purple} icon="ν" />
+        <MetricCard title="Daily Theta Decay" value={`$${formatNumber(Math.abs(totalTheta))}`} subtitle="Loss per day from time" color={COL.red} icon="θ" />
+        <MetricCard title="Put / Call Ratio" value={(putVol / Math.max(1, callVol)).toFixed(2)}
+          subtitle={putVol > callVol ? "Bearish pressure" : "Bullish pressure"}
+          color={putVol > callVol ? COL.red : COL.green} />
+        <MetricCard title="Implied Vol Rank" value={`${ivRank.toFixed(0)}%`} subtitle="IV percentile (proxy)" color={COL.yellow} gauge={ivRank} />
+      </div>
+
+      {/* Options chain */}
+      <Panel title="Options Chain · Greeks" subtitle={`${selectedExpiry}D · IV ${(iv * 100).toFixed(1)}%`} noPad>
+        <div className="flex justify-end px-3 py-1 border-b" style={{ borderColor: COL.border }}>
+          <button onClick={exportCSV} className="text-[10px] font-mono px-2 py-0.5 rounded"
+            style={{ background: COL.bg2, color: COL.yellow, border: `1px solid ${COL.border}` }}>
+            ⬇ CSV
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="text-[10px] font-mono w-full" style={{ color: COL.txt }}>
+            <thead style={{ background: COL.bg2, color: COL.txt2 }}>
+              <tr className="text-[9px] tracking-widest">
+                <th colSpan={6} className="px-2 py-1.5 text-center" style={{ color: COL.green }}>CALLS</th>
+                <th className="px-2 py-1.5 text-center" style={{ color: COL.yellow }}>STRIKE</th>
+                <th colSpan={6} className="px-2 py-1.5 text-center" style={{ color: COL.red }}>PUTS</th>
+              </tr>
+              <tr className="text-[9px]">
+                <th className="px-1.5 py-1">BID</th><th>ASK</th><th>IV</th><th>Δ</th><th>ν</th><th>θ</th>
+                <th></th>
+                <th>θ</th><th>ν</th><th>Δ</th><th>IV</th><th>BID</th><th className="px-1.5">ASK</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chainRows.map((row) => {
+                const itmCall = row.strike < spot;
+                const bg = row.isATM ? "#ffdd4422" : itmCall ? "#00ff8811" : "#ff446611";
+                return (
+                  <tr key={row.strike} style={{ background: bg }} className="hover:opacity-90">
+                    <td className="px-1.5 py-1 text-right">{row.call.bid.toFixed(2)}</td>
+                    <td className="text-right">{row.call.ask.toFixed(2)}</td>
+                    <td className="text-right" style={{ color: COL.txt2 }}>{(row.call.iv * 100).toFixed(1)}%</td>
+                    <td className="text-right" style={{ color: row.call.delta > 0.5 ? COL.green : COL.txt2, fontWeight: row.call.delta > 0.7 ? 700 : 400 }}>{row.call.delta.toFixed(3)}</td>
+                    <td className="text-right" style={{ color: row.call.vega > 0.5 ? COL.green : COL.yellow }}>{row.call.vega.toFixed(3)}</td>
+                    <td className="text-right" style={{ color: COL.red }}>{row.call.theta.toFixed(3)}</td>
+                    <td className="px-2 text-center font-bold" style={{ color: row.isATM ? COL.yellow : COL.txt }}>{row.strike}</td>
+                    <td className="text-right" style={{ color: COL.red }}>{row.put.theta.toFixed(3)}</td>
+                    <td className="text-right" style={{ color: row.put.vega > 0.5 ? COL.green : COL.yellow }}>{row.put.vega.toFixed(3)}</td>
+                    <td className="text-right" style={{ color: row.put.delta < -0.5 ? COL.red : COL.txt2, fontWeight: row.put.delta < -0.7 ? 700 : 400 }}>{row.put.delta.toFixed(3)}</td>
+                    <td className="text-right" style={{ color: COL.txt2 }}>{(row.put.iv * 100).toFixed(1)}%</td>
+                    <td className="text-right">{row.put.bid.toFixed(2)}</td>
+                    <td className="px-1.5 text-right">{row.put.ask.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Theta decay */}
+        <Panel title="Theta Decay Timeline" subtitle="ATM · ITM · OTM calls">
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={decaySeries} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
+                <CartesianGrid stroke={COL.border} strokeDasharray="2 4" />
+                <XAxis dataKey="daysLeft" reversed tick={{ fill: COL.txt2, fontSize: 10 }} label={{ value: "Days left", fill: COL.txt3, fontSize: 10, position: "insideBottom", dy: 10 }} />
+                <YAxis tick={{ fill: COL.txt2, fontSize: 10 }} />
+                <RTooltip contentStyle={{ background: COL.bg2, border: `1px solid ${COL.border}`, fontSize: 11 }} />
+                <ReferenceLine x={selectedExpiry} stroke={COL.yellow} strokeDasharray="3 3" label={{ value: "TODAY", fill: COL.yellow, fontSize: 10 }} />
+                <Line type="monotone" dataKey="atm" stroke={COL.yellow} strokeWidth={2} dot={false} name="ATM" />
+                <Line type="monotone" dataKey="itm" stroke={COL.green} strokeWidth={2} dot={false} name="ITM" />
+                <Line type="monotone" dataKey="otm" stroke={COL.red} strokeWidth={2} dot={false} name="OTM" />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+
+        {/* Flow feed */}
+        <Panel title="Option Flow Feed" subtitle={`Live · ${orders.length} orders`}>
+          <div className="overflow-y-auto" style={{ maxHeight: 280 }}>
+            {orders.length === 0 && <div className="text-xs text-center py-6" style={{ color: COL.txt3 }}>Waiting for orders…</div>}
+            {orders.map((o) => (
+              <div key={o.id} style={{
+                background: o.sentiment === "bullish" ? "#00ff8811" : o.sentiment === "bearish" ? "#ff446611" : "#ffaa0011",
+                borderLeft: `4px solid ${o.sentiment === "bullish" ? COL.green : o.sentiment === "bearish" ? COL.red : COL.yellow}`,
+                padding: 8, marginBottom: 6, borderRadius: 4,
+              }}>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-bold">{o.ticker}</span>
+                  <span style={{ color: o.type === "CALL" ? COL.green : COL.red }}>{o.type}</span>
+                  <span>${o.strike}</span>
+                  <span style={{ color: COL.txt3 }}>{o.expiry}</span>
+                  <span className="ml-auto text-[10px]" style={{ color: COL.txt3 }}>{o.timestamp}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-[10px]">
+                  <span style={{ color: COL.yellow }}>${formatNumber(o.premium)}</span>
+                  <span>{o.contracts} ctr</span>
+                  <span style={{ color: o.side === "ASK" ? COL.green : COL.red }}>{o.side}</span>
+                  <span style={{ background: "#ffaa0033", padding: "1px 5px", borderRadius: 3 }}>{o.orderType}</span>
+                </div>
+                <div className="flex gap-3 mt-1 text-[10px]" style={{ color: COL.txt3 }}>
+                  <span>Δ {o.delta.toFixed(2)}</span>
+                  <span>ν {o.vega.toFixed(3)}</span>
+                  <span>θ {o.theta.toFixed(3)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      {/* Heatmap */}
+      <Panel title={`${showVega ? "Vega" : "Theta"} Heatmap`} subtitle="Strike × DTE">
+        <div className="flex justify-end mb-2">
+          <button onClick={() => setShowVega((v) => !v)} className="text-[10px] font-mono px-2 py-1 rounded"
+            style={{ background: COL.bg2, color: COL.txt, border: `1px solid ${COL.border}` }}>
+            Toggle → {showVega ? "THETA" : "VEGA"}
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="font-mono text-[9px]" style={{ borderCollapse: "separate", borderSpacing: 1 }}>
+            <thead>
+              <tr>
+                <th className="px-2 py-1" style={{ color: COL.txt2 }}>Strike</th>
+                {heatmap.dtes.map((d) => <th key={d} className="px-2 py-1" style={{ color: COL.txt2, minWidth: 60 }}>{d}D</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {heatmap.rows.map((row, i) => (
+                <tr key={i}>
+                  <td className="px-2 py-1 font-bold text-right" style={{ color: COL.txt }}>{row[0].strike}</td>
+                  {row.map((cell, j) => (
+                    <td key={j} title={`${cell.strike} · ${cell.dte}D = ${cell.value.toFixed(4)}`}
+                      className="text-center" style={{ background: heatColor(cell.value, showVega), color: "#fff", padding: "4px 6px" }}>
+                      {cell.value.toFixed(3)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      {/* Scenario analyzer */}
+      <Panel title="Scenario Analyzer" subtitle="What-if IV & time">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div>
+            <label className="block mb-1" style={{ color: COL.txt2 }}>IV Change: <span style={{ color: COL.purple }}>{ivChange > 0 ? "+" : ""}{ivChange}%</span></label>
+            <input type="range" min={-50} max={50} value={ivChange} onChange={(e) => setIvChange(Number(e.target.value))} className="w-full" />
+            <div className="mt-1 text-[11px]">P&L from Vega: <span style={{ color: vegaPnL >= 0 ? COL.green : COL.red }}>${formatNumber(vegaPnL)}</span></div>
+          </div>
+          <div>
+            <label className="block mb-1" style={{ color: COL.txt2 }}>Days Forward: <span style={{ color: COL.red }}>+{daysFwd}D</span></label>
+            <input type="range" min={0} max={30} value={daysFwd} onChange={(e) => setDaysFwd(Number(e.target.value))} className="w-full" />
+            <div className="mt-1 text-[11px]">P&L from Theta: <span style={{ color: COL.red }}>${formatNumber(thetaPnL)}</span></div>
+          </div>
+          <div className="flex flex-col items-center justify-center rounded p-3" style={{ background: COL.bg2, border: `1px solid ${COL.border}` }}>
+            <div className="text-[10px] uppercase tracking-wider" style={{ color: COL.txt2 }}>Net P&L</div>
+            <div className="text-2xl font-bold font-mono" style={{ color: netPnL >= 0 ? COL.green : COL.red }}>
+              {netPnL >= 0 ? "+" : ""}${formatNumber(netPnL)}
+            </div>
+          </div>
+        </div>
+      </Panel>
+
+      {/* Alerts */}
+      {alerts.length > 0 && (
+        <Panel title="Alerts" subtitle={`${alerts.length} active`}>
+          <div className="space-y-2">
+            {alerts.map((a) => (
+              <div key={a.id} style={{
+                background: a.severity === "high" ? "#ff446622" : "#ffaa0022",
+                borderLeft: `4px solid ${a.severity === "high" ? COL.red : COL.yellow}`,
+                padding: 10, borderRadius: 4,
+              }}>
+                <div className="flex items-center gap-2 text-xs font-bold">
+                  <span>{a.icon}</span>
+                  <span>{a.title}</span>
+                  <span className="ml-auto text-[10px]" style={{ color: COL.txt3 }}>{a.timestamp}</span>
+                </div>
+                <div className="text-[11px] mt-1" style={{ color: COL.txt2 }}>{a.message}</div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({ title, value, subtitle, color, icon, gauge }: {
+  title: string; value: string; subtitle: string; color: string; icon?: string; gauge?: number;
+}) {
+  return (
+    <div style={{ background: COL.bg2, padding: 14, borderRadius: 8, border: `1px solid ${color}33`, position: "relative" }}>
+      {icon && <div style={{ position: "absolute", top: 10, right: 12, fontSize: 22, color, opacity: 0.35 }}>{icon}</div>}
+      <div style={{ fontSize: 10, color: COL.txt3, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{title}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color, marginBottom: 4, fontFamily: "monospace" }}>{value}</div>
+      <div style={{ fontSize: 10, color: COL.txt2 }}>{subtitle}</div>
+      {gauge !== undefined && (
+        <div style={{ marginTop: 8, height: 4, background: "#2a3444", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ width: `${gauge}%`, height: "100%", background: color, transition: "width 0.3s" }} />
+        </div>
+      )}
+    </div>
+  );
+}
