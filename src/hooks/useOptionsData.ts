@@ -53,13 +53,13 @@ export function useOptionsData(symbol: string): OptionsData {
     setStatus("loading");
 
     const upper = symbol.toUpperCase();
-    const cached = CACHE.get(upper);
-    if (cached && Date.now() - cached.at < TTL_MS) {
-      apply(cached.resp);
-      return;
-    }
 
-    (async () => {
+    const fetchNow = async (force = false) => {
+      const cached = CACHE.get(upper);
+      if (!force && cached && Date.now() - cached.at < TTL_MS) {
+        apply(cached.resp);
+        return;
+      }
       try {
         // Edge function reads ?symbol= from query string — use direct fetch
         // (supabase-js invoke v2 does not pass query strings on GET reliably)
