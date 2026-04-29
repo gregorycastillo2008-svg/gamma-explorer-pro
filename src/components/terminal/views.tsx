@@ -18,6 +18,7 @@ import { RiskCalculator } from "./RiskCalculator";
 import { VegaThetaAnalyzer } from "./VegaThetaAnalyzer";
 import { PCSkewByStrike } from "./PCSkewByStrike";
 import { GammaRegimePanel } from "./GammaRegimePanel";
+import { HedgePressurePanel } from "./HedgePressurePanel";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
