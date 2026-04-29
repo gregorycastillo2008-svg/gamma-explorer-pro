@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend } from "recharts";
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend, BarChart, Bar, ComposedChart } from "recharts";
 import { Panel } from "./Panel";
 import type { DemoTicker, OptionContract } from "@/lib/gex";
 import { formatNumber } from "@/lib/gex";
@@ -47,6 +47,24 @@ function deltaPut(S: number, K: number, T: number, r: number, sigma: number) {
 function gamma(S: number, K: number, T: number, r: number, sigma: number) {
   const { d1 } = d1d2(S, K, T, r, sigma);
   return normalPDF(d1) / (S * sigma * Math.sqrt(T));
+}
+// Vanna = ∂Δ/∂σ — per 1% vol move (industry convention)
+function vanna(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  return (-normalPDF(d1) * d2 / sigma) / 100;
+}
+// Charm = -∂Δ/∂t — per calendar day
+function charmCall(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  const sqrtT = Math.sqrt(T);
+  const common = normalPDF(d1) * (2 * r * T - d2 * sigma * sqrtT) / (2 * T * sigma * sqrtT);
+  return (-common) / 365;
+}
+function charmPut(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  const sqrtT = Math.sqrt(T);
+  const common = normalPDF(d1) * (2 * r * T - d2 * sigma * sqrtT) / (2 * T * sigma * sqrtT);
+  return (-common + r * Math.exp(-r * T)) / 365;
 }
 
 const COL = {
@@ -200,6 +218,31 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
     return { totalVega: tv, totalTheta: tt, putVol: pv, callVol: cv, ivRank: ivR };
   }, [contracts, selectedExpiry, spot, T, iv]);
 
+  // ─── Vanna / Charm exposure per strike (dealer convention: short calls, long puts ⇒ sign)
+  const vannaCharmSeries = useMemo(() => {
+    const m = new Map<number, { strike: number; vanna: number; charm: number; vannaCall: number; vannaPut: number; charmCall: number; charmPut: number }>();
+    contracts.filter((c) => c.expiry === selectedExpiry).forEach((c) => {
+      const sigma = c.iv > 0 ? c.iv : iv;
+      const va = vanna(spot, c.strike, T, r, sigma);
+      const ch = c.type === "call" ? charmCall(spot, c.strike, T, r, sigma) : charmPut(spot, c.strike, T, r, sigma);
+      const notional = c.oi * 100;
+      const sign = c.type === "call" ? 1 : -1; // dealer-short calls / long puts
+      const cur = m.get(c.strike) ?? { strike: c.strike, vanna: 0, charm: 0, vannaCall: 0, vannaPut: 0, charmCall: 0, charmPut: 0 };
+      cur.vanna += va * notional * sign;
+      cur.charm += ch * notional * sign;
+      if (c.type === "call") { cur.vannaCall += va * notional; cur.charmCall += ch * notional; }
+      else { cur.vannaPut += va * notional; cur.charmPut += ch * notional; }
+      m.set(c.strike, cur);
+    });
+    return Array.from(m.values())
+      .filter((x) => x.strike >= spot * 0.92 && x.strike <= spot * 1.08)
+      .sort((a, b) => a.strike - b.strike);
+  }, [contracts, selectedExpiry, spot, T, iv]);
+
+  const totalVanna = vannaCharmSeries.reduce((s, p) => s + p.vanna, 0);
+  const totalCharm = vannaCharmSeries.reduce((s, p) => s + p.charm, 0);
+  const peakVanna = vannaCharmSeries.reduce((b, p) => Math.abs(p.vanna) > Math.abs(b.vanna) ? p : b, vannaCharmSeries[0] ?? { strike: 0, vanna: 0, charm: 0 } as any);
+  const peakCharm = vannaCharmSeries.reduce((b, p) => Math.abs(p.charm) > Math.abs(b.charm) ? p : b, vannaCharmSeries[0] ?? { strike: 0, vanna: 0, charm: 0 } as any);
 
   // ─── Theta decay timeline
   const decaySeries = useMemo(() => {
@@ -586,6 +629,44 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
             <div className="text-2xl font-bold font-mono" style={{ color: netPnL >= 0 ? COL.green : COL.red }}>
               {netPnL >= 0 ? "+" : ""}${formatNumber(netPnL)}
             </div>
+          </div>
+        </div>
+      </Panel>
+
+      {/* Vanna / Charm Exposure */}
+      <Panel title="Vanna / Charm Exposure" subtitle={`${selectedExpiry}D · dealer convention · per 1% IV / per day`}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <MetricCard title="Net Vanna" value={formatNumber(totalVanna)} subtitle="ΔΔ per +1% IV" color="#00e5ff" icon="∂Δ/∂σ" />
+          <MetricCard title="Net Charm" value={formatNumber(totalCharm)} subtitle="ΔΔ per day" color="#ff8800" icon="∂Δ/∂t" />
+          <MetricCard title="Peak Vanna Strike" value={`$${peakVanna?.strike ?? 0}`} subtitle={`${formatNumber(peakVanna?.vanna ?? 0)}`} color="#00e5ff" />
+          <MetricCard title="Peak Charm Strike" value={`$${peakCharm?.strike ?? 0}`} subtitle={`${formatNumber(peakCharm?.charm ?? 0)}`} color="#ff8800" />
+        </div>
+        <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={vannaCharmSeries} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
+              <CartesianGrid stroke={COL.border} strokeDasharray="2 4" />
+              <XAxis dataKey="strike" tick={{ fill: COL.txt2, fontSize: 10 }} />
+              <YAxis yAxisId="v" tick={{ fill: "#00e5ff", fontSize: 10 }} tickFormatter={(v) => formatNumber(Number(v), 1)} />
+              <YAxis yAxisId="c" orientation="right" tick={{ fill: "#ff8800", fontSize: 10 }} tickFormatter={(v) => formatNumber(Number(v), 1)} />
+              <RTooltip
+                contentStyle={{ background: COL.bg2, border: `1px solid ${COL.border}`, fontSize: 11 }}
+                formatter={(v: number, name: string) => [formatNumber(v), name === "vanna" ? "Vanna" : "Charm"]}
+                labelFormatter={(l) => `Strike $${l}`}
+              />
+              <ReferenceLine x={Math.round(spot / ticker.strikeStep) * ticker.strikeStep} yAxisId="v" stroke={COL.yellow} strokeDasharray="3 3" label={{ value: `Spot ${spot.toFixed(0)}`, fill: COL.yellow, fontSize: 10, position: "top" }} />
+              <ReferenceLine y={0} yAxisId="v" stroke={COL.border} />
+              <Bar yAxisId="v" dataKey="vanna" name="Vanna" fill="#00e5ff" opacity={0.7} />
+              <Line yAxisId="c" type="monotone" dataKey="charm" name="Charm" stroke="#ff8800" strokeWidth={2} dot={false} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]" style={{ color: COL.txt2 }}>
+          <div style={{ background: COL.bg2, padding: 8, borderRadius: 4, borderLeft: `3px solid #00e5ff` }}>
+            <span style={{ color: "#00e5ff", fontWeight: 700 }}>VANNA</span> · ∂Δ/∂σ — si la IV sube +1%, los dealers ganan/pierden delta. Net positivo ⇒ deben <strong>vender</strong> spot al subir vol (acentúa caídas).
+          </div>
+          <div style={{ background: COL.bg2, padding: 8, borderRadius: 4, borderLeft: `3px solid #ff8800` }}>
+            <span style={{ color: "#ff8800", fontWeight: 700 }}>CHARM</span> · -∂Δ/∂t — flujo de delta hacia 0DTE. Net negativo ⇒ los dealers <strong>compran</strong> spot al pasar el tiempo (típico al cierre / overnight).
           </div>
         </div>
       </Panel>

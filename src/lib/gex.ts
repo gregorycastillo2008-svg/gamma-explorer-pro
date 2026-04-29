@@ -31,27 +31,57 @@ export interface OptionContract {
 }
 
 export interface Greeks {
-  delta: number;
-  gamma: number;
-  vega: number;
-  vanna: number;
-  charm: number;
+  delta: number;   // ∂V/∂S            (per $1 in S)
+  gamma: number;   // ∂²V/∂S²          (per $1 in S, per $1 again)
+  vega: number;    // ∂V/∂σ            (per 1 vol point = 1%)
+  theta: number;   // ∂V/∂t            (per calendar day)
+  vanna: number;   // ∂²V/∂S∂σ = ∂Δ/∂σ (per 1 vol point = 1%)
+  charm: number;   // -∂Δ/∂t           (per calendar day)
 }
 
+/**
+ * Standard Black-Scholes greeks for European options on a non-dividend-paying underlying.
+ *
+ * Convention used across this app (matches CBOE / Polygon greeks feed):
+ *   • vega   → P&L change per **1 vol point** (1% absolute IV move)        → divide raw by 100
+ *   • theta  → P&L change per **calendar day**                              → divide raw by 365
+ *   • vanna  → ΔΔ per **1 vol point** (= 1%)                                → divide raw by 100
+ *   • charm  → ΔΔ per **calendar day**                                      → divide raw by 365
+ *
+ * Vanna     = -e^(-rT) · φ(d1) · d2 / σ
+ * Charm[c]  = -e^(-rT) · ( φ(d1)·(2(r)T - d2·σ√T) / (2T·σ√T)  -  r·N(d1) )
+ * Charm[p]  = -e^(-rT) · ( φ(d1)·(2(r)T - d2·σ√T) / (2T·σ√T)  +  r·N(-d1) )
+ */
 export function bsGreeks(S: number, K: number, T: number, r: number, sigma: number, type: "call" | "put"): Greeks {
-  if (T <= 0 || sigma <= 0) return { delta: 0, gamma: 0, vega: 0, vanna: 0, charm: 0 };
-  const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
-  const d2 = d1 - sigma * Math.sqrt(T);
-  const nd1 = pdf(d1);
-  const delta = type === "call" ? cdf(d1) : cdf(d1) - 1;
-  const gamma = nd1 / (S * sigma * Math.sqrt(T));
-  const vega = S * nd1 * Math.sqrt(T) / 100;
-  const vanna = -nd1 * d2 / sigma;
-  const charm =
-    type === "call"
-      ? -nd1 * (2 * r * T - d2 * sigma * Math.sqrt(T)) / (2 * T * sigma * Math.sqrt(T))
-      : -nd1 * (2 * r * T - d2 * sigma * Math.sqrt(T)) / (2 * T * sigma * Math.sqrt(T)) - r * Math.exp(-r * T);
-  return { delta, gamma, vega, vanna, charm };
+  if (T <= 0 || sigma <= 0) return { delta: 0, gamma: 0, vega: 0, theta: 0, vanna: 0, charm: 0 };
+  const sqrtT = Math.sqrt(T);
+  const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+  const d2 = d1 - sigma * sqrtT;
+  const nd1 = pdf(d1);            // φ(d1)
+  const Nd1 = cdf(d1);
+  const Nd2 = cdf(d2);
+
+  const delta = type === "call" ? Nd1 : Nd1 - 1;
+  const gamma = nd1 / (S * sigma * sqrtT);
+  const vega  = (S * nd1 * sqrtT) / 100;                    // per 1% IV
+
+  // Theta (per year) → per day
+  const thetaYearCall = -(S * nd1 * sigma) / (2 * sqrtT) - r * K * Math.exp(-r * T) * Nd2;
+  const thetaYearPut  = -(S * nd1 * sigma) / (2 * sqrtT) + r * K * Math.exp(-r * T) * cdf(-d2);
+  const theta = (type === "call" ? thetaYearCall : thetaYearPut) / 365;
+
+  // Vanna: per 1% IV (∂Δ/∂σ → divide by 100)
+  const vannaRaw = -nd1 * d2 / sigma;                        // q = 0 ⇒ no e^(-qT)
+  const vanna = vannaRaw / 100;
+
+  // Charm (per year) — Haug formulas with q = 0
+  const charmCommon = nd1 * (2 * r * T - d2 * sigma * sqrtT) / (2 * T * sigma * sqrtT);
+  const charmYear = type === "call"
+    ? -charmCommon
+    : -charmCommon + r * Math.exp(-r * T);
+  const charm = charmYear / 365;                              // per calendar day
+
+  return { delta, gamma, vega, theta, vanna, charm };
 }
 
 export interface ExposurePoint {
