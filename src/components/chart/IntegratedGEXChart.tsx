@@ -398,7 +398,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
             <GEXBarsPanel rows={strikeRows} spot={chain.spot} />
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
-              {`Sin opciones reales para ≤${dteFilter}D`}
+              {dteFilter === "0" ? "Sin opciones 0DTE (hoy)" : dteFilter === "1" ? "Sin opciones 1DTE (mañana)" : "Sin opciones para hoy/mañana"}
             </div>
           )}
         </div>
