@@ -173,6 +173,38 @@ export function GexbotStyleChart({
     if (putRef.current) putRef.current.setData(toLine(majorPutSeries));
   }, [majorPutSeries]);
 
+  // Reference price-lines for major levels (Major Call, Major Put, Call Wall, Put Wall, Max Pain)
+  const refLinesRef = useRef<any[]>([]);
+  useEffect(() => {
+    const series = priceRef.current;
+    if (!series) return;
+    // Clear previous
+    refLinesRef.current.forEach((pl) => {
+      try { series.removePriceLine(pl); } catch {}
+    });
+    refLinesRef.current = [];
+
+    const levels: { price?: number; color: string; title: string }[] = [
+      { price: majorCall, color: "#00ff88", title: `Major Call ${majorCall?.toFixed(2) ?? ""}` },
+      { price: majorPut,  color: "#ff4466", title: `Major Put ${majorPut?.toFixed(2) ?? ""}` },
+      { price: callWall,  color: "#22d3ee", title: `Call Wall ${callWall?.toFixed(2) ?? ""}` },
+      { price: putWall,   color: "#f472b6", title: `Put Wall ${putWall?.toFixed(2) ?? ""}` },
+      { price: maxPain,   color: "#a78bfa", title: `Max Pain ${maxPain?.toFixed(2) ?? ""}` },
+    ];
+    for (const l of levels) {
+      if (l.price == null || !Number.isFinite(l.price)) continue;
+      const pl = series.createPriceLine({
+        price: l.price,
+        color: l.color,
+        lineWidth: 1,
+        lineStyle: 2, // dashed
+        axisLabelVisible: true,
+        title: l.title,
+      });
+      refLinesRef.current.push(pl);
+    }
+  }, [majorCall, majorPut, callWall, putWall, maxPain, points]);
+
   // Header datetime
   const dt = new Date();
   const dtStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}:${String(dt.getSeconds()).padStart(2, "0")}`;
