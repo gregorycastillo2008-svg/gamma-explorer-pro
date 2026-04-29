@@ -103,7 +103,7 @@ export function GEXBarsPanel({ rows, spot }: Props) {
       <div className="overflow-y-auto h-full pr-1 relative">
         <div className="relative" style={{ minHeight: totalH }}>
           {/* Horizontal key-level lines */}
-          <HLine idx={callWallIdx} color="#10b981" label={`CALL WALL ${callWall?.strike ?? ""}`} />
+          <HLine idx={callWallIdx} color="#facc15" label={`CALL WALL ${callWall?.strike ?? ""}`} />
           <HLine idx={putWallIdx} color="#ef4444" label={`PUT WALL ${putWall?.strike ?? ""}`} />
           <HLine idx={flipIdx} color="#a855f7" label={`Δ FLIP ${deltaFlip?.strike ?? ""}`} dashed />
           {spotRowIndex >= 0 && (
