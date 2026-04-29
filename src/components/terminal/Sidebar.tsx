@@ -11,6 +11,7 @@ export type Section =
 export const SECTIONS: { id: Section; label: string; icon: any; group: string }[] = [
   { id: "overview", label: "Overview", icon: Activity, group: "MAIN" },
   { id: "chart", label: "Chart", icon: CandlestickChart, group: "MAIN" },
+  { id: "regime", label: "Gamma Regime", icon: Shuffle, group: "MAIN" },
   { id: "oi-analytics", label: "OI Analytics", icon: BarChart2, group: "MAIN" },
   { id: "gex-dex", label: "GEX & DEX", icon: BarChart3, group: "MAIN" },
   { id: "greeks", label: "Greek Ladder", icon: Sigma, group: "MAIN" },
@@ -21,7 +22,6 @@ export const SECTIONS: { id: Section; label: string; icon: any; group: string }[
   { id: "vega-theta", label: "Vega & Theta", icon: TrendingUp, group: "MAIN" },
   { id: "volatility", label: "Volatility", icon: LineChart, group: "ANALYSIS" },
   { id: "heatmap", label: "Heatmap / 3D", icon: Grid3x3, group: "ANALYSIS" },
-  { id: "regime", label: "Regime", icon: Shuffle, group: "ANALYSIS" },
   { id: "risk", label: "Risk", icon: Shield, group: "ANALYSIS" },
   { id: "anomaly", label: "Anomaly Detection", icon: AlertTriangle, group: "ANALYSIS" },
   { id: "economy", label: "Economy", icon: Newspaper, group: "ANALYSIS" },
