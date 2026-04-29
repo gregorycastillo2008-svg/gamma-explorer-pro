@@ -40,7 +40,9 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
 
       <RealVolatilityDashboard defaultTicker={ticker.symbol} />
 
-      <GexDivergingBars ticker={ticker} exposures={exposures} />
+      <div className="mt-6 pt-4 border-t border-[#1f1f1f] overflow-hidden">
+        <GexDivergingBars ticker={ticker} exposures={exposures} />
+      </div>
     </div>
   );
 }
