@@ -28,6 +28,7 @@ import { DepthMultiPanel } from "@/components/terminal/DepthMultiPanel";
 import { VannaCharmWorkspace } from "@/components/terminal/VannaCharmWorkspace";
 import { OiAnalyticsWorkspace } from "@/components/terminal/OiAnalyticsWorkspace";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
+import { EconomyView } from "@/components/terminal/EconomyView";
 import { SectionTransition } from "@/components/terminal/SectionTransition";
 import { Paywall } from "@/components/Paywall";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
