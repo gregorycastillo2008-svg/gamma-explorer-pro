@@ -182,7 +182,7 @@ function DepthPanel({
   setHoverStrike,
 }: DepthPanelProps) {
   const [tooltip, setTooltip] = useState<
-    | { strike: number; callOI: number; putOI: number; netGex: number; x: number; y: number }
+    | { strike: number; callOI: number; putOI: number; callGex: number; putGex: number; netGex: number; x: number; y: number }
     | null
   >(null);
 
