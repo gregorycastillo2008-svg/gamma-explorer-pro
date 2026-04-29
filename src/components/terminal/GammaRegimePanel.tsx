@@ -375,6 +375,13 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
             title="GPI Evolution"
             subtitle="Gamma Pressure Index · live timeline"
             icon={<Activity className="h-3.5 w-3.5" />}
+            info={
+              <>
+                <div className="font-bold text-primary mb-1">GPI Evolution</div>
+                Histórico en vivo del <strong>Gamma Pressure Index</strong>. Cada punto se registra cada 4 segundos.
+                <div className="mt-1.5 text-muted-foreground">Si la línea cruza la banda 40↔60 indica un <em>cambio de régimen</em> inminente. Movimientos verticales bruscos = flujos institucionales grandes.</div>
+              </>
+            }
           />
           <div className="h-[200px] w-full">
             {gpiHistory.length < 2 ? (
@@ -415,6 +422,17 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
             title="Strike Magnetism"
             subtitle="Imanes / repulsores cercanos al spot"
             icon={<Magnet className="h-3.5 w-3.5" />}
+            info={
+              <>
+                <div className="font-bold text-primary mb-1">Strike Magnetism</div>
+                Mide qué tan fuerte cada strike <em>atrae</em> o <em>repele</em> el precio.
+                <div className="font-mono bg-secondary/50 px-2 py-1 rounded text-[10px] my-1.5">
+                  Magnetism = |GEX| / max(distancia, 0.5)
+                </div>
+                <span className="text-call">MAGNET</span> (verde) = strike pin / soporte / resistencia.<br />
+                <span className="text-put">REPULSE</span> (rojo) = strike que acelera el alejamiento.
+              </>
+            }
           />
           <div className="space-y-1.5">
             {magnets.map((m) => {
@@ -445,7 +463,22 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Stability score */}
         <div className="rounded-lg border bg-card p-4">
-          <SectionHeader title="Regime Stability" subtitle="Consistencia del signo gamma cerca del spot" icon={<Target className="h-3.5 w-3.5" />} />
+          <SectionHeader
+            title="Regime Stability"
+            subtitle="Consistencia del signo gamma cerca del spot"
+            icon={<Target className="h-3.5 w-3.5" />}
+            info={
+              <>
+                <div className="font-bold text-primary mb-1">Regime Stability</div>
+                Score 0–100 basado en cuántos strikes en ±2% del spot comparten el mismo signo de GEX.
+                <div className="mt-1.5">
+                  <span className="text-call">ROCK SOLID (&gt;70)</span> · régimen muy consistente.<br />
+                  <span className="text-warning">MODERATE (40–70)</span> · monitorear.<br />
+                  <span className="text-put">FRAGILE (&lt;40)</span> · cualquier flujo puede romperlo.
+                </div>
+              </>
+            }
+          />
           <div className="flex items-center gap-4 mt-2">
             <div className="relative w-24 h-24">
               <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
@@ -479,7 +512,18 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
 
         {/* Hedging behavior matrix */}
         <div className="rounded-lg border bg-card p-4 lg:col-span-2">
-          <SectionHeader title="Dealer Hedging Behavior" subtitle="Cómo reaccionan los dealers a los movimientos del precio" icon={<Zap className="h-3.5 w-3.5" />} />
+          <SectionHeader
+            title="Dealer Hedging Behavior"
+            subtitle="Cómo reaccionan los dealers a los movimientos del precio"
+            icon={<Zap className="h-3.5 w-3.5" />}
+            info={
+              <>
+                <div className="font-bold text-primary mb-1">Dealer Hedging Behavior</div>
+                Matriz que predice cómo se cubrirán los dealers según el régimen actual y la dirección del precio. Es la base de toda la teoría de gamma exposure.
+                <div className="mt-1.5 text-muted-foreground italic">Conocer estas reacciones permite anticipar dónde habrá <em>presión compradora/vendedora</em> automática.</div>
+              </>
+            }
+          />
           <div className="grid grid-cols-2 gap-2 mt-2">
             <BehaviorCell
               icon={<ArrowUp className="h-4 w-4" />}
