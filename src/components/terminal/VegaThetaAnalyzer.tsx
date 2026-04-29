@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend } from "recharts";
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend, BarChart, Bar, ComposedChart } from "recharts";
 import { Panel } from "./Panel";
 import type { DemoTicker, OptionContract } from "@/lib/gex";
 import { formatNumber } from "@/lib/gex";
