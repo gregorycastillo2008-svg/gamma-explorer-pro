@@ -57,11 +57,14 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
             key: "gex",
             label: "GEX SURFACE",
             content: (
-              <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot}`} className="h-full flex flex-col">
-                <div className="h-full">
-                  <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric="netGex" />
-                </div>
-              </Panel>
+              <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot}`} className="h-full flex flex-col">
+                  <div className="h-full">
+                    <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric="netGex" />
+                  </div>
+                </Panel>
+                <PCSkewByStrike contracts={contracts} spot={ticker.spot} strikeStep={ticker.strikeStep} />
+              </div>
             ),
           },
           {
