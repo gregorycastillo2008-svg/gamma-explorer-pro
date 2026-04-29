@@ -10,6 +10,7 @@ import {
 } from "lightweight-charts";
 import { GEXBarsPanel, type StrikeRow } from "./GEXBarsPanel";
 import { GEXSidebar } from "./GEXSidebar";
+import { GexbotStyleChart } from "./GexbotStyleChart";
 
 const TICKERS = ["QQQ", "SPY", "NQ", "IWM", "DIA", "AAPL", "MSFT", "NVDA", "TSLA", "AMD", "META"];
 const TIMEFRAMES = ["1D", "5D", "1M", "3M", "6M", "1Y"] as const;
