@@ -492,19 +492,36 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
 
 // ───────────── helpers ─────────────
 
+function InfoTip({ children, side = "top" }: { children: React.ReactNode; side?: "top" | "right" | "bottom" | "left" }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" className="inline-flex items-center justify-center text-muted-foreground/60 hover:text-primary transition-colors cursor-help">
+          <Info className="h-3 w-3" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={side} className="max-w-[280px] text-xs leading-relaxed bg-popover border-border">
+        {children}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function SectionHeader({
-  title, subtitle, legend, icon,
+  title, subtitle, legend, icon, info,
 }: {
   title: string;
   subtitle?: string;
   legend?: { swatch: string; label: string; dashed?: boolean }[];
   icon?: React.ReactNode;
+  info?: React.ReactNode;
 }) {
   return (
     <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
       <div>
         <h3 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2">
           {icon}{title}
+          {info && <InfoTip>{info}</InfoTip>}
         </h3>
         {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </div>
@@ -530,44 +547,64 @@ function SectionHeader({
 }
 
 function Pill({
-  label, value, tone = "default",
+  label, value, tone = "default", info,
 }: {
   label: string;
   value: string;
   tone?: "default" | "call" | "put" | "primary";
+  info?: React.ReactNode;
 }) {
   const toneClass =
     tone === "call" ? "text-call"
     : tone === "put" ? "text-put"
     : tone === "primary" ? "text-primary"
     : "text-foreground";
-  return (
-    <div className="flex items-center justify-between gap-3 rounded border border-border/60 bg-secondary/30 px-3 py-2">
-      <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
+  const inner = (
+    <div className="flex items-center justify-between gap-3 rounded border border-border/60 bg-secondary/30 px-3 py-2 hover:border-primary/40 transition-colors cursor-help">
+      <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1">
+        {label}
+        {info && <Info className="h-2.5 w-2.5 opacity-60" />}
+      </span>
       <span className={`font-mono font-bold text-sm ${toneClass}`}>{value}</span>
     </div>
+  );
+  if (!info) return inner;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent side="left" className="max-w-[280px] text-xs leading-relaxed bg-popover border-border">{info}</TooltipContent>
+    </Tooltip>
   );
 }
 
 function BehaviorCell({
-  icon, when, action, tone, note,
+  icon, when, action, tone, note, info,
 }: {
   icon: React.ReactNode;
   when: string;
   action: string;
   tone: "call" | "put" | "default";
   note: string;
+  info?: React.ReactNode;
 }) {
   const toneClass = tone === "call" ? "text-call" : tone === "put" ? "text-put" : "text-foreground";
   const borderClass = tone === "call" ? "border-call/30" : tone === "put" ? "border-put/30" : "border-border";
-  return (
-    <div className={`rounded border ${borderClass} bg-secondary/20 p-2.5`}>
+  const inner = (
+    <div className={`rounded border ${borderClass} bg-secondary/20 p-2.5 hover:bg-secondary/40 transition-colors cursor-help`}>
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
         <span className={toneClass}>{icon}</span>
         {when}
+        {info && <Info className="h-2.5 w-2.5 opacity-60 ml-auto" />}
       </div>
       <div className={`text-sm font-bold mt-1 ${toneClass}`}>{action}</div>
       <div className="text-[11px] text-muted-foreground mt-0.5 italic">{note}</div>
     </div>
+  );
+  if (!info) return inner;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed bg-popover border-border">{info}</TooltipContent>
+    </Tooltip>
   );
 }
