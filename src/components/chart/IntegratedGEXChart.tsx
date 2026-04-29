@@ -468,7 +468,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
         </div>
 
         {/* Gexbot-style sub-chart with live Zero Gamma evolving over time */}
-        <div className="h-[460px] shrink-0">
+        <div className="h-[540px] shrink-0 mt-6 border-t-2 border-[#1f1f1f]">
           <GexbotStyleChart
             symbol={symbol}
             spot={price?.spot ?? chain?.spot ?? 0}
