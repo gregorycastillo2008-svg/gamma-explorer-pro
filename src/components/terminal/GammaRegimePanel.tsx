@@ -486,6 +486,7 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 
