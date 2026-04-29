@@ -474,6 +474,9 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
             zeroGamma={metrics.keyLevels.zeroGamma}
             majorCall={metrics.keyLevels.callWall}
             majorPut={metrics.keyLevels.putWall}
+            callWall={metrics.keyLevels.callWallOI}
+            putWall={metrics.keyLevels.putWallOI}
+            maxPain={metrics.keyLevels.maxPain}
           />
         </div>
       </div>
