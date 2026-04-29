@@ -19,6 +19,7 @@ import { VegaThetaAnalyzer } from "./VegaThetaAnalyzer";
 import { PCSkewByStrike } from "./PCSkewByStrike";
 import { GammaRegimePanel } from "./GammaRegimePanel";
 import { HedgePressurePanel } from "./HedgePressurePanel";
+import { StdDevAnomaliesPanel } from "./StdDevAnomaliesPanel";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -1353,6 +1354,9 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
 
   return (
     <div className="space-y-3">
+      {/* Z-Score Anomalies (Hedge Pressure / GEX / OI-Volume) */}
+      <StdDevAnomaliesPanel ticker={ticker} exposures={exposures} contracts={contracts} />
+
       {/* Header strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         <StatBlock label="Sigma Threshold" value="2.09σ" tone="warning" sub="5m candle" />
