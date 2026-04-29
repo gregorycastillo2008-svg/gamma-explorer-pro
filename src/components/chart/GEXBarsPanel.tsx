@@ -103,7 +103,7 @@ export function GEXBarsPanel({ rows, spot }: Props) {
       <div className="overflow-y-auto h-full pr-1 relative">
         <div className="relative" style={{ minHeight: totalH }}>
           {/* Horizontal key-level lines */}
-          <HLine idx={callWallIdx} color="#10b981" label={`CALL WALL ${callWall?.strike ?? ""}`} />
+          <HLine idx={callWallIdx} color="#facc15" label={`CALL WALL ${callWall?.strike ?? ""}`} />
           <HLine idx={putWallIdx} color="#ef4444" label={`PUT WALL ${putWall?.strike ?? ""}`} />
           <HLine idx={flipIdx} color="#a855f7" label={`Δ FLIP ${deltaFlip?.strike ?? ""}`} dashed />
           {spotRowIndex >= 0 && (
@@ -162,9 +162,9 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                       className="absolute right-0 top-0 h-full rounded-sm overflow-hidden origin-right transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
                       style={{
                         width: putW,
-                        background: "linear-gradient(270deg, #ef4444, #dc2626)",
-                        opacity: 0.9,
-                        boxShadow: "0 0 6px rgba(239,68,68,0.35)",
+                        background: "linear-gradient(270deg, #ff1a1a, #b30000)",
+                        opacity: 0.95,
+                        boxShadow: "0 0 8px rgba(255,26,26,0.55)",
                       }}
                     >
                       {Array.from({ length: putSegs }).map((_, i) => (
@@ -181,9 +181,9 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                       className="absolute left-0 top-0 h-full rounded-sm overflow-hidden origin-left transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
                       style={{
                         width: callW,
-                        background: "linear-gradient(90deg, #10b981, #059669)",
-                        opacity: 0.9,
-                        boxShadow: "0 0 6px rgba(16,185,129,0.35)",
+                        background: "linear-gradient(90deg, #fde047, #ca8a04)",
+                        opacity: 0.95,
+                        boxShadow: "0 0 8px rgba(253,224,71,0.55)",
                       }}
                     >
                       {Array.from({ length: callSegs }).map((_, i) => (
