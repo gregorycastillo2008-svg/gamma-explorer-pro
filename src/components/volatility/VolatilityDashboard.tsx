@@ -7,6 +7,7 @@ import { IVSkewChart } from "./IVSkewChart";
 import { PutCallSkewPanel } from "./PutCallSkewPanel";
 import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
 import { VolatilityTable } from "./VolatilityTable";
+import { RealVolatilityDashboard } from "./RealVolatilityDashboard";
 
 interface Props {
   ticker: DemoTicker;
@@ -33,6 +34,8 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
       <Panel className="h-[400px]">
         <RealizedVolatilityChart data={data} />
       </Panel>
+
+      <RealVolatilityDashboard defaultTicker={ticker.symbol} />
     </div>
   );
 }
