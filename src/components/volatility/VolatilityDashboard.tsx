@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { DemoTicker, OptionContract } from "@/lib/gex";
+import { DemoTicker, OptionContract, computeExposures } from "@/lib/gex";
 import { buildVolatilityDataset } from "@/lib/mockVolatilityData";
 import { TopMetricsBar } from "./TopMetricsBar";
 import { Volatility3DSurface } from "@/components/terminal/Volatility3DSurface";
@@ -8,6 +8,8 @@ import { PutCallSkewPanel } from "./PutCallSkewPanel";
 import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
 import { VolatilityTable } from "./VolatilityTable";
 import { RealVolatilityDashboard } from "./RealVolatilityDashboard";
+import { GexDivergingBars } from "./GexDivergingBars";
+
 
 interface Props {
   ticker: DemoTicker;
