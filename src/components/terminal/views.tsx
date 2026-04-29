@@ -15,6 +15,7 @@ import { TradingViewGexChart } from "@/components/chart/TradingViewGexChart";
 import { GreekLadder } from "@/components/greeks/GreekLadder";
 import { OptionsFlowHeatmap } from "./OptionsFlowHeatmap";
 import { RiskCalculator } from "./RiskCalculator";
+import { VegaThetaAnalyzer } from "./VegaThetaAnalyzer";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -580,6 +581,18 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
   const THETA_COLOR = "#ff3d00";
 
   return (
+    <TerminalTabs
+      layoutId="vegatheta-master-tab-bg"
+      tabs={[
+        {
+          key: "analyzer",
+          label: "ANALYZER",
+          content: <VegaThetaAnalyzer ticker={ticker} contracts={contracts} />,
+        },
+        {
+          key: "classic",
+          label: "EXPOSURE MAP",
+          content: (
     <div className="space-y-3">
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -734,6 +747,10 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
         </div>
       </Panel>
     </div>
+          ),
+        },
+      ]}
+    />
   );
 }
 
