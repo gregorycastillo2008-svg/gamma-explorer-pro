@@ -1050,7 +1050,6 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
         <TerminalTabs
           layoutId="iv-heatmap-tab-bg"
           tabs={[
-            { key: "heatmap", label: "HEATMAP", content: heatmapContent },
             {
               key: "surface",
               label: "3D SURFACE",
