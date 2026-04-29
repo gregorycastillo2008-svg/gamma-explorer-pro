@@ -46,44 +46,57 @@ function stats(arr: number[]) {
 }
 
 export function StdDevAnomaliesPanel({ ticker, exposures, contracts }: Props) {
-  // ── 1. METRIC SERIES (rolling buffer per metric, in-memory) ──
-  type Snap = { ts: number; hedge: number; gex: number; oiv: number };
-  const bufferRef = useRef<Snap[]>([]);
-
-  // Current values (snapshot from live data)
-  const currentHedge = useMemo(() => {
-    // Hedge Pressure proxy: net dealer DEX (signed sum)
-    return exposures.reduce((s, p) => s + p.dex, 0);
-  }, [exposures]);
-
-  const currentGex = useMemo(() => exposures.reduce((s, p) => s + p.netGex, 0), [exposures]);
-
+  // ── 1. SNAPSHOT actual de cada métrica agregada ──
+  const currentHedge = useMemo(
+    () => exposures.reduce((s, p) => s + p.dex, 0),
+    [exposures],
+  );
+  const currentGex = useMemo(
+    () => exposures.reduce((s, p) => s + p.netGex, 0),
+    [exposures],
+  );
   const currentOiV = useMemo(() => {
     const totalOI = contracts.reduce((s, c) => s + (c.oi || 0), 0);
     const totalVol = contracts.reduce((s, c) => s + (c.volume || 0), 0);
-    return totalVol > 0 ? totalOI / totalVol : totalOI;
+    return totalVol > 0 ? totalOI / totalVol : 0;
   }, [contracts]);
 
-  // Push new snapshot every render where data changes; cap buffer
+  // ── 2. BUFFER TEMPORAL de sesión (persistente entre renders) ──
+  // El Z-Score correcto compara el valor ACTUAL contra la distribución
+  // histórica de la MISMA métrica, no contra strikes individuales.
+  type Snap = { ts: number; hedge: number; gex: number; oiv: number };
+  const [buffer, setBuffer] = useState<Snap[]>([]);
+  const lastPushRef = useRef(0);
+
   useEffect(() => {
-    bufferRef.current = [
-      ...bufferRef.current,
-      { ts: Date.now(), hedge: currentHedge, gex: currentGex, oiv: currentOiV },
-    ].slice(-120); // ~2h of 1-min snapshots
+    const now = Date.now();
+    // throttle: 1 push cada 5s para que la varianza sea significativa
+    if (now - lastPushRef.current < 5000) return;
+    lastPushRef.current = now;
+    setBuffer((prev) => {
+      const next = [...prev, { ts: now, hedge: currentHedge, gex: currentGex, oiv: currentOiV }];
+      return next.slice(-180); // ~15 min de historia
+    });
   }, [currentHedge, currentGex, currentOiV]);
 
-  // ── 2. Z-SCORES (cross-strike for spatial; buffer for temporal) ──
-  // For first session use cross-strike distribution (always available)
-  const hedgeStats = useMemo(() => stats(exposures.map((p) => p.dex)), [exposures]);
-  const gexStats = useMemo(() => stats(exposures.map((p) => p.netGex)), [exposures]);
-  const oivStats = useMemo(() => {
-    const ratios = contracts.map((c) => (c.volume && c.volume > 0 ? c.oi / c.volume : 0)).filter((x) => x > 0);
-    return stats(ratios);
-  }, [contracts]);
+  // Estadísticas temporales (la base estadística correcta para el Z-Score)
+  // Sólo son fiables con suficientes muestras; debajo de 8 reportamos Z=0
+  const MIN_SAMPLES = 8;
+  const haveBuffer = buffer.length >= MIN_SAMPLES;
 
-  const zHedge = (currentHedge - hedgeStats.mean * exposures.length) / (hedgeStats.sd * Math.sqrt(exposures.length) || 1);
-  const zGex = (currentGex - gexStats.mean * exposures.length) / (gexStats.sd * Math.sqrt(exposures.length) || 1);
-  const zOiV = oivStats.sd ? (currentOiV - oivStats.mean) / oivStats.sd : 0;
+  const hedgeStats = useMemo(() => stats(buffer.map((b) => b.hedge)), [buffer]);
+  const gexStats = useMemo(() => stats(buffer.map((b) => b.gex)), [buffer]);
+  const oivStats = useMemo(() => stats(buffer.map((b) => b.oiv)), [buffer]);
+
+  // Stats cross-strike (sólo se usan para el HEATMAP por strike)
+  const gexStrikeStats = useMemo(
+    () => stats(exposures.map((p) => p.netGex)),
+    [exposures],
+  );
+
+  const zHedge = haveBuffer && hedgeStats.sd > 0 ? (currentHedge - hedgeStats.mean) / hedgeStats.sd : 0;
+  const zGex = haveBuffer && gexStats.sd > 0 ? (currentGex - gexStats.mean) / gexStats.sd : 0;
+  const zOiV = haveBuffer && oivStats.sd > 0 ? (currentOiV - oivStats.mean) / oivStats.sd : 0;
 
   const metrics = [
     {
@@ -92,7 +105,7 @@ export function StdDevAnomaliesPanel({ ticker, exposures, contracts }: Props) {
       value: currentHedge,
       z: zHedge,
       fmt: (v: number) => formatNumber(v),
-      tip: "Suma del Delta Exposure firmado de toda la cadena. Z>+2.5σ ⇒ Market Makers sobreexpuestos a corto, deben VENDER subyacente para cubrir.",
+      tip: "Suma del Delta Exposure firmado de toda la cadena, comparada contra su propio histórico de sesión. Z>+2.5σ ⇒ Market Makers sobreexpuestos a corto, deben VENDER subyacente para cubrir.",
       action: zHedge > 2.5 ? "MM deben VENDER" : zHedge < -2.5 ? "MM deben COMPRAR" : "Cobertura neutral",
     },
     {
@@ -101,7 +114,7 @@ export function StdDevAnomaliesPanel({ ticker, exposures, contracts }: Props) {
       value: currentGex,
       z: zGex,
       fmt: (v: number) => formatNumber(v),
-      tip: "Net GEX agregado. Outliers indican régimen extremo de gamma — pin fuerte (positivo) o aceleración (negativo).",
+      tip: "Net GEX agregado vs. su propio histórico de sesión. Outliers indican un cambio de régimen — pin fuerte (positivo) o aceleración (negativo).",
       action: zGex > 2.5 ? "Régimen pin extremo" : zGex < -2.5 ? "Aceleración / squeeze" : "Régimen estable",
     },
     {
@@ -110,34 +123,38 @@ export function StdDevAnomaliesPanel({ ticker, exposures, contracts }: Props) {
       value: currentOiV,
       z: zOiV,
       fmt: (v: number) => v.toFixed(2),
-      tip: "Open Interest dividido por Volumen intradía. Z bajo ⇒ flujo nuevo agresivo (volumen >> OI). Z alto ⇒ posiciones rancias.",
+      tip: "Open Interest agregado dividido por Volumen intradía vs. histórico. Z bajo ⇒ flujo nuevo agresivo. Z alto ⇒ posiciones rancias.",
       action: zOiV < -2.5 ? "Flujo NUEVO masivo" : zOiV > 2.5 ? "Posiciones congeladas" : "Flujo normal",
     },
   ];
 
-  // ── 3. BACKTEST SIMPLE: % de strikes con |Z|>2σ que coinciden con desviación >1% del spot ──
+  // ── 3. BACKTEST: % de strikes con |Z|>2σ (cross-strike) cerca del spot ──
+  // Hipótesis: las anomalías GEX deberían concentrarse cerca del precio,
+  // no dispersas — eso es lo que les da poder predictivo.
   const backtest = useMemo(() => {
     let anomalies = 0;
     let confirmed = 0;
     exposures.forEach((p) => {
-      const zg = (p.netGex - gexStats.mean) / gexStats.sd;
+      if (gexStrikeStats.sd === 0) return;
+      const zg = (p.netGex - gexStrikeStats.mean) / gexStrikeStats.sd;
       if (Math.abs(zg) > 2) {
         anomalies++;
         const dist = Math.abs(p.strike - ticker.spot) / ticker.spot;
-        if (dist > 0.01) confirmed++; // strike outlier sits >1% away from spot
+        if (dist < 0.02) confirmed++; // outlier dentro de ±2% del spot = relevante
       }
     });
     const rate = anomalies > 0 ? (confirmed / anomalies) * 100 : 0;
     return { anomalies, confirmed, rate };
-  }, [exposures, gexStats, ticker.spot]);
+  }, [exposures, gexStrikeStats, ticker.spot]);
 
-  // ── 4. HEATMAP DE SEVERIDAD por strike (z de netGex) ──
+  // ── 4. HEATMAP por strike: sólo marca como ALERTA/CRÍTICA los strikes
+  // realmente outliers de su propia distribución ──
   const heatmap = useMemo(() => {
     return exposures.map((p) => {
-      const z = (p.netGex - gexStats.mean) / gexStats.sd;
+      const z = gexStrikeStats.sd > 0 ? (p.netGex - gexStrikeStats.mean) / gexStrikeStats.sd : 0;
       return { strike: p.strike, z, sev: severity(z) };
     });
-  }, [exposures, gexStats]);
+  }, [exposures, gexStrikeStats]);
 
   const overallSev: Severity = metrics.reduce<Severity>((acc, m) => {
     const s = severity(m.z);
