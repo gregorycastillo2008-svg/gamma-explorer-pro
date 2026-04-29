@@ -255,12 +255,24 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
             <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-1">
               Gamma Regime · {ticker.symbol}
             </div>
-            <h2
-              className={`text-3xl md:text-4xl font-black tracking-tight ${regime.color}`}
-              style={{ textShadow: `0 0 24px ${regime.hex}80` }}
-            >
-              {regime.title}
-            </h2>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h2
+                  className={`text-3xl md:text-4xl font-black tracking-tight ${regime.color} cursor-help inline-flex items-center gap-2`}
+                  style={{ textShadow: `0 0 24px ${regime.hex}80` }}
+                >
+                  {regime.title}
+                  <Info className="h-4 w-4 opacity-50" />
+                </h2>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[340px] text-xs leading-relaxed bg-popover border-border">
+                <div className="font-bold text-sm mb-1.5" style={{ color: regime.hex }}>{regime.title}</div>
+                <p className="mb-2">{regime.desc}</p>
+                <div className="text-[10px] text-muted-foreground border-t border-border pt-1.5 mt-1.5">
+                  <strong>Clasificación:</strong> Net GEX = {netGex >= 0 ? "+" : ""}${formatNumber(netGex, 1)} · Spot {flipDistance != null ? (flipDistance >= 0 ? "por encima" : "por debajo") : "sin"} del flip {flip ? `($${flip.toFixed(2)})` : ""}.
+                </div>
+              </TooltipContent>
+            </Tooltip>
             <div className="text-xs text-muted-foreground mt-1 italic">{regime.subtitle}</div>
             <p className="text-sm text-foreground/80 mt-3 max-w-xl leading-relaxed">{regime.desc}</p>
           </div>
@@ -269,16 +281,37 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
               label="Flip Distance"
               value={flipDistance == null ? "—" : `${flipDistance >= 0 ? "+" : ""}$${flipDistance.toFixed(2)}`}
               tone={flipDistance == null ? "default" : flipDistance >= 0 ? "call" : "put"}
+              info={
+                <>
+                  <div className="font-bold text-primary mb-1">Flip Distance</div>
+                  Distancia del <strong>spot</strong> al <strong>Gamma Flip Point</strong> ({flip ? `$${flip.toFixed(2)}` : "—"}), el strike donde el GEX acumulado cruza cero.
+                  <div className="mt-1.5 text-muted-foreground">Por <span className="text-call">encima</span> = régimen positivo. Por <span className="text-put">debajo</span> = régimen negativo. Cerca de cero = zona crítica.</div>
+                </>
+              }
             />
             <Pill
               label="Net GEX"
               value={`${netGex >= 0 ? "+" : ""}$${formatNumber(netGex, 1)}`}
               tone={netGex >= 0 ? "call" : "put"}
+              info={
+                <>
+                  <div className="font-bold text-primary mb-1">Net Gamma Exposure</div>
+                  Suma total del GEX de todos los strikes en dólares. Mide cuánta exposición gamma agregada cargan los dealers.
+                  <div className="mt-1.5"><span className="text-call">Positivo</span> = dealers <em>long gamma</em> (estabilizan el precio). <span className="text-put">Negativo</span> = dealers <em>short gamma</em> (amplifican movimientos).</div>
+                </>
+              }
             />
             <Pill
               label="Regime Strength"
               value={`${Math.round(Math.abs(gpi - 50) * 2)}/100`}
               tone="primary"
+              info={
+                <>
+                  <div className="font-bold text-primary mb-1">Regime Strength</div>
+                  Mide qué tan <strong>convencido</strong> está el régimen actual. Valor = |GPI − 50| × 2.
+                  <div className="mt-1.5 text-muted-foreground">Cerca de 100 = régimen muy estable y consistente. Cerca de 0 = régimen frágil, posible flip inminente.</div>
+                </>
+              }
             />
           </div>
           <div className="lg:col-span-3 flex justify-center">
