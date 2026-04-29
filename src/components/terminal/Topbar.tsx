@@ -70,7 +70,7 @@ export function Topbar({
   const changeCls = priceChangePct >= 0 ? "text-call" : "text-put";
 
   return (
-    <header className="border-b border-border bg-[#0a0a0a] flex items-center px-4 gap-4 shrink-0 h-14 overflow-x-auto">
+    <header className="border-b border-border flex items-center px-4 gap-4 shrink-0 h-14 overflow-x-auto bg-black">
       {/* LEFT — Brand + Ticker + Spot */}
       <div className="flex items-center gap-3 shrink-0">
         <span className="font-black text-base tracking-[0.2em] bg-gradient-to-r from-[#b8860b] via-[#ffd700] to-[#fff5cc] bg-clip-text text-secondary-foreground text-[#fffafa]">

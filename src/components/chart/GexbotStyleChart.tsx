@@ -213,7 +213,7 @@ export function GexbotStyleChart({
     <div className="w-full h-full flex flex-col" style={{ background: CHART_BG }}>
       {/* HEADER */}
       <div
-        className="flex items-stretch justify-between px-4 py-2 gap-6 border-b"
+        className="flex items-stretch justify-between px-4 py-2 gap-6 border-b bg-[#1d223f]"
         style={{ background: HEADER_BG, borderColor: "#1f2937" }}
       >
         {/* Logo */}
