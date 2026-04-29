@@ -278,7 +278,8 @@ function DepthPanel({
                   onMouseEnter={() => setHoverStrike(r.strike)}
                   onMouseLeave={() => setHoverStrike(null)}
                   onMouseMove={(e) => {
-                    const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+                    const parent = e.currentTarget.parentElement as HTMLElement;
+                    const host = parent.getBoundingClientRect();
                     setTooltip({
                       strike: r.strike,
                       callOI: r.callOI,
@@ -286,8 +287,8 @@ function DepthPanel({
                       callGex: r.callGex,
                       putGex: r.putGex,
                       netGex: r.netGex,
-                      x: e.clientX - host.left,
-                      y: e.clientY - host.top,
+                      x: e.clientX - host.left + parent.scrollLeft,
+                      y: e.clientY - host.top + parent.scrollTop,
                     });
                   }}
                   className="grid grid-cols-[28px_1fr_1fr] items-center gap-0.5 leading-none cursor-crosshair"
