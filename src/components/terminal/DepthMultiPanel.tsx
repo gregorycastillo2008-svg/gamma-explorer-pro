@@ -368,23 +368,31 @@ function DepthPanel({
             })}
             {tooltip && (
               <div
-                className="absolute pointer-events-none z-20 rounded px-2 py-1.5 text-[10px] font-mono leading-tight whitespace-nowrap"
+                className="absolute pointer-events-none z-20 animate-fade-in"
                 style={{
                   left: Math.min(tooltip.x + 12, 220),
                   top: tooltip.y + 12,
-                  background: "rgba(0,0,0,0.92)",
-                  border: `1px solid ${CYAN}`,
+                  background: "#000",
+                  border: `1px solid #1f1f1f`,
                   color: "#e5e7eb",
-                  boxShadow: `0 0 8px rgba(6,182,212,0.4)`,
+                  fontFamily: `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace`,
+                  padding: "10px 12px",
+                  borderRadius: 4,
+                  minWidth: 200,
+                  boxShadow: "0 0 24px rgba(0,229,255,0.15)",
                 }}
               >
-                <div style={{ color: YELLOW, fontWeight: 700 }}>STRIKE ${tooltip.strike}</div>
-                <div style={{ color: GREEN }}>Calls OI: {formatNumber(tooltip.callOI, 0)}</div>
-                <div style={{ color: RED }}>Puts OI: {formatNumber(tooltip.putOI, 0)}</div>
-                <div style={{ color: tooltip.netGex >= 0 ? GREEN : RED }}>
-                  NET GEX: {tooltip.netGex >= 0 ? "+" : ""}{formatNumber(tooltip.netGex)}
+                <div style={{ color: "#00e5ff", fontSize: 11, letterSpacing: "0.15em" }}>
+                  STRIKE ${tooltip.strike}
                 </div>
-                <div style={{ color: MUTED }}>Total OI: {formatNumber(tooltip.callOI + tooltip.putOI, 0)}</div>
+                <div style={{ height: 1, background: "#1f1f1f", margin: "6px 0" }} />
+                <DepthRow label="Call GEX" value={formatNumber(tooltip.callGex)} color="#00e5ff" />
+                <DepthRow label="Put GEX" value={formatNumber(tooltip.putGex)} color="#ff3d00" />
+                <DepthRow label="Net GEX" value={`${tooltip.netGex >= 0 ? "+" : ""}${formatNumber(tooltip.netGex)}`} color={tooltip.netGex >= 0 ? "#00e5ff" : "#ff3d00"} bold />
+                <div style={{ height: 1, background: "#1f1f1f", margin: "6px 0" }} />
+                <DepthRow label="Calls OI" value={formatNumber(tooltip.callOI, 0)} color="#00e5ff" />
+                <DepthRow label="Puts OI" value={formatNumber(tooltip.putOI, 0)} color="#ff3d00" />
+                <DepthRow label="Total OI" value={formatNumber(tooltip.callOI + tooltip.putOI, 0)} color="#e5e7eb" bold />
               </div>
             )}
           </div>
