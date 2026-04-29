@@ -443,12 +443,15 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
           />
         </div>
 
-        {/* Gexbot-style sub-chart with live Zero Gamma */}
-        <div className="h-[260px] shrink-0">
+        {/* Gexbot-style sub-chart with live Zero Gamma evolving over time */}
+        <div className="h-[460px] shrink-0">
           <GexbotStyleChart
             symbol={symbol}
             spot={price?.spot ?? chain?.spot ?? 0}
             points={price?.points ?? []}
+            zeroGammaSeries={zgHist}
+            majorCallSeries={callHist}
+            majorPutSeries={putHist}
             zeroGamma={metrics.keyLevels.zeroGamma}
             majorCall={metrics.keyLevels.callWall}
             majorPut={metrics.keyLevels.putWall}
