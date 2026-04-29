@@ -129,13 +129,21 @@ export function GEXBarsPanel({ rows, spot }: Props) {
           )}
 
           {sorted.map((r, idx) => {
-            const isAbove = r.strike >= spot;
-            const gexValue = isAbove ? Math.abs(r.callGEX) : Math.abs(r.putGEX);
-            const barW = (gexValue / maxGEX) * HALF;
+            // Sqrt scale so small strikes are still visible alongside big ones
+            const scale = (v: number) => {
+              const norm = Math.abs(v) / maxGEX;
+              if (norm <= 0) return 0;
+              const w = Math.sqrt(norm) * HALF;
+              return Math.max(2, w); // min visible width
+            };
+            const callW = r.callGEX !== 0 ? scale(r.callGEX) : 0;
+            const putW = r.putGEX !== 0 ? scale(r.putGEX) : 0;
             const totalOI = r.callOI + r.putOI;
             const oiPct = (totalOI / maxOI) * 100;
-            const dots = dotsCount(oiPct);
-            const segs = Math.max(1, Math.floor(barW / 50));
+            const callDots = r.callOI > 0 ? dotsCount((r.callOI / maxOI) * 100) : 0;
+            const putDots = r.putOI > 0 ? dotsCount((r.putOI / maxOI) * 100) : 0;
+            const callSegs = Math.max(1, Math.floor(callW / 50));
+            const putSegs = Math.max(1, Math.floor(putW / 50));
             const isAtm = Math.abs(r.strike - spot) < (sorted[0].strike - sorted[1]?.strike || 1) * 0.6;
 
             return (
@@ -153,21 +161,21 @@ export function GEXBarsPanel({ rows, spot }: Props) {
 
                 {/* Puts side */}
                 <div className="relative shrink-0" style={{ width: HALF, height: 14 }}>
-                  {!isAbove && (
+                  {putW > 0 && (
                     <div
                       className="absolute right-0 top-0 h-full rounded-sm overflow-hidden"
                       style={{
-                        width: barW,
+                        width: putW,
                         background: "linear-gradient(270deg, #ef4444, #dc2626)",
                         opacity: 0.9,
                         boxShadow: "0 0 6px rgba(239,68,68,0.35)",
                       }}
                     >
-                      {Array.from({ length: segs }).map((_, i) => (
-                        <div key={i} className="absolute top-0 h-full" style={{ right: `${((i + 1) / (segs + 1)) * barW}px`, width: 10, background: "#000", opacity: 0.55, borderLeft: "1px solid rgba(255,255,255,0.18)" }} />
+                      {Array.from({ length: putSegs }).map((_, i) => (
+                        <div key={i} className="absolute top-0 h-full" style={{ right: `${((i + 1) / (putSegs + 1)) * putW}px`, width: 10, background: "#000", opacity: 0.55, borderLeft: "1px solid rgba(255,255,255,0.18)" }} />
                       ))}
-                      {Array.from({ length: dots }).map((_, i) => (
-                        <div key={i} className="absolute top-1/2 -translate-y-1/2 rounded-full" style={{ right: `${((i + 1) / (dots + 1)) * barW - 3}px`, width: 6, height: 6, background: "#3b82f6", border: "1px solid #1e40af", boxShadow: "0 0 5px rgba(59,130,246,0.8)", zIndex: 3 }} />
+                      {Array.from({ length: putDots }).map((_, i) => (
+                        <div key={i} className="absolute top-1/2 -translate-y-1/2 rounded-full" style={{ right: `${((i + 1) / (putDots + 1)) * putW - 3}px`, width: 6, height: 6, background: "#3b82f6", border: "1px solid #1e40af", boxShadow: "0 0 5px rgba(59,130,246,0.8)", zIndex: 3 }} />
                       ))}
                     </div>
                   )}
@@ -175,21 +183,21 @@ export function GEXBarsPanel({ rows, spot }: Props) {
 
                 {/* Calls side */}
                 <div className="relative shrink-0" style={{ width: HALF, height: 14 }}>
-                  {isAbove && (
+                  {callW > 0 && (
                     <div
                       className="absolute left-0 top-0 h-full rounded-sm overflow-hidden"
                       style={{
-                        width: barW,
+                        width: callW,
                         background: "linear-gradient(90deg, #10b981, #059669)",
                         opacity: 0.9,
                         boxShadow: "0 0 6px rgba(16,185,129,0.35)",
                       }}
                     >
-                      {Array.from({ length: segs }).map((_, i) => (
-                        <div key={i} className="absolute top-0 h-full" style={{ left: `${((i + 1) / (segs + 1)) * barW}px`, width: 10, background: "#000", opacity: 0.55, borderLeft: "1px solid rgba(255,255,255,0.18)" }} />
+                      {Array.from({ length: callSegs }).map((_, i) => (
+                        <div key={i} className="absolute top-0 h-full" style={{ left: `${((i + 1) / (callSegs + 1)) * callW}px`, width: 10, background: "#000", opacity: 0.55, borderLeft: "1px solid rgba(255,255,255,0.18)" }} />
                       ))}
-                      {Array.from({ length: dots }).map((_, i) => (
-                        <div key={i} className="absolute top-1/2 -translate-y-1/2 rounded-full" style={{ left: `${((i + 1) / (dots + 1)) * barW - 3}px`, width: 6, height: 6, background: "#3b82f6", border: "1px solid #1e40af", boxShadow: "0 0 5px rgba(59,130,246,0.8)", zIndex: 3 }} />
+                      {Array.from({ length: callDots }).map((_, i) => (
+                        <div key={i} className="absolute top-1/2 -translate-y-1/2 rounded-full" style={{ left: `${((i + 1) / (callDots + 1)) * callW - 3}px`, width: 6, height: 6, background: "#3b82f6", border: "1px solid #1e40af", boxShadow: "0 0 5px rgba(59,130,246,0.8)", zIndex: 3 }} />
                       ))}
                     </div>
                   )}
