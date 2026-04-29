@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Crown, Gem, Rocket, X, Mail } from "lucide-react";
+import { Check, Crown, Gem, Rocket, X, Mail, Shield, Lock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PLANS, type Tier } from "@/lib/plans";
 import { useAuth } from "@/hooks/useAuth";
+import { applyDiscount, PLAN_DISCOUNTS, tryAdminLogin } from "@/lib/adminBypass";
 
 const plans = [
   {
