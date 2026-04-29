@@ -283,6 +283,8 @@ function DepthPanel({
                       strike: r.strike,
                       callOI: r.callOI,
                       putOI: r.putOI,
+                      callGex: r.callGex,
+                      putGex: r.putGex,
                       netGex: r.netGex,
                       x: e.clientX - host.left,
                       y: e.clientY - host.top,
