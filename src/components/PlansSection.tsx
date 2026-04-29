@@ -139,10 +139,31 @@ export function PlansSection({ showHeader = true, headingLevel = "h1" }: { showH
                     <p.icon className={`h-6 w-6 ${p.tone === "primary" ? "text-primary" : p.tone === "call" ? "text-call" : "text-muted-foreground"}`} />
                   </div>
                   <div className="font-bold text-2xl">{p.name}</div>
-                  <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-5xl font-black">${p.price}</span>
-                    <span className="text-sm text-muted-foreground">/mes</span>
-                  </div>
+                  {(() => {
+                    const pct = PLAN_DISCOUNTS[p.tier] ?? 0;
+                    const finalPrice = applyDiscount(p.price, p.tier);
+                    return (
+                      <>
+                        {pct > 0 && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="text-base text-muted-foreground line-through font-mono">${p.price}</span>
+                            <span className="px-2 py-0.5 rounded-full bg-call/15 text-call text-[11px] font-bold border border-call/30">
+                              -{pct}% OFF
+                            </span>
+                          </div>
+                        )}
+                        <div className={`${pct > 0 ? "mt-1" : "mt-3"} flex items-baseline gap-1`}>
+                          <span className="text-5xl font-black">${finalPrice}</span>
+                          <span className="text-sm text-muted-foreground">/mes</span>
+                        </div>
+                        {pct > 0 && (
+                          <div className="text-[11px] text-muted-foreground mt-1">
+                            Aplica código <span className="font-mono text-foreground">{pct === 50 ? "ELITE50" : pct === 30 ? "GAMMA30" : "FLIP15"}</span> al pagar
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   <ul className="mt-6 space-y-2.5">
                     {p.features.map((f) => (
                       <li key={f} className="flex items-start gap-2 text-sm">
