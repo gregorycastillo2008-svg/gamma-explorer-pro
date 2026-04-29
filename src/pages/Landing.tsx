@@ -91,6 +91,14 @@ export default function Landing() {
           >
             <Info className="h-4 w-4" />
           </button>
+          <button
+            onClick={() => setAdminOpen(true)}
+            className="hidden sm:flex items-center gap-2 px-3 h-9 rounded-lg border border-[#2DD4BF]/40 bg-[#2DD4BF]/10 text-[#2DD4BF] hover:bg-[#2DD4BF]/20 transition-colors text-xs font-mono uppercase tracking-wider font-bold"
+            title="Acceso admin"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Admin
+          </button>
           {user ? (
             <Link to="/dashboard">
               <Button className="bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg px-5 font-semibold">Obtener acceso</Button>
