@@ -132,6 +132,7 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
             return (
               <tr
                 key={s}
+                className="group/row transition-all duration-150 hover:[&>td]:brightness-150 hover:[outline:1px_solid_rgba(6,182,212,0.6)] hover:shadow-[0_0_12px_rgba(6,182,212,0.35)_inset]"
                 style={
                   isSpot
                     ? {
@@ -143,7 +144,7 @@ export function HeatmapGridView({ ticker, contracts, metric }: Props) {
                 }
               >
                 <td
-                  className={`px-3 py-1.5 sticky left-0 text-right z-10 ${isSpot ? "font-bold" : ""}`}
+                  className={`px-3 py-1.5 sticky left-0 text-right z-10 transition-colors duration-150 group-hover/row:text-cyan-300 group-hover/row:font-bold ${isSpot ? "font-bold" : ""}`}
                   style={{
                     background: "#000",
                     color: isSpot ? "#00ffff" : "#9ca3af",
