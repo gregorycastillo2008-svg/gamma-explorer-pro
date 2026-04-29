@@ -34,6 +34,8 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
       <Panel className="h-[400px]">
         <RealizedVolatilityChart data={data} />
       </Panel>
+
+      <RealVolatilityDashboard defaultTicker={ticker.symbol} />
     </div>
   );
 }
