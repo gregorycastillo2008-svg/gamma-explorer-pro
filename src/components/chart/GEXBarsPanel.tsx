@@ -171,8 +171,27 @@ export function GEXBarsPanel({ rows, spot }: Props) {
             const putSegs = Math.max(1, Math.floor(putW / 50));
             const isAtm = Math.abs(r.strike - spot) < (sorted[0].strike - sorted[1]?.strike || 1) * 0.6;
 
+            const isHover = hover?.row.strike === r.strike;
             return (
-              <div key={r.strike} className="flex items-center group/row" style={{ height: ROW_H }}>
+              <div
+                key={r.strike}
+                className="flex items-center group/row cursor-crosshair"
+                style={{
+                  height: ROW_H,
+                  background: isHover ? "rgba(6,182,212,0.10)" : "transparent",
+                  borderTop: isHover ? "1px solid rgba(6,182,212,0.4)" : "1px solid transparent",
+                  borderBottom: isHover ? "1px solid rgba(6,182,212,0.4)" : "1px solid transparent",
+                  transition: "background 120ms ease",
+                }}
+                onMouseEnter={(e) => {
+                  const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+                  setHover({ row: r, x: e.clientX - host.left, y: e.clientY - host.top });
+                }}
+                onMouseMove={(e) => {
+                  const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+                  setHover({ row: r, x: e.clientX - host.left, y: e.clientY - host.top });
+                }}
+              >
                 <div
                   className="text-right pr-1.5 tabular-nums shrink-0 transition-all duration-150 group-hover/row:text-cyan-400 group-hover/row:font-bold"
                   style={{
@@ -188,13 +207,15 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                 <div className="relative shrink-0" style={{ width: HALF, height: 10, marginTop: 2, marginBottom: 2 }}>
                   {putW > 0 && (
                     <div
-                      className="absolute right-0 top-0 origin-right transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
+                      className="absolute right-0 top-0 origin-right transition-all duration-150 ease-out group-hover/row:scale-y-[1.6] group-hover/row:brightness-150"
                       style={{
                         width: putW,
                         height: 10,
                         borderRadius: 2,
                         background: "linear-gradient(270deg, #ff4466 0%, #ff6688 100%)",
-                        boxShadow: "0 0 8px #ff446644, 0 0 4px #ff446666",
+                        boxShadow: isHover
+                          ? "0 0 14px #ff4466cc, 0 0 6px #ff4466"
+                          : "0 0 8px #ff446644, 0 0 4px #ff446666",
                       }}
                     />
                   )}
@@ -204,13 +225,15 @@ export function GEXBarsPanel({ rows, spot }: Props) {
                 <div className="relative shrink-0" style={{ width: HALF, height: 10, marginTop: 2, marginBottom: 2 }}>
                   {callW > 0 && (
                     <div
-                      className="absolute left-0 top-0 origin-left transition-all duration-150 ease-out group-hover/row:scale-y-[1.4] group-hover/row:brightness-125"
+                      className="absolute left-0 top-0 origin-left transition-all duration-150 ease-out group-hover/row:scale-y-[1.6] group-hover/row:brightness-150"
                       style={{
                         width: callW,
                         height: 10,
                         borderRadius: 2,
                         background: "linear-gradient(90deg, #00ff88 0%, #00ffaa 100%)",
-                        boxShadow: "0 0 8px #00ff8844, 0 0 4px #00ff8866",
+                        boxShadow: isHover
+                          ? "0 0 14px #00ff88cc, 0 0 6px #00ff88"
+                          : "0 0 8px #00ff8844, 0 0 4px #00ff8866",
                       }}
                     />
                   )}
@@ -219,6 +242,30 @@ export function GEXBarsPanel({ rows, spot }: Props) {
             );
           })}
         </div>
+
+        {hover && (
+          <div
+            className="absolute pointer-events-none z-30 rounded px-2 py-1.5 text-[10px] font-mono leading-tight whitespace-nowrap animate-fade-in"
+            style={{
+              left: Math.min(hover.x + 14, 220),
+              top: hover.y + 14,
+              background: "rgba(0,0,0,0.94)",
+              border: "1px solid #06b6d4",
+              color: "#e5e7eb",
+              boxShadow: "0 0 10px rgba(6,182,212,0.45)",
+            }}
+          >
+            <div style={{ color: "#facc15", fontWeight: 700 }}>STRIKE ${hover.row.strike}</div>
+            <div style={{ color: "#00ff88" }}>Call γ: +{fmtGex(hover.row.callGEX)}</div>
+            <div style={{ color: "#ff4466" }}>Put γ: -{fmtGex(hover.row.putGEX)}</div>
+            <div style={{ color: (hover.row.callGEX - hover.row.putGEX) >= 0 ? "#00ff88" : "#ff4466" }}>
+              NET γ: {(hover.row.callGEX - hover.row.putGEX) >= 0 ? "+" : ""}{fmtGex(hover.row.callGEX - hover.row.putGEX)}
+            </div>
+            <div style={{ color: "#9ca3af" }}>Calls OI: {fmtOI(hover.row.callOI)}</div>
+            <div style={{ color: "#9ca3af" }}>Puts OI: {fmtOI(hover.row.putOI)}</div>
+            <div style={{ color: "#6b7280" }}>vs Spot: {hover.row.strike >= spot ? "+" : ""}{(hover.row.strike - spot).toFixed(2)}</div>
+          </div>
+        )}
       </div>
     </div>
   );
