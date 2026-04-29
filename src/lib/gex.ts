@@ -23,11 +23,15 @@ export interface OptionContract {
   type: "call" | "put";
   iv: number; // implied vol (decimal)
   oi: number; // open interest
+  volume?: number; // intraday traded contracts
   // Real greeks from CBOE/Polygon (used when available, overrides BS recalc)
   gamma?: number;
   delta?: number;
   vega?: number;
   theta?: number;
+  bid?: number;
+  ask?: number;
+  last?: number;
 }
 
 export interface Greeks {
