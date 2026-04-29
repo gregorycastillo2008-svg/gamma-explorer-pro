@@ -3,10 +3,43 @@ import * as THREE from "three";
 
 interface Props {
   strikes: number[];   // ordenados (cualquier dirección)
-  expiries: number[];  // ordenados ascendente
+  expiries: number[];  // ordenados ascendente (en días)
   cellMap: Map<string, number>; // key: `${strike}|${expiry}` -> iv (0..1)
   min: number;
   max: number;
+  spot?: number;       // precio spot para calcular griegos
+}
+
+interface HoverInfo {
+  x: number; y: number;
+  strike: number;
+  expiryDays: number;
+  iv: number;     // 0..1
+  delta: number;  // call delta
+  gamma: number;
+}
+
+// Aproximación de la CDF normal estándar (Abramowitz & Stegun)
+function normCdf(x: number): number {
+  const a1 =  0.254829592, a2 = -0.284496736, a3 =  1.421413741;
+  const a4 = -1.453152027, a5 =  1.061405429, p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const ax = Math.abs(x) / Math.SQRT2;
+  const t = 1.0 / (1.0 + p * ax);
+  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
+  return 0.5 * (1.0 + sign * y);
+}
+function normPdf(x: number): number {
+  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+}
+// Black-Scholes call delta & gamma (r=0, q=0)
+function bsGreeks(S: number, K: number, T: number, sigma: number) {
+  if (S <= 0 || K <= 0 || T <= 0 || sigma <= 0) return { delta: 0, gamma: 0 };
+  const sqrtT = Math.sqrt(T);
+  const d1 = (Math.log(S / K) + 0.5 * sigma * sigma * T) / (sigma * sqrtT);
+  const delta = normCdf(d1);
+  const gamma = normPdf(d1) / (S * sigma * sqrtT);
+  return { delta, gamma };
 }
 
 /**
@@ -14,7 +47,7 @@ interface Props {
  * sliders Elev/Az, malla wireframe, ejes y barra de color rainbow.
  * Usa los datos de IV reales (cellMap) en lugar de una superficie sintética.
  */
-export function IvSurface3DReal({ strikes, expiries, cellMap, min, max }: Props) {
+export function IvSurface3DReal({ strikes, expiries, cellMap, min, max, spot }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const elevRef = useRef<HTMLInputElement>(null);
@@ -24,6 +57,7 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max }: Props)
 
   const [showDataPts, setShowDataPts] = useState(true);
   const [showRefPlane, setShowRefPlane] = useState(true);
+  const [hover, setHover] = useState<HoverInfo | null>(null);
 
   // Aseguramos strikes ascendentes para construir la grilla
   const sortedStrikes = useMemo(() => strikes.slice().sort((a, b) => a - b), [strikes]);
@@ -250,11 +284,12 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max }: Props)
     const onMouseDown = (e: MouseEvent) => { drag = true; lx = e.clientX; ly = e.clientY; };
     const onMouseUp = () => { drag = false; };
     const onMouseMove = (e: MouseEvent) => {
-      if (!drag) return;
-      azim -= (e.clientX - lx) * 0.45;
-      elev = Math.max(5, Math.min(80, elev + (e.clientY - ly) * 0.35));
-      lx = e.clientX; ly = e.clientY;
-      sync(); updateCam();
+      if (drag) {
+        azim -= (e.clientX - lx) * 0.45;
+        elev = Math.max(5, Math.min(80, elev + (e.clientY - ly) * 0.35));
+        lx = e.clientX; ly = e.clientY;
+        sync(); updateCam();
+      }
     };
     const onWheel = (e: WheelEvent) => {
       dist = Math.max(3.5, Math.min(15, dist + e.deltaY * 0.012));
@@ -272,9 +307,41 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max }: Props)
       e.preventDefault();
     };
 
+    // ── Hover raycaster: lee IV de la celda y calcula Δ y Γ ──
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const onCanvasMove = (e: MouseEvent) => {
+      if (drag) { setHover(null); return; }
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      ndc.x = (px / rect.width) * 2 - 1;
+      ndc.y = -(py / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(mesh, false);
+      if (!hits.length) { setHover(null); return; }
+      const p = hits[0].point;
+      // Mapea de coords mundo → índices (i,j)
+      const i = Math.round(((p.x / SX) + 0.5) * (Nu - 1));
+      const j = Math.round(((p.z / SZ) + 0.5) * (Nv - 1));
+      const ii = Math.max(0, Math.min(Nu - 1, i));
+      const jj = Math.max(0, Math.min(Nv - 1, j));
+      const strike = sortedStrikes[jj];
+      const expiryDays = sortedExpiries[ii];
+      const ivKey = cellMap.get(`${strike}|${expiryDays}`);
+      const iv = ivKey != null ? ivKey : norm[ii][jj] * range + min;
+      const T = Math.max(1 / 365, expiryDays / 365);
+      const S = spot ?? strike;
+      const { delta, gamma } = bsGreeks(S, strike, T, iv);
+      setHover({ x: px, y: py, strike, expiryDays, iv, delta, gamma });
+    };
+    const onCanvasLeave = () => setHover(null);
+
     canvas.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mousemove", onCanvasMove);
+    canvas.addEventListener("mouseleave", onCanvasLeave);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("touchstart", onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -320,6 +387,8 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max }: Props)
       canvas.removeEventListener("wheel", onWheel as EventListener);
       canvas.removeEventListener("touchstart", onTouchStart as EventListener);
       canvas.removeEventListener("touchmove", onTouchMove as EventListener);
+      canvas.removeEventListener("mousemove", onCanvasMove);
+      canvas.removeEventListener("mouseleave", onCanvasLeave);
       elevRef.current?.removeEventListener("input", onElevInput);
       azimRef.current?.removeEventListener("input", onAzimInput);
       geo.dispose();
@@ -332,17 +401,50 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max }: Props)
         else mm?.dispose?.();
       });
     };
-  }, [sortedStrikes, sortedExpiries, cellMap, min, max, showDataPts, showRefPlane]);
+  }, [sortedStrikes, sortedExpiries, cellMap, min, max, showDataPts, showRefPlane, spot]);
 
   return (
     <div
       ref={wrapRef}
-      style={{ width: "100%", background: "#111", borderRadius: 12, padding: 12, boxSizing: "border-box" }}
+      style={{ width: "100%", background: "#111", borderRadius: 12, padding: 12, boxSizing: "border-box", position: "relative" }}
     >
       <canvas
         ref={canvasRef}
         style={{ width: "100%", height: 500, display: "block", borderRadius: 8 }}
       />
+      {hover && (
+        <div
+          style={{
+            position: "absolute",
+            left: Math.min(hover.x + 24, (wrapRef.current?.clientWidth ?? 600) - 200),
+            top: Math.max(hover.y + 12, 12),
+            background: "rgba(10,10,12,0.92)",
+            border: "1px solid #2a2a2e",
+            borderRadius: 8,
+            padding: "8px 10px",
+            fontFamily: "JetBrains Mono, ui-monospace, monospace",
+            fontSize: 11,
+            color: "#e5e7eb",
+            pointerEvents: "none",
+            boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
+            zIndex: 20,
+            minWidth: 170,
+          }}
+        >
+          <div style={{ color: "#9ca3af", fontSize: 10, marginBottom: 4 }}>
+            Strike <span style={{ color: "#fff", fontWeight: 700 }}>${hover.strike.toFixed(2)}</span>
+            <span style={{ marginLeft: 8 }}>· {hover.expiryDays}d</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 8, rowGap: 2 }}>
+            <span style={{ color: "#fbbf24" }}>IV</span>
+            <span style={{ textAlign: "right", color: "#fff", fontWeight: 700 }}>{(hover.iv * 100).toFixed(2)}%</span>
+            <span style={{ color: "#22d3ee" }}>Δ Delta</span>
+            <span style={{ textAlign: "right", color: "#fff", fontWeight: 700 }}>{hover.delta.toFixed(4)}</span>
+            <span style={{ color: "#a78bfa" }}>Γ Gamma</span>
+            <span style={{ textAlign: "right", color: "#fff", fontWeight: 700 }}>{hover.gamma.toFixed(6)}</span>
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}>
         <span style={{ color: "#666", fontSize: 11, fontFamily: "monospace" }}>
           🖱 drag: rotar &nbsp;|&nbsp; scroll: zoom
