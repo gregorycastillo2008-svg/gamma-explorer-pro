@@ -167,10 +167,10 @@ export function StdDevAnomaliesPanel({ ticker, exposures, contracts }: Props) {
     <TooltipProvider delayDuration={150}>
       <Panel
         title="Anomalías · Desviaciones Estándar (Z-Score)"
-        subtitle={`${ticker.symbol} · |Z|>2σ ALERTA · |Z|>3σ CRÍTICA (99.7% outliers)`}
+        subtitle={`${ticker.symbol} · |Z|>2σ ALERTA · |Z|>3σ CRÍTICA · ${haveBuffer ? `${buffer.length} muestras` : `calentando buffer (${buffer.length}/${MIN_SAMPLES})`}`}
         right={
-          <span className="text-[10px] font-mono flex items-center gap-1.5" style={{ color: sevColor(overallSev) }}>
-            <ShieldAlert className="h-3 w-3" /> {sevLabel(overallSev)}
+          <span className="text-[10px] font-mono flex items-center gap-1.5" style={{ color: haveBuffer ? sevColor(overallSev) : "hsl(var(--muted-foreground))" }}>
+            <ShieldAlert className="h-3 w-3" /> {haveBuffer ? sevLabel(overallSev) : "WARMING UP"}
           </span>
         }
       >
