@@ -92,7 +92,11 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Admin bypass: no DB session — load default watchlist locally
+      if (adminBypass && watchlist.length === 0) setWatchlist(["QQQ", "SPY", "NQ"]);
+      return;
+    }
     supabase.from("watchlist").select("ticker").order("created_at").then(({ data }) => {
       const list = data?.map((r) => r.ticker) ?? [];
       if (list.length === 0) {
