@@ -98,9 +98,18 @@ export function GEXBarsPanel({ rows, spot }: Props) {
     );
   }
 
+  // Auto-scroll to spot so the gamma around price is visible immediately
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el || spotRowIndex < 0) return;
+    const target = spotRowIndex * ROW_H + ROW_H / 2 - el.clientHeight / 2;
+    el.scrollTop = Math.max(0, target);
+  }, [spotRowIndex, totalH]);
+
   return (
     <div className="relative h-full w-full font-mono text-[10px]" style={{ background: "#000" }}>
-      <div className="overflow-y-auto h-full pr-1 relative">
+      <div ref={scrollerRef} className="overflow-y-auto h-full pr-1 relative">
         <div className="relative" style={{ minHeight: totalH }}>
           {/* Horizontal key-level lines */}
           <HLine idx={callWallIdx} color="#facc15" label={`CALL WALL ${callWall?.strike ?? ""}`} />
