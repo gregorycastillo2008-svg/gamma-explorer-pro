@@ -3,10 +3,43 @@ import * as THREE from "three";
 
 interface Props {
   strikes: number[];   // ordenados (cualquier dirección)
-  expiries: number[];  // ordenados ascendente
+  expiries: number[];  // ordenados ascendente (en días)
   cellMap: Map<string, number>; // key: `${strike}|${expiry}` -> iv (0..1)
   min: number;
   max: number;
+  spot?: number;       // precio spot para calcular griegos
+}
+
+interface HoverInfo {
+  x: number; y: number;
+  strike: number;
+  expiryDays: number;
+  iv: number;     // 0..1
+  delta: number;  // call delta
+  gamma: number;
+}
+
+// Aproximación de la CDF normal estándar (Abramowitz & Stegun)
+function normCdf(x: number): number {
+  const a1 =  0.254829592, a2 = -0.284496736, a3 =  1.421413741;
+  const a4 = -1.453152027, a5 =  1.061405429, p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const ax = Math.abs(x) / Math.SQRT2;
+  const t = 1.0 / (1.0 + p * ax);
+  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
+  return 0.5 * (1.0 + sign * y);
+}
+function normPdf(x: number): number {
+  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+}
+// Black-Scholes call delta & gamma (r=0, q=0)
+function bsGreeks(S: number, K: number, T: number, sigma: number) {
+  if (S <= 0 || K <= 0 || T <= 0 || sigma <= 0) return { delta: 0, gamma: 0 };
+  const sqrtT = Math.sqrt(T);
+  const d1 = (Math.log(S / K) + 0.5 * sigma * sigma * T) / (sigma * sqrtT);
+  const delta = normCdf(d1);
+  const gamma = normPdf(d1) / (S * sigma * sqrtT);
+  return { delta, gamma };
 }
 
 /**
