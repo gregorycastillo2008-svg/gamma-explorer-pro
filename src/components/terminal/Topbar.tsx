@@ -1,7 +1,7 @@
 import { Plus, Minus, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DemoTicker, KeyLevels } from "@/lib/gex";
+import { DemoTicker, KeyLevels, formatNumber } from "@/lib/gex";
 import type { DataStatus } from "@/hooks/useOptionsData";
 import { useEffect, useState } from "react";
 
