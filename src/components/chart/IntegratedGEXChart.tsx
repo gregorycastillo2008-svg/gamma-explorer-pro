@@ -180,6 +180,9 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
     const sortedByPut = [...strikeRows].sort((a, b) => b.putGEX - a.putGEX);
     const callWall = sortedByCall[0]?.strike;
     const putWall = sortedByPut[0]?.strike;
+    // OI-based walls (largest open interest concentration)
+    const callWallOI = [...strikeRows].sort((a, b) => b.callOI - a.callOI)[0]?.strike;
+    const putWallOI = [...strikeRows].sort((a, b) => b.putOI - a.putOI)[0]?.strike;
     // Zero gamma estimate: nearest strike where cumulative net GEX flips
     const sorted = [...strikeRows].sort((a, b) => a.strike - b.strike);
     let zg: number | undefined = chain?.spot;
@@ -189,8 +192,19 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
       cum += r.callGEX - r.putGEX;
       if ((before <= 0 && cum > 0) || (before >= 0 && cum < 0)) { zg = r.strike; break; }
     }
+    // Max pain: strike that minimizes total option holder payout
+    let maxPain: number | undefined;
+    let minPain = Infinity;
+    for (const k of sorted) {
+      let pain = 0;
+      for (const r of sorted) {
+        if (r.strike < k.strike) pain += (k.strike - r.strike) * r.callOI;
+        if (r.strike > k.strike) pain += (r.strike - k.strike) * r.putOI;
+      }
+      if (pain < minPain) { minPain = pain; maxPain = k.strike; }
+    }
     return {
-      keyLevels: { zeroGamma: zg, callWall, putWall },
+      keyLevels: { zeroGamma: zg, callWall, putWall, callWallOI, putWallOI, maxPain },
       aggregates: { netGEX: callGEX - putGEX, callGEX, putGEX, totalCallOI: callOI, totalPutOI: putOI },
     };
   }, [strikeRows, chain]);
