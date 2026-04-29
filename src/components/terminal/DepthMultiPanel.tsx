@@ -118,13 +118,13 @@ export function DepthMultiPanel({ ticker, contracts }: Props) {
           Depth View
         </h2>
         <div className="text-[10px]" style={{ color: ZERO }}>
-          {ticker.symbol} · spot ${ticker.spot.toFixed(2)}
+          {ticker.symbol} · spot ${realSpot.toFixed(2)} {realContracts.length > 0 ? "· LIVE" : "· demo"}
         </div>
       </div>
 
       <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
         <DepthPanel
-          ticker={ticker}
+          ticker={liveTicker}
           exposures={left.exposures}
           levels={left.levels}
           dteOptions={dteOptions}
@@ -134,7 +134,7 @@ export function DepthMultiPanel({ ticker, contracts }: Props) {
           setHoverStrike={setHoverStrike}
         />
         <DepthPanel
-          ticker={ticker}
+          ticker={liveTicker}
           exposures={right.exposures}
           levels={right.levels}
           dteOptions={dteOptions}
