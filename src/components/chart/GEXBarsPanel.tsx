@@ -1,4 +1,18 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+function fmtGex(v: number): string {
+  const a = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+  if (a >= 1e9) return `${sign}${(a / 1e9).toFixed(2)}B`;
+  if (a >= 1e6) return `${sign}${(a / 1e6).toFixed(2)}M`;
+  if (a >= 1e3) return `${sign}${(a / 1e3).toFixed(1)}K`;
+  return `${sign}${a.toFixed(0)}`;
+}
+function fmtOI(v: number): string {
+  if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
+  return `${Math.round(v)}`;
+}
 
 export interface StrikeRow {
   strike: number;
