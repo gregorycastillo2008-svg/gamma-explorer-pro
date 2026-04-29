@@ -108,7 +108,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         )}
       </nav>
 
-      <div className="border-t border-sidebar-border p-2">
+      <div className="border-t border-sidebar-border p-2 bg-black">
         {!collapsed && (
           <div className="px-2 py-1.5 text-[10px] text-sidebar-foreground/70 truncate">
             {tier ? `Plan: ${tier.toUpperCase()}` : "No plan"}
