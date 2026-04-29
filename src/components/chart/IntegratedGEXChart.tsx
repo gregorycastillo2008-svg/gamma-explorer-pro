@@ -15,7 +15,7 @@ const TICKERS = ["QQQ", "SPY", "NQ", "IWM", "DIA", "AAPL", "MSFT", "NVDA", "TSLA
 const TIMEFRAMES = ["1D", "5D", "1M", "3M", "6M", "1Y"] as const;
 type TF = typeof TIMEFRAMES[number];
 type ChartMode = "line" | "candle";
-type DteFilter = "1" | "2" | "3";
+type DteFilter = "0" | "1" | "1D";
 
 interface PricePoint { time: number; value: number }
 interface OhlcPoint { time: number; open: number; high: number; low: number; close: number }
@@ -52,7 +52,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
   const [symbol, setSymbol] = useState(defaultSymbol);
   const [timeframe, setTimeframe] = useState<TF>("3M");
   const [chartMode, setChartMode] = useState<ChartMode>("line");
-  const [dteFilter, setDteFilter] = useState<DteFilter>("3");
+  const [dteFilter, setDteFilter] = useState<DteFilter>("1D");
   const [price, setPrice] = useState<PricePayload | null>(null);
   const [chain, setChain] = useState<ChainPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,12 +136,17 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
     };
   }, []);
 
-  // Build strike rows (filtered by DTE) from chain
+  // Build strike rows (filtered by selected expiration window) from chain
   const strikeRows: StrikeRow[] = useMemo(() => {
     if (!chain || !chain.contracts.length) return [];
     const spot = chain.spot;
-    const maxDte = parseInt(dteFilter, 10);
-    const filtered = chain.contracts.filter((c) => daysUntil(c.expiration) <= maxDte);
+    // 0 = today only, 1 = tomorrow only, 1D = today + tomorrow
+    const filtered = chain.contracts.filter((c) => {
+      const d = daysUntil(c.expiration);
+      if (dteFilter === "0") return d === 0;
+      if (dteFilter === "1") return d === 1;
+      return d <= 1; // "1D"
+    });
     const map = new Map<number, StrikeRow>();
     filtered.forEach((c) => {
       const cur = map.get(c.strike) ?? { strike: c.strike, callGEX: 0, putGEX: 0, callOI: 0, putOI: 0 };
@@ -150,7 +155,10 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
       else { cur.putGEX += gex; cur.putOI += c.oi; }
       map.set(c.strike, cur);
     });
-    const all = Array.from(map.values()).sort((a, b) => Math.abs(a.strike - spot) - Math.abs(b.strike - spot)).slice(0, 28);
+    // Show all strikes within ±10% of spot, sorted by strike
+    const all = Array.from(map.values())
+      .filter((r) => Math.abs(r.strike - spot) / spot < 0.10)
+      .sort((a, b) => b.strike - a.strike);
     return all;
   }, [chain, dteFilter]);
 
@@ -342,9 +350,9 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
           <div className="ml-2 flex items-center gap-1">
             <span className="text-[9px] tracking-widest text-muted-foreground font-bold">GAMMA</span>
             {([
-              { v: "1" as const, label: "1D" },
-              { v: "2" as const, label: "2D" },
-              { v: "3" as const, label: "3D" },
+              { v: "0" as const, label: "HOY" },
+              { v: "1" as const, label: "MAÑANA" },
+              { v: "1D" as const, label: "1D" },
             ]).map((d) => (
               <button
                 key={d.v}
@@ -390,7 +398,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
             <GEXBarsPanel rows={strikeRows} spot={chain.spot} />
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
-              {`Sin opciones reales para ≤${dteFilter}D`}
+              {dteFilter === "0" ? "Sin opciones 0DTE (hoy)" : dteFilter === "1" ? "Sin opciones 1DTE (mañana)" : "Sin opciones para hoy/mañana"}
             </div>
           )}
         </div>
