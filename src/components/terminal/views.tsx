@@ -411,24 +411,8 @@ export function LevelsView({ ticker, exposures, levels }: Ctx) {
 }
 
 // ─────── HEDGE PRESSURE ───────
-export function HedgeView({ ticker, exposures }: Ctx) {
-  // pressure = sum(dex * (strike - spot))
-  const pressure = exposures.reduce((s, p) => s + p.dex * (p.strike - ticker.spot) / ticker.spot, 0);
-  const netDex = exposures.reduce((s, p) => s + p.dex, 0);
-  const netVex = exposures.reduce((s, p) => s + p.vex, 0);
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatBlock label="Net DEX" value={formatNumber(netDex)} tone={netDex >= 0 ? "call" : "put"} />
-        <StatBlock label="Net VEX" value={formatNumber(netVex)} tone={netVex >= 0 ? "call" : "put"} />
-        <StatBlock label="Hedge pressure" value={formatNumber(pressure)} tone={pressure >= 0 ? "call" : "put"} sub="bias direction" />
-        <StatBlock label="Bias" value={pressure >= 0 ? "BULLISH" : "BEARISH"} tone={pressure >= 0 ? "call" : "put"} />
-      </div>
-      <Panel title="DEX per strike">
-        <ExposureChart data={exposures} spot={ticker.spot} metric="dex" />
-      </Panel>
-    </div>
-  );
+export function HedgeView(ctx: Ctx) {
+  return <HedgePressurePanel {...ctx} />;
 }
 
 // ─────── VANNA / CHARM ───────
