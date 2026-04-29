@@ -138,8 +138,10 @@ export function Paywall(_props: PaywallProps) {
             const yearlyTotal = plan.priceYearly;
             const yearlyPerMonth = +(yearlyTotal / 12).toFixed(2);
             const displayPrice = billing === "yearly" ? yearlyPerMonth : monthlyPrice;
-            const originalPrice = billing === "yearly" ? monthlyPrice : null;
             const yearlyAvailable = !!plan.priceIdYearly;
+            const promoPct = PLAN_DISCOUNTS[key] ?? 0;
+            const promoCode = promoPct === 50 ? "ELITE50" : promoPct === 30 ? "GAMMA30" : "FLIP15";
+            const finalPrice = applyDiscount(displayPrice, key);
 
             return (
               <div
@@ -154,11 +156,11 @@ export function Paywall(_props: PaywallProps) {
                 }}
               >
                 {/* Plan name + discount badge */}
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
                   <h3 className="text-xl font-bold" style={{ color: TEAL }}>
                     {plan.name}
                   </h3>
-                  {billing === "yearly" && (
+                  {promoPct > 0 && (
                     <span
                       className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                       style={{
@@ -167,33 +169,50 @@ export function Paywall(_props: PaywallProps) {
                         border: "1px solid rgba(244,63,94,0.3)",
                       }}
                     >
-                      -30%
+                      -{promoPct}% OFF
+                    </span>
+                  )}
+                  {billing === "yearly" && (
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: "rgba(45,212,191,0.15)",
+                        color: TEAL,
+                        border: "1px solid rgba(45,212,191,0.3)",
+                      }}
+                    >
+                      ANUAL
                     </span>
                   )}
                 </div>
 
                 {/* Price */}
-                <div className="flex items-baseline gap-2 mb-1">
-                  {originalPrice && (
+                <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                  {promoPct > 0 && (
                     <span
                       className="text-xl line-through"
                       style={{ color: "rgba(255,255,255,0.3)" }}
                     >
-                      ${monthlyPrice}
+                      ${displayPrice}
                     </span>
                   )}
                   <span className="text-5xl font-bold" style={{ color: TEAL }}>
-                    ${displayPrice}
+                    ${finalPrice}
                   </span>
                   <span className="text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>
                     /mes
                   </span>
                 </div>
-                <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.5)" }}>
+                <p className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.5)" }}>
                   {billing === "yearly"
                     ? `Facturado anualmente a $${yearlyTotal}`
                     : "Facturación mensual"}
                 </p>
+                {promoPct > 0 && (
+                  <p className="text-[11px] mb-4" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Aplica código <span className="font-mono" style={{ color: TEAL }}>{promoCode}</span> al pagar
+                  </p>
+                )}
 
                 {/* CTA */}
                 <button
