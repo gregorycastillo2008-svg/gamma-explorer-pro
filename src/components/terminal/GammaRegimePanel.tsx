@@ -325,6 +325,13 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
         <SectionHeader
           title="GEX Profile Curve"
           subtitle="Net gamma por strike · curva acumulada · ±6% del spot"
+          info={
+            <>
+              <div className="font-bold text-primary mb-1">GEX Profile Curve</div>
+              Muestra el <strong>Net GEX</strong> agregado por strike (barras) y su <strong>curva acumulada</strong> (línea amarilla). El cruce de la curva por cero marca el <strong>Gamma Flip</strong>.
+              <div className="mt-1.5 text-muted-foreground">Strikes <span className="text-call">verdes</span> son soporte/resistencia que <em>frena</em> el precio. Strikes <span className="text-put">rojos</span> lo <em>aceleran</em>.</div>
+            </>
+          }
           legend={[
             { swatch: "hsl(var(--call))", label: "GEX +" },
             { swatch: "hsl(var(--put))", label: "GEX −" },
