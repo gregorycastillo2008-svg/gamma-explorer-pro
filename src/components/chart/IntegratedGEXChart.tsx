@@ -426,7 +426,7 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
       {/* BODY */}
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="flex flex-1 overflow-hidden min-h-0">
-          <div className="relative" style={{ width: "55%" }}>
+          <div className="relative" style={{ width: "68%" }}>
             <div ref={chartRef} className="absolute inset-0" />
             {loading && !price && (
               <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">Loading price…</div>
