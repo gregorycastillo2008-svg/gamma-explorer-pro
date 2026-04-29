@@ -256,6 +256,18 @@ export function GexbotStyleChart({
             <span className="text-white font-bold">major put: </span>
             <span className="font-bold tabular-nums" style={{ color: "#ff4466" }}>${majorPut?.toFixed(2) ?? "—"}</span>
           </div>
+          <div>
+            <span className="text-white font-bold">call wall: </span>
+            <span className="font-bold tabular-nums" style={{ color: "#22d3ee" }}>${callWall?.toFixed(2) ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-white font-bold">put wall: </span>
+            <span className="font-bold tabular-nums" style={{ color: "#f472b6" }}>${putWall?.toFixed(2) ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-white font-bold">max pain: </span>
+            <span className="font-bold tabular-nums" style={{ color: "#a78bfa" }}>${maxPain?.toFixed(2) ?? "—"}</span>
+          </div>
         </div>
       </div>
 
