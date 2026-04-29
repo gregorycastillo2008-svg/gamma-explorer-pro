@@ -1,15 +1,18 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Sparkles, Copy, Info, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Sparkles, Copy, Info, X, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GammaBackgroundDark } from "@/components/GammaBackgroundDark";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
 import { RadarMap } from "@/components/RadarMap";
 import { TestimonialsMarquee } from "@/components/TestimonialsMarquee";
 import { PlansSection } from "@/components/PlansSection";
+import { tryAdminLogin } from "@/lib/adminBypass";
 import { toast } from "sonner";
 
 const features = [
@@ -29,13 +32,15 @@ const testimonials = [
   { name: "David R.", role: "Quant · Hedge Fund", rating: 5, text: "La latencia y la calidad de datos son institucionales. El precio es ridículamente bajo para lo que entrega.", extra: "Reemplazó software de $2k/mes" },
   { name: "Sofía P.", role: "Swing Trader", rating: 5, text: "El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.", extra: "Suscriptora Pro Elite" },
 ];
+const heroWords = ["edge", "señales", "flow", "gamma", "alpha"];
 
 export default function Landing() {
   const { user } = useAuth();
   const [showInfo, setShowInfo] = useState(false);
-
-  // animated word in hero
-  const heroWords = ["Gamma Exposure", "Dealer Flow", "Volatility Edge", "Market Bias"];
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminName, setAdminName] = useState("");
+  const [adminPwd, setAdminPwd] = useState("");
+  const navigate = useNavigate();
   const [wordIdx, setWordIdx] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setWordIdx((i) => (i + 1) % heroWords.length), 2600);
@@ -86,6 +91,14 @@ export default function Landing() {
           >
             <Info className="h-4 w-4" />
           </button>
+          <button
+            onClick={() => setAdminOpen(true)}
+            className="hidden sm:flex items-center gap-2 px-3 h-9 rounded-lg border border-[#2DD4BF]/40 bg-[#2DD4BF]/10 text-[#2DD4BF] hover:bg-[#2DD4BF]/20 transition-colors text-xs font-mono uppercase tracking-wider font-bold"
+            title="Acceso admin"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Admin
+          </button>
           {user ? (
             <Link to="/dashboard">
               <Button className="bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg px-5 font-semibold">Obtener acceso</Button>
@@ -97,6 +110,101 @@ export default function Landing() {
           )}
         </div>
       </header>
+
+      {/* Admin access modal — same teal interface used in Paywall */}
+      <AnimatePresence>
+        {adminOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+            style={{
+              background: "radial-gradient(ellipse at top, rgba(20,80,70,0.35), rgba(0,0,0,0.95) 60%), rgba(2,10,9,0.85)",
+              backdropFilter: "blur(8px)",
+            }}
+            onClick={() => { setAdminOpen(false); setAdminName(""); setAdminPwd(""); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+              style={{
+                background: "linear-gradient(180deg, rgba(8,30,28,0.95), rgba(4,18,18,0.98))",
+                border: "1.5px solid #2DD4BF",
+                boxShadow: "0 0 50px -10px rgba(45,212,191,0.35)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => { setAdminOpen(false); setAdminName(""); setAdminPwd(""); }}
+                className="absolute top-3 right-3 text-white/60 hover:text-white"
+                aria-label="Cerrar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="h-5 w-5" style={{ color: "#2DD4BF" }} />
+                <h2 className="text-xl font-bold text-white">Acceso admin</h2>
+              </div>
+              <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.55)" }}>
+                Acceso directo al terminal sin pago.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (tryAdminLogin(adminName, adminPwd)) {
+                    toast.success("Acceso admin concedido");
+                    setAdminOpen(false);
+                    navigate("/dashboard");
+                  } else {
+                    toast.error("Credenciales incorrectas");
+                  }
+                }}
+                className="space-y-3"
+              >
+                <div className="space-y-1.5">
+                  <Label htmlFor="landing-admin-name" className="text-white">Nombre</Label>
+                  <Input
+                    id="landing-admin-name"
+                    required
+                    autoFocus
+                    value={adminName}
+                    onChange={(e) => setAdminName(e.target.value)}
+                    placeholder="admin"
+                    className="h-11 bg-black/40 text-white"
+                    style={{ borderColor: "rgba(45,212,191,0.35)" }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="landing-admin-pwd" className="text-white">Contraseña</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#2DD4BF" }} />
+                    <Input
+                      id="landing-admin-pwd"
+                      type="password"
+                      required
+                      value={adminPwd}
+                      onChange={(e) => setAdminPwd(e.target.value)}
+                      className="pl-10 h-11 bg-black/40 text-white"
+                      style={{ borderColor: "rgba(45,212,191,0.35)" }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full h-11 font-bold rounded-full"
+                  style={{
+                    background: "linear-gradient(180deg, #2DD4BF, #14b8a6)",
+                    color: "#021a18",
+                    boxShadow: "0 8px 28px -8px rgba(45,212,191,0.45)",
+                  }}
+                >
+                  Entrar
+                </Button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Info modal */}
       <AnimatePresence>
