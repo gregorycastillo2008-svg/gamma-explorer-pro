@@ -769,48 +769,11 @@ export function VolatilityView({ ticker, contracts }: Ctx) {
 }
 
 // ─────── REGIME ───────
-export function RegimeView({ ticker, levels, exposures }: Ctx) {
-  const aboveFlip = levels.gammaFlip ? ticker.spot > levels.gammaFlip : levels.totalGex >= 0;
-  const regime = aboveFlip ? "POSITIVE GAMMA" : "NEGATIVE GAMMA";
-  const desc = aboveFlip
-    ? "Dealers are long gamma. Volatility is suppressed; intraday moves get faded back to spot. Mean-reverting environment."
-    : "Dealers are short gamma. Volatility is amplified; trends extend. Breakout / momentum environment.";
-  const distFlip = levels.gammaFlip ? ((ticker.spot - levels.gammaFlip) / levels.gammaFlip) * 100 : 0;
-
+export function RegimeView({ ticker, levels, exposures, contracts }: Ctx) {
   return (
-    <TerminalTabs
-      layoutId="regime-master-tab-bg"
-      tabs={[
-        {
-          key: "regime",
-          label: "REGIME",
-          content: (
-            <Panel title="Market Regime">
-              <div className="text-center py-6">
-                <div className={`inline-block px-4 py-2 rounded font-bold tracking-wider text-lg ${aboveFlip ? "bg-call/20 text-call border border-call/40" : "bg-put/20 text-put border border-put/40"}`}>
-                  {regime}
-                </div>
-                <p className="mt-4 text-sm text-muted-foreground max-w-xl mx-auto">{desc}</p>
-              </div>
-              <div className="grid grid-cols-3 gap-2 mt-4">
-                <StatBlock label="Total GEX" value={formatNumber(levels.totalGex)} tone={levels.totalGex >= 0 ? "call" : "put"} />
-                <StatBlock label="Gamma Flip" value={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-                <StatBlock label="Spot vs Flip" value={`${distFlip >= 0 ? "+" : ""}${distFlip.toFixed(2)}%`} tone={distFlip >= 0 ? "call" : "put"} />
-              </div>
-            </Panel>
-          ),
-        },
-        {
-          key: "cumgex",
-          label: "CUM GEX",
-          content: (
-            <Panel title="Cumulative GEX curve">
-              <CumGexChart exposures={exposures} spot={ticker.spot} flip={levels.gammaFlip} />
-            </Panel>
-          ),
-        },
-      ]}
-    />
+    <div className="h-full overflow-y-auto">
+      <GammaRegimePanel ticker={ticker} exposures={exposures} levels={levels} contracts={contracts} />
+    </div>
   );
 }
 
