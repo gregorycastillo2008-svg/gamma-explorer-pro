@@ -32,6 +32,10 @@ export function PlansSection({ showHeader = true, headingLevel = "h1" }: { showH
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [checkoutPlan, setCheckoutPlan] = useState<Tier | null>(null);
   const [checkoutEmail, setCheckoutEmail] = useState("");
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminName, setAdminName] = useState("");
+  const [adminPwd, setAdminPwd] = useState("");
+  const navigate = useNavigate();
   const Heading = headingLevel;
 
   const openStripeCheckout = (url: string) => {
