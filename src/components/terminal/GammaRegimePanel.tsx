@@ -1,15 +1,20 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, ReferenceLine, ReferenceDot, Cell, Area,
+  CartesianGrid, Tooltip, ReferenceLine, Cell, AreaChart, Area,
 } from "recharts";
-import type { ExposurePoint, KeyLevels, DemoTicker } from "@/lib/gex";
+import type { ExposurePoint, KeyLevels, DemoTicker, OptionContract } from "@/lib/gex";
 import { formatNumber } from "@/lib/gex";
+import {
+  TrendingUp, TrendingDown, AlertTriangle, Magnet,
+  Target, Activity, ArrowDown, ArrowUp, Minus, Zap,
+} from "lucide-react";
 
 interface Props {
   ticker: DemoTicker;
   exposures: ExposurePoint[];
   levels: KeyLevels;
+  contracts: OptionContract[];
 }
 
 type Regime = "LONG" | "SOFT_LONG" | "SHORT" | "FLIP" | "TRANSITION";
@@ -19,8 +24,9 @@ interface RegimeInfo {
   title: string;
   subtitle: string;
   desc: string;
-  color: string;        // semantic class
-  hex: string;          // for inline gauge gradient
+  color: string;
+  hex: string;
+  playbook: { do: string[]; avoid: string[] };
 }
 
 function classifyRegime(netGex: number, spot: number, flip: number | null): RegimeInfo {
@@ -33,9 +39,13 @@ function classifyRegime(netGex: number, spot: number, flip: number | null): Regi
       key: "FLIP",
       title: "FLIP ZONE",
       subtitle: "Critical inflection point · max alert",
-      desc: "Punto de inflexión crítico. Un movimiento de ±$1 puede cambiar el comportamiento del mercado.",
+      desc: "Punto de inflexión crítico. Un movimiento de ±$1 puede cambiar el comportamiento del mercado de mean-revert a trending.",
       color: "text-warning",
       hex: "#ffcc00",
+      playbook: {
+        do: ["Reducir tamaño de posición", "Esperar confirmación del cruce", "Vigilar volumen del primer break"],
+        avoid: ["Estrategias direccionales agresivas", "Vender premium sin hedge", "Asumir continuación del régimen previo"],
+      },
     };
   }
   if (Math.abs(netGex) < transitionThresh) {
@@ -43,9 +53,13 @@ function classifyRegime(netGex: number, spot: number, flip: number | null): Regi
       key: "TRANSITION",
       title: "TRANSITION",
       subtitle: "Net GEX near zero · regime forming",
-      desc: "Gamma neta cercana a cero. El régimen está cambiando — espera mayor volatilidad realizada.",
+      desc: "Gamma neta cercana a cero. El régimen está cambiando — espera mayor volatilidad realizada y rangos más amplios.",
       color: "text-warning",
       hex: "#ff9933",
+      playbook: {
+        do: ["Operar rangos amplios", "Comprar vol barata si IV está deprimida", "Esperar dirección clara"],
+        avoid: ["Vender straddles ATM", "Asumir pin a strikes específicos"],
+      },
     };
   }
   if (netGex < 0) {
@@ -53,12 +67,15 @@ function classifyRegime(netGex: number, spot: number, flip: number | null): Regi
       key: "SHORT",
       title: "SHORT GAMMA",
       subtitle: "Dealers amplify moves · trending regime",
-      desc: "Dealers amplifican los movimientos. Cada caída genera más ventas. Volatilidad realizada elevada esperada.",
+      desc: "Dealers amplifican los movimientos. Cada caída genera más ventas, cada subida más compras. Volatilidad realizada elevada esperada.",
       color: "text-put",
       hex: "#ff4466",
+      playbook: {
+        do: ["Operar momentum / breakouts", "Comprar opciones (long gamma)", "Stops más amplios"],
+        avoid: ["Vender premium descubierto", "Fade de movimientos extremos", "Mean-reversion intraday"],
+      },
     };
   }
-  // netGex > 0
   if (flip != null && flipDist > 0 && flipDist < 5) {
     return {
       key: "SOFT_LONG",
@@ -67,29 +84,34 @@ function classifyRegime(netGex: number, spot: number, flip: number | null): Regi
       desc: `Gamma positivo pero frágil — el flip está muy cerca. Monitorea si spot rompe $${flip?.toFixed(2)} a la baja.`,
       color: "text-call",
       hex: "#7fff9d",
+      playbook: {
+        do: ["Mean-reversion con stops ajustados", "Vender premium con cuidado", "Vigilar cruce del flip"],
+        avoid: ["Asumir pin fuerte", "Apalancar excesivamente"],
+      },
     };
   }
   return {
     key: "LONG",
     title: "LONG GAMMA",
     subtitle: "Dealers buy dips · sell rips · low realized vol",
-    desc: "Dealers compran bajos y venden altos. El precio tiende a mantenerse en rango. Baja volatilidad realizada esperada.",
+    desc: "Dealers compran bajos y venden altos. El precio tiende a mantenerse en rango. Baja volatilidad realizada esperada — ideal para vender premium.",
     color: "text-call",
     hex: "#00ff88",
+    playbook: {
+      do: ["Vender premium (iron condors, strangles)", "Mean-reversion intraday", "Operar rangos definidos por walls"],
+      avoid: ["Comprar vol cara", "Operar breakouts (false breaks frecuentes)"],
+    },
   };
 }
 
 function GpiGauge({ value, hex }: { value: number; hex: string }) {
-  // semicircle gauge 0-100
   const v = Math.max(0, Math.min(100, value));
-  const angle = (v / 100) * 180 - 90; // -90..+90
+  const angle = (v / 100) * 180 - 90;
   const r = 70;
   const cx = 90, cy = 90;
   const rad = (angle * Math.PI) / 180;
   const nx = cx + r * Math.sin(rad);
   const ny = cy - r * Math.cos(rad);
-
-  // arc bg path (semicircle)
   const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
 
   return (
@@ -103,7 +125,6 @@ function GpiGauge({ value, hex }: { value: number; hex: string }) {
           </linearGradient>
         </defs>
         <path d={arcPath} fill="none" stroke="url(#gpi-grad)" strokeWidth="10" strokeLinecap="round" />
-        {/* needle */}
         <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={hex} strokeWidth="3" strokeLinecap="round" />
         <circle cx={cx} cy={cy} r="6" fill={hex} />
       </svg>
@@ -115,60 +136,95 @@ function GpiGauge({ value, hex }: { value: number; hex: string }) {
   );
 }
 
-export function GammaRegimePanel({ ticker, exposures, levels }: Props) {
+export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props) {
   const spot = ticker.spot;
   const flip = levels.gammaFlip;
   const netGex = levels.totalGex;
   const regime = classifyRegime(netGex, spot, flip);
 
-  // GPI: skew so 50 = neutral. Use tanh of normalized netGex.
-  // norm = netGex / max|netGex per strike across chain · 100
   const maxAbsStrike = useMemo(
     () => exposures.reduce((m, p) => Math.max(m, Math.abs(p.netGex)), 1),
     [exposures],
   );
   const gpi = useMemo(() => {
-    const norm = netGex / (maxAbsStrike * 5); // scale
-    const tanh = Math.tanh(norm);
-    return 50 + tanh * 50;
+    const norm = netGex / (maxAbsStrike * 5);
+    return 50 + Math.tanh(norm) * 50;
   }, [netGex, maxAbsStrike]);
 
   const flipDistance = flip != null ? spot - flip : null;
 
-  // ── Section 2: GEX profile by strike (focused near spot) ──
+  // ── Section 2: GEX profile by strike ──
   const lo = spot * 0.94;
   const hi = spot * 1.06;
-  const profile = useMemo(() => {
-    return exposures
-      .filter((p) => p.strike >= lo && p.strike <= hi)
-      .sort((a, b) => a.strike - b.strike)
-      .map((p) => ({ strike: p.strike, netGex: p.netGex }));
-  }, [exposures, lo, hi]);
-
-  // cumulative net GEX line
+  const profile = useMemo(
+    () => exposures.filter((p) => p.strike >= lo && p.strike <= hi).sort((a, b) => a.strike - b.strike),
+    [exposures, lo, hi],
+  );
   const profileCum = useMemo(() => {
     let acc = 0;
     return profile.map((p) => {
       acc += p.netGex;
-      return { ...p, cum: acc };
+      return { strike: p.strike, netGex: p.netGex, cum: acc };
     });
   }, [profile]);
 
+  // ── Section 3: GPI history (in-memory time series) ──
+  const [gpiHistory, setGpiHistory] = useState<{ t: string; gpi: number; gex: number }[]>([]);
+  const lastTickRef = useRef(0);
+  useEffect(() => {
+    const now = Date.now();
+    if (now - lastTickRef.current < 4000) return; // throttle
+    lastTickRef.current = now;
+    const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setGpiHistory((h) => [...h.slice(-29), { t, gpi: Math.round(gpi * 10) / 10, gex: netGex }]);
+  }, [gpi, netGex]);
+
+  // ── Section 4: Strike Magnetism (top 5 strikes by |gex|) ──
+  const magnets = useMemo(() => {
+    return [...profile]
+      .map((p) => ({
+        strike: p.strike,
+        gex: p.netGex,
+        dist: Math.abs(p.strike - spot),
+        magnetism: Math.abs(p.netGex) / Math.max(Math.abs(p.strike - spot), 0.5),
+      }))
+      .sort((a, b) => b.magnetism - a.magnetism)
+      .slice(0, 6);
+  }, [profile, spot]);
+  const maxMag = magnets[0]?.magnetism ?? 1;
+
+  // ── Section 5: Regime Stability ──
+  // Score = consistencia de signo del netGex en strikes cercanos al spot
+  const stability = useMemo(() => {
+    const near = exposures.filter((p) => Math.abs(p.strike - spot) <= spot * 0.02);
+    if (near.length < 2) return { score: 50, label: "INSUFFICIENT DATA" };
+    const pos = near.filter((p) => p.netGex > 0).length;
+    const neg = near.filter((p) => p.netGex < 0).length;
+    const dominance = Math.abs(pos - neg) / near.length;
+    const score = Math.round(dominance * 100);
+    const label = score > 70 ? "ROCK SOLID" : score > 40 ? "MODERATE" : "FRAGILE";
+    return { score, label };
+  }, [exposures, spot]);
+
+  // ── Section 6: Hedging behavior matrix ──
+  const callBias = useMemo(() => {
+    const callOI = contracts.filter((c) => c.type === "call").reduce((s, c) => s + c.oi, 0);
+    const putOI = contracts.filter((c) => c.type === "put").reduce((s, c) => s + c.oi, 0);
+    return (callOI - putOI) / Math.max(callOI + putOI, 1);
+  }, [contracts]);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 p-2">
       {/* ─────────── SECTION 1 — REGIME STATUS BAR ─────────── */}
       <div
         className="relative rounded-lg border bg-card p-5 overflow-hidden"
         style={{ boxShadow: `inset 0 0 60px ${regime.hex}15, 0 0 0 1px ${regime.hex}30` }}
       >
-        {/* glow accent */}
         <div
           className="absolute top-0 left-0 h-full w-1"
           style={{ background: regime.hex, boxShadow: `0 0 20px ${regime.hex}` }}
         />
-
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-          {/* LEFT — title + description */}
           <div className="lg:col-span-6">
             <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-1">
               Gamma Regime · {ticker.symbol}
@@ -182,16 +238,10 @@ export function GammaRegimePanel({ ticker, exposures, levels }: Props) {
             <div className="text-xs text-muted-foreground mt-1 italic">{regime.subtitle}</div>
             <p className="text-sm text-foreground/80 mt-3 max-w-xl leading-relaxed">{regime.desc}</p>
           </div>
-
-          {/* CENTER — context pills */}
           <div className="lg:col-span-3 flex flex-col gap-2">
             <Pill
               label="Flip Distance"
-              value={
-                flipDistance == null
-                  ? "—"
-                  : `${flipDistance >= 0 ? "+" : ""}$${flipDistance.toFixed(2)}`
-              }
+              value={flipDistance == null ? "—" : `${flipDistance >= 0 ? "+" : ""}$${flipDistance.toFixed(2)}`}
               tone={flipDistance == null ? "default" : flipDistance >= 0 ? "call" : "put"}
             />
             <Pill
@@ -205,8 +255,6 @@ export function GammaRegimePanel({ ticker, exposures, levels }: Props) {
               tone="primary"
             />
           </div>
-
-          {/* RIGHT — GPI gauge */}
           <div className="lg:col-span-3 flex justify-center">
             <GpiGauge value={gpi} hex={regime.hex} />
           </div>
@@ -215,172 +263,277 @@ export function GammaRegimePanel({ ticker, exposures, levels }: Props) {
 
       {/* ─────────── SECTION 2 — GEX PROFILE CURVE ─────────── */}
       <div className="rounded-lg border bg-card p-4">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider">GEX Profile Curve</h3>
-            <p className="text-xs text-muted-foreground">
-              Net gamma por strike · Curva acumulada · ±6% del spot
-            </p>
-          </div>
-          <div className="flex gap-3 text-[10px] text-muted-foreground">
-            <Legend swatch="hsl(var(--call))" label="GEX +" />
-            <Legend swatch="hsl(var(--put))" label="GEX −" />
-            <Legend swatch="#ffcc00" label="Cumulative GEX" dashed />
-            <Legend swatch="hsl(var(--primary))" label={`Spot $${spot.toFixed(2)}`} />
-          </div>
-        </div>
-
+        <SectionHeader
+          title="GEX Profile Curve"
+          subtitle="Net gamma por strike · curva acumulada · ±6% del spot"
+          legend={[
+            { swatch: "hsl(var(--call))", label: "GEX +" },
+            { swatch: "hsl(var(--put))", label: "GEX −" },
+            { swatch: "#ffcc00", label: "Cumulative", dashed: true },
+            { swatch: "hsl(var(--primary))", label: `Spot $${spot.toFixed(2)}` },
+          ]}
+        />
         <div className="h-[340px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={profileCum} margin={{ top: 16, right: 50, left: 10, bottom: 4 }}>
               <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="strike"
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                interval="preserveStartEnd"
-                minTickGap={20}
-              />
-              <YAxis
-                yAxisId="bars"
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                tickFormatter={(v) => formatNumber(Number(v), 1)}
-                width={60}
-              />
-              <YAxis
-                yAxisId="cum"
-                orientation="right"
-                tick={{ fontSize: 11, fill: "#ffcc00" }}
-                tickFormatter={(v) => formatNumber(Number(v), 1)}
-                width={60}
-              />
+              <XAxis dataKey="strike" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={20} />
+              <YAxis yAxisId="bars" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={60} />
+              <YAxis yAxisId="cum" orientation="right" tick={{ fontSize: 11, fill: "#ffcc00" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={60} />
               <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
+                contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                 formatter={(v: number, name: string) => [formatNumber(v), name]}
                 labelFormatter={(l) => `Strike $${l}`}
               />
               <ReferenceLine yAxisId="bars" y={0} stroke="hsl(var(--border))" />
-
-              {/* SPOT */}
-              <ReferenceLine
-                yAxisId="bars"
-                x={spot}
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                strokeDasharray="4 3"
-                label={{
-                  value: `▼ SPOT ${spot.toFixed(2)}`,
-                  fill: "hsl(var(--primary))",
-                  fontSize: 11,
-                  position: "top",
-                }}
-              />
-              {/* FLIP */}
-              {flip != null && (
-                <ReferenceLine
-                  yAxisId="bars"
-                  x={flip}
-                  stroke="#ffcc00"
-                  strokeWidth={1.5}
-                  strokeDasharray="5 3"
-                  label={{
-                    value: `Flip ${flip}`,
-                    fill: "#ffcc00",
-                    fontSize: 10,
-                    position: "insideTopLeft",
-                  }}
-                />
-              )}
-              {/* CALL / PUT walls */}
-              <ReferenceLine
-                yAxisId="bars"
-                x={levels.callWall}
-                stroke="hsl(var(--call))"
-                strokeDasharray="2 2"
-                label={{
-                  value: `Call Wall ${levels.callWall}`,
-                  fill: "hsl(var(--call))",
-                  fontSize: 10,
-                  position: "insideTopRight",
-                }}
-              />
-              <ReferenceLine
-                yAxisId="bars"
-                x={levels.putWall}
-                stroke="hsl(var(--put))"
-                strokeDasharray="2 2"
-                label={{
-                  value: `Put Wall ${levels.putWall}`,
-                  fill: "hsl(var(--put))",
-                  fontSize: 10,
-                  position: "insideBottomLeft",
-                }}
-              />
-
+              <ReferenceLine yAxisId="bars" x={spot} stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="4 3" label={{ value: `▼ SPOT ${spot.toFixed(2)}`, fill: "hsl(var(--primary))", fontSize: 11, position: "top" }} />
+              {flip != null && <ReferenceLine yAxisId="bars" x={flip} stroke="#ffcc00" strokeWidth={1.5} strokeDasharray="5 3" label={{ value: `Flip ${flip}`, fill: "#ffcc00", fontSize: 10, position: "insideTopLeft" }} />}
+              <ReferenceLine yAxisId="bars" x={levels.callWall} stroke="hsl(var(--call))" strokeDasharray="2 2" label={{ value: `Call Wall ${levels.callWall}`, fill: "hsl(var(--call))", fontSize: 10, position: "insideTopRight" }} />
+              <ReferenceLine yAxisId="bars" x={levels.putWall} stroke="hsl(var(--put))" strokeDasharray="2 2" label={{ value: `Put Wall ${levels.putWall}`, fill: "hsl(var(--put))", fontSize: 10, position: "insideBottomLeft" }} />
               <Bar yAxisId="bars" dataKey="netGex" name="Net GEX" radius={[3, 3, 0, 0]}>
                 {profileCum.map((d, i) => (
-                  <Cell
-                    key={i}
-                    fill={d.netGex >= 0 ? "hsl(var(--call))" : "hsl(var(--put))"}
-                    fillOpacity={0.85}
-                  />
+                  <Cell key={i} fill={d.netGex >= 0 ? "hsl(var(--call))" : "hsl(var(--put))"} fillOpacity={0.85} />
                 ))}
               </Bar>
-              <Line
-                yAxisId="cum"
-                type="monotone"
-                dataKey="cum"
-                stroke="#ffcc00"
-                strokeWidth={2}
-                strokeDasharray="4 3"
-                dot={false}
-                name="Cumulative GEX"
-              />
+              <Line yAxisId="cum" type="monotone" dataKey="cum" stroke="#ffcc00" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Cumulative" />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
+      </div>
 
-        {/* Footer interpretation */}
-        <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground border-t border-border/50 pt-3 flex-wrap">
-          <span>
-            <span className="text-call">●</span> Strikes con gamma positivo actúan como{" "}
-            <strong className="text-foreground">imanes / soporte</strong>.
-          </span>
-          <span>
-            <span className="text-put">●</span> Strikes con gamma negativo{" "}
-            <strong className="text-foreground">aceleran el movimiento</strong>.
-          </span>
-          <span>
-            <span style={{ color: "#ffcc00" }}>●</span> Curva acumulada cruza cero en el{" "}
-            <strong className="text-foreground">flip point</strong>.
-          </span>
+      {/* ─────────── SECTION 3 + 4 grid ─────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* GPI History */}
+        <div className="rounded-lg border bg-card p-4">
+          <SectionHeader
+            title="GPI Evolution"
+            subtitle="Gamma Pressure Index · live timeline"
+            icon={<Activity className="h-3.5 w-3.5" />}
+          />
+          <div className="h-[200px] w-full">
+            {gpiHistory.length < 2 ? (
+              <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                Recolectando datos…
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={gpiHistory} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gpi-area" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor={regime.hex} stopOpacity={0.5} />
+                      <stop offset="100%" stopColor={regime.hex} stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="t" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} minTickGap={24} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} width={30} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
+                  <ReferenceLine y={50} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                  <ReferenceLine y={60} stroke="#00ff88" strokeOpacity={0.3} strokeDasharray="2 2" />
+                  <ReferenceLine y={40} stroke="#ff4466" strokeOpacity={0.3} strokeDasharray="2 2" />
+                  <Area dataKey="gpi" stroke={regime.hex} strokeWidth={2} fill="url(#gpi-area)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
+            <span><span className="text-put">●</span> 0–40 Short</span>
+            <span><span className="text-warning">●</span> 40–60 Neutral</span>
+            <span><span className="text-call">●</span> 60–100 Long</span>
+          </div>
+        </div>
+
+        {/* Strike Magnetism */}
+        <div className="rounded-lg border bg-card p-4">
+          <SectionHeader
+            title="Strike Magnetism"
+            subtitle="Imanes / repulsores cercanos al spot"
+            icon={<Magnet className="h-3.5 w-3.5" />}
+          />
+          <div className="space-y-1.5">
+            {magnets.map((m) => {
+              const pct = (m.magnetism / maxMag) * 100;
+              const isPos = m.gex >= 0;
+              const dir = m.strike > spot ? "↑" : m.strike < spot ? "↓" : "•";
+              return (
+                <div key={m.strike} className="flex items-center gap-2 text-xs font-mono">
+                  <span className="w-14 text-muted-foreground">{dir} ${m.strike}</span>
+                  <div className="flex-1 h-5 rounded-sm bg-secondary/40 overflow-hidden relative">
+                    <div
+                      className={`h-full ${isPos ? "bg-call" : "bg-put"} opacity-70`}
+                      style={{ width: `${pct}%` }}
+                    />
+                    <span className="absolute inset-0 flex items-center px-2 text-[10px] font-semibold text-foreground">
+                      {isPos ? "MAGNET" : "REPULSE"} · {formatNumber(m.gex, 1)}
+                    </span>
+                  </div>
+                  <span className="w-12 text-right text-muted-foreground">{m.dist.toFixed(1)}$</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ─────────── SECTION 5 — STABILITY + HEDGING BEHAVIOR ─────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {/* Stability score */}
+        <div className="rounded-lg border bg-card p-4">
+          <SectionHeader title="Regime Stability" subtitle="Consistencia del signo gamma cerca del spot" icon={<Target className="h-3.5 w-3.5" />} />
+          <div className="flex items-center gap-4 mt-2">
+            <div className="relative w-24 h-24">
+              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
+                <circle
+                  cx="50" cy="50" r="40" fill="none"
+                  stroke={stability.score > 70 ? "#00ff88" : stability.score > 40 ? "#ffcc00" : "#ff4466"}
+                  strokeWidth="8" strokeLinecap="round"
+                  strokeDasharray={`${(stability.score / 100) * 251.3} 251.3`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold font-mono">{stability.score}</span>
+                <span className="text-[9px] text-muted-foreground uppercase">score</span>
+              </div>
+            </div>
+            <div>
+              <div className={`text-sm font-bold ${stability.score > 70 ? "text-call" : stability.score > 40 ? "text-warning" : "text-put"}`}>
+                {stability.label}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-snug max-w-[180px]">
+                {stability.score > 70
+                  ? "Régimen sólido. Probabilidad alta de continuación."
+                  : stability.score > 40
+                  ? "Régimen moderado. Vigilar cambios."
+                  : "Régimen frágil. Cualquier flujo grande puede romperlo."}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Hedging behavior matrix */}
+        <div className="rounded-lg border bg-card p-4 lg:col-span-2">
+          <SectionHeader title="Dealer Hedging Behavior" subtitle="Cómo reaccionan los dealers a los movimientos del precio" icon={<Zap className="h-3.5 w-3.5" />} />
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <BehaviorCell
+              icon={<ArrowUp className="h-4 w-4" />}
+              when="Spot SUBE"
+              action={netGex >= 0 ? "Dealers VENDEN futuros" : "Dealers COMPRAN futuros"}
+              tone={netGex >= 0 ? "call" : "put"}
+              note={netGex >= 0 ? "Frena la subida (mean-revert)" : "Acelera la subida (chase)"}
+            />
+            <BehaviorCell
+              icon={<ArrowDown className="h-4 w-4" />}
+              when="Spot BAJA"
+              action={netGex >= 0 ? "Dealers COMPRAN futuros" : "Dealers VENDEN futuros"}
+              tone={netGex >= 0 ? "call" : "put"}
+              note={netGex >= 0 ? "Frena la caída (soporte)" : "Acelera la caída (cascade)"}
+            />
+            <BehaviorCell
+              icon={<Minus className="h-4 w-4" />}
+              when="Spot LATERAL"
+              action={netGex >= 0 ? "Pin a strikes con alto GEX" : "Whipsaw / chop"}
+              tone="default"
+              note={netGex >= 0 ? `Pin probable: $${levels.majorWall}` : "Sin nivel claro de pin"}
+            />
+            <BehaviorCell
+              icon={callBias > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              when="OI Bias"
+              action={callBias > 0.05 ? "CALL HEAVY" : callBias < -0.05 ? "PUT HEAVY" : "BALANCED"}
+              tone={callBias > 0 ? "call" : callBias < 0 ? "put" : "default"}
+              note={`Skew ${(callBias * 100).toFixed(1)}%`}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ─────────── SECTION 6 — TRADER PLAYBOOK ─────────── */}
+      <div className="rounded-lg border bg-card p-4" style={{ boxShadow: `inset 0 0 0 1px ${regime.hex}20` }}>
+        <SectionHeader
+          title="Trader Playbook"
+          subtitle={`Estrategias recomendadas para ${regime.title}`}
+          icon={<AlertTriangle className="h-3.5 w-3.5" style={{ color: regime.hex }} />}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+          <div className="rounded border border-call/30 bg-call/5 p-3">
+            <div className="text-[10px] uppercase tracking-widest text-call font-bold mb-2">✓ HACER</div>
+            <ul className="space-y-1.5">
+              {regime.playbook.do.map((item) => (
+                <li key={item} className="text-xs text-foreground/90 flex gap-2">
+                  <span className="text-call mt-0.5">▸</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded border border-put/30 bg-put/5 p-3">
+            <div className="text-[10px] uppercase tracking-widest text-put font-bold mb-2">✗ EVITAR</div>
+            <ul className="space-y-1.5">
+              {regime.playbook.avoid.map((item) => (
+                <li key={item} className="text-xs text-foreground/90 flex gap-2">
+                  <span className="text-put mt-0.5">▸</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
+// ───────────── helpers ─────────────
+
+function SectionHeader({
+  title, subtitle, legend, icon,
+}: {
+  title: string;
+  subtitle?: string;
+  legend?: { swatch: string; label: string; dashed?: boolean }[];
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
+      <div>
+        <h3 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2">
+          {icon}{title}
+        </h3>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+      </div>
+      {legend && (
+        <div className="flex gap-3 text-[10px] text-muted-foreground">
+          {legend.map((l) => (
+            <span key={l.label} className="flex items-center gap-1.5">
+              <span
+                className="inline-block h-2 w-3 rounded-sm"
+                style={{
+                  background: l.dashed
+                    ? `repeating-linear-gradient(90deg, ${l.swatch}, ${l.swatch} 3px, transparent 3px, transparent 5px)`
+                    : l.swatch,
+                }}
+              />
+              {l.label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Pill({
-  label,
-  value,
-  tone = "default",
+  label, value, tone = "default",
 }: {
   label: string;
   value: string;
   tone?: "default" | "call" | "put" | "primary";
 }) {
   const toneClass =
-    tone === "call"
-      ? "text-call"
-      : tone === "put"
-      ? "text-put"
-      : tone === "primary"
-      ? "text-primary"
-      : "text-foreground";
+    tone === "call" ? "text-call"
+    : tone === "put" ? "text-put"
+    : tone === "primary" ? "text-primary"
+    : "text-foreground";
   return (
     <div className="flex items-center justify-between gap-3 rounded border border-border/60 bg-secondary/30 px-3 py-2">
       <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
@@ -389,16 +542,25 @@ function Pill({
   );
 }
 
-function Legend({ swatch, label, dashed }: { swatch: string; label: string; dashed?: boolean }) {
+function BehaviorCell({
+  icon, when, action, tone, note,
+}: {
+  icon: React.ReactNode;
+  when: string;
+  action: string;
+  tone: "call" | "put" | "default";
+  note: string;
+}) {
+  const toneClass = tone === "call" ? "text-call" : tone === "put" ? "text-put" : "text-foreground";
+  const borderClass = tone === "call" ? "border-call/30" : tone === "put" ? "border-put/30" : "border-border";
   return (
-    <span className="flex items-center gap-1.5">
-      <span
-        className="inline-block h-2 w-3 rounded-sm"
-        style={{
-          background: dashed ? `repeating-linear-gradient(90deg, ${swatch}, ${swatch} 3px, transparent 3px, transparent 5px)` : swatch,
-        }}
-      />
-      {label}
-    </span>
+    <div className={`rounded border ${borderClass} bg-secondary/20 p-2.5`}>
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className={toneClass}>{icon}</span>
+        {when}
+      </div>
+      <div className={`text-sm font-bold mt-1 ${toneClass}`}>{action}</div>
+      <div className="text-[11px] text-muted-foreground mt-0.5 italic">{note}</div>
+    </div>
   );
 }
