@@ -69,18 +69,21 @@ export function GexDivergingBars({ ticker, exposures }: Props) {
                 type: "bar", orientation: "h",
                 y: data.strikes, x: data.puts,
                 name: "PUT GEX",
+                opacity: 0.92,
                 marker: {
-                  color: data.puts.map((v) => v),
-                  colorscale: [[0, "#ef4444"], [1, "#f97316"]],
-                  cmin: Math.min(...data.puts, -1), cmax: 0, showscale: false,
-                  line: { width: 0 },
+                  color: data.puts.map((v) => {
+                    const t = Math.min(1, Math.abs(v) / (Math.max(...data.puts.map(Math.abs), 1)));
+                    const r = Math.round(239 - t * 30), g = Math.round(68 + t * 20);
+                    return `rgb(${r},${g},68)`;
+                  }),
+                  line: { width: 0.5, color: "rgba(255,100,100,0.3)" },
                 },
                 customdata: customPuts as any,
                 hovertemplate:
                   "<b>Strike: %{customdata[0]}</b><br>" +
-                  "Put GEX: %{customdata[2]:.2f} M<br>" +
-                  "Call GEX: %{customdata[1]:.2f} M<br>" +
-                  "Net GEX: %{customdata[3]:.2f} M<br>" +
+                  "Put GEX: %{customdata[2]:.3f} M<br>" +
+                  "Call GEX: %{customdata[1]:.3f} M<br>" +
+                  "Net GEX: %{customdata[3]:.3f} M<br>" +
                   "OI Total: %{customdata[4]:,}<br>" +
                   "P/C Ratio: %{customdata[5]:.2f}<extra></extra>",
               },
@@ -88,36 +91,39 @@ export function GexDivergingBars({ ticker, exposures }: Props) {
                 type: "bar", orientation: "h",
                 y: data.strikes, x: data.calls,
                 name: "CALL GEX",
+                opacity: 0.92,
                 marker: {
-                  color: data.calls.map((v) => v),
-                  colorscale: [[0, "#06b6d4"], [1, "#10b981"]],
-                  cmin: 0, cmax: Math.max(...data.calls, 1), showscale: false,
-                  line: { width: 0 },
+                  color: data.calls.map((v) => {
+                    const t = Math.min(1, v / (Math.max(...data.calls, 1)));
+                    const g = Math.round(185 + t * 70);
+                    return `rgb(6,${g},${Math.round(100 + t * 156)})`;
+                  }),
+                  line: { width: 0.5, color: "rgba(16,185,129,0.3)" },
                 },
                 customdata: customCalls as any,
                 hovertemplate:
                   "<b>Strike: %{customdata[0]}</b><br>" +
-                  "Call GEX: %{customdata[1]:.2f} M<br>" +
-                  "Put GEX: %{customdata[2]:.2f} M<br>" +
-                  "Net GEX: %{customdata[3]:.2f} M<br>" +
+                  "Call GEX: %{customdata[1]:.3f} M<br>" +
+                  "Put GEX: %{customdata[2]:.3f} M<br>" +
+                  "Net GEX: %{customdata[3]:.3f} M<br>" +
                   "OI Total: %{customdata[4]:,}<br>" +
                   "P/C Ratio: %{customdata[5]:.2f}<extra></extra>",
               },
             ] as any}
             layout={{
               autosize: true,
-              height: 520,
+              height: 640,
               barmode: "overlay",
-              bargap: 0.15,
-              margin: { l: 65, r: 20, t: 20, b: 40 },
+              bargap: 0.04,
+              margin: { l: 68, r: 20, t: 10, b: 40 },
               paper_bgcolor: "#0a0e27",
               plot_bgcolor: "#0a0e27",
               font: { color: "#a1a1aa", size: 11, family: "JetBrains Mono, ui-monospace, monospace" },
               showlegend: true,
-              legend: { orientation: "h", y: 1.05, x: 0.5, xanchor: "center", bgcolor: "rgba(0,0,0,0)", font: { size: 10 } },
+              legend: { orientation: "h", y: 1.03, x: 0.5, xanchor: "center", bgcolor: "rgba(0,0,0,0)", font: { size: 10 } },
               xaxis: {
-                title: { text: "GEX (Millions $)", font: { size: 11, color: "#a1a1aa" } },
-                gridcolor: "#1a1f3a", zerolinecolor: "rgba(255,255,255,0.3)", zerolinewidth: 1,
+                title: { text: "GEX (Millones $)", font: { size: 11, color: "#a1a1aa" } },
+                gridcolor: "#1a1f3a", zerolinecolor: "rgba(255,255,255,0.5)", zerolinewidth: 2,
                 tickfont: { size: 10 }, ticksuffix: "M",
               },
               yaxis: {
@@ -126,12 +132,15 @@ export function GexDivergingBars({ ticker, exposures }: Props) {
               },
               shapes: [
                 { type: "line", xref: "x", x0: 0, x1: 0, yref: "paper", y0: 0, y1: 1,
-                  line: { color: "rgba(255,255,255,0.3)", width: 1, dash: "dot" } },
+                  line: { color: "rgba(255,255,255,0.5)", width: 2, dash: "dot" } },
                 { type: "line", xref: "paper", x0: 0, x1: 1, yref: "y",
                   y0: ticker.spot, y1: ticker.spot,
-                  line: { color: "#fbbf24", width: 1, dash: "dash" } },
+                  line: { color: "#fbbf24", width: 2.5, dash: "solid" } },
+                { type: "rect", xref: "paper", x0: 0, x1: 1, yref: "y",
+                  y0: ticker.spot * 0.998, y1: ticker.spot * 1.002,
+                  fillcolor: "rgba(251,191,36,0.08)", line: { width: 0 } },
               ],
-              hoverlabel: { bgcolor: "#1a1a2e", bordercolor: "#3f3f46", font: { color: "#e4e4e7", size: 11, family: "JetBrains Mono, monospace" } },
+              hoverlabel: { bgcolor: "#0a0e27", bordercolor: "#3f3f56", font: { color: "#e4e4e7", size: 11, family: "JetBrains Mono, monospace" } },
             }}
             config={{
               displaylogo: false, responsive: true,
