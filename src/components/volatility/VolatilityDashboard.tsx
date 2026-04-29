@@ -7,6 +7,7 @@ import { IVSkewChart } from "./IVSkewChart";
 import { PutCallSkewPanel } from "./PutCallSkewPanel";
 import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
 import { VolatilityTable } from "./VolatilityTable";
+import { RealVolatilityDashboard } from "./RealVolatilityDashboard";
 
 interface Props {
   ticker: DemoTicker;
