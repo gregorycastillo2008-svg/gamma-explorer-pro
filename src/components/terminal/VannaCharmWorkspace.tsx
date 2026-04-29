@@ -104,7 +104,7 @@ export function VannaCharmWorkspace({ ticker, contracts }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 p-4">
+      <div className="flex-1 min-h-0 p-4 bg-black">
         {tab === "heatmap" && <HeatmapTab spot={ticker.spot} vannaGrid={vannaGrid} charmGrid={charmGrid} expiries={expiries} expiryFilter={expiry} />}
         {tab === "strike" && <StrikeChartTab spot={ticker.spot} vannaGrid={vannaGrid} charmGrid={charmGrid} expiries={expiries} expiryFilter={expiry} setExpiryFilter={setExpiry} />}
       </div>
