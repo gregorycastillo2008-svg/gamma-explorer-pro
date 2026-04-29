@@ -1353,7 +1353,7 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
   }, [alerts]);
 
   return (
-    <div className="space-y-3">
+    <div className="h-full overflow-y-auto overflow-x-hidden pr-2 space-y-3">
       {/* Z-Score Anomalies (Hedge Pressure / GEX / OI-Volume) */}
       <StdDevAnomaliesPanel ticker={ticker} exposures={exposures} contracts={contracts} />
 
