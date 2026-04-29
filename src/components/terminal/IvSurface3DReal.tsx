@@ -284,11 +284,12 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max, spot }: 
     const onMouseDown = (e: MouseEvent) => { drag = true; lx = e.clientX; ly = e.clientY; };
     const onMouseUp = () => { drag = false; };
     const onMouseMove = (e: MouseEvent) => {
-      if (!drag) return;
-      azim -= (e.clientX - lx) * 0.45;
-      elev = Math.max(5, Math.min(80, elev + (e.clientY - ly) * 0.35));
-      lx = e.clientX; ly = e.clientY;
-      sync(); updateCam();
+      if (drag) {
+        azim -= (e.clientX - lx) * 0.45;
+        elev = Math.max(5, Math.min(80, elev + (e.clientY - ly) * 0.35));
+        lx = e.clientX; ly = e.clientY;
+        sync(); updateCam();
+      }
     };
     const onWheel = (e: WheelEvent) => {
       dist = Math.max(3.5, Math.min(15, dist + e.deltaY * 0.012));
@@ -306,9 +307,41 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max, spot }: 
       e.preventDefault();
     };
 
+    // ── Hover raycaster: lee IV de la celda y calcula Δ y Γ ──
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const onCanvasMove = (e: MouseEvent) => {
+      if (drag) { setHover(null); return; }
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      ndc.x = (px / rect.width) * 2 - 1;
+      ndc.y = -(py / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(mesh, false);
+      if (!hits.length) { setHover(null); return; }
+      const p = hits[0].point;
+      // Mapea de coords mundo → índices (i,j)
+      const i = Math.round(((p.x / SX) + 0.5) * (Nu - 1));
+      const j = Math.round(((p.z / SZ) + 0.5) * (Nv - 1));
+      const ii = Math.max(0, Math.min(Nu - 1, i));
+      const jj = Math.max(0, Math.min(Nv - 1, j));
+      const strike = sortedStrikes[jj];
+      const expiryDays = sortedExpiries[ii];
+      const ivKey = cellMap.get(`${strike}|${expiryDays}`);
+      const iv = ivKey != null ? ivKey : norm[ii][jj] * range + min;
+      const T = Math.max(1 / 365, expiryDays / 365);
+      const S = spot ?? strike;
+      const { delta, gamma } = bsGreeks(S, strike, T, iv);
+      setHover({ x: px, y: py, strike, expiryDays, iv, delta, gamma });
+    };
+    const onCanvasLeave = () => setHover(null);
+
     canvas.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mousemove", onCanvasMove);
+    canvas.addEventListener("mouseleave", onCanvasLeave);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("touchstart", onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", onTouchMove, { passive: false });
