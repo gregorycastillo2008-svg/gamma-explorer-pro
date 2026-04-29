@@ -215,7 +215,12 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
   }, [contracts]);
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="space-y-3 p-2">
+      {/* Hover-info banner */}
+      <div className="text-[10px] text-muted-foreground/70 flex items-center gap-1.5 px-1">
+        <Info className="h-3 w-3" /> Pasa el mouse sobre cualquier elemento (<span className="text-primary">ⓘ</span>) para ver una explicación detallada.
+      </div>
       {/* ─────────── SECTION 1 — REGIME STATUS BAR ─────────── */}
       <div
         className="relative rounded-lg border bg-card p-5 overflow-hidden"
