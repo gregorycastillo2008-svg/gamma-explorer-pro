@@ -32,6 +32,7 @@ const testimonials = [
   { name: "David R.", role: "Quant · Hedge Fund", rating: 5, text: "La latencia y la calidad de datos son institucionales. El precio es ridículamente bajo para lo que entrega.", extra: "Reemplazó software de $2k/mes" },
   { name: "Sofía P.", role: "Swing Trader", rating: 5, text: "El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.", extra: "Suscriptora Pro Elite" },
 ];
+const heroWords = ["edge", "señales", "flow", "gamma", "alpha"];
 
 export default function Landing() {
   const { user } = useAuth();
