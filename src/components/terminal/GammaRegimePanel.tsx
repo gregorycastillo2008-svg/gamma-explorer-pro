@@ -116,24 +116,44 @@ function GpiGauge({ value, hex }: { value: number; hex: string }) {
   const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
 
   return (
-    <div className="flex flex-col items-center">
-      <svg width="180" height="110" viewBox="0 0 180 110">
-        <defs>
-          <linearGradient id="gpi-grad" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stopColor="#ff4466" />
-            <stop offset="50%" stopColor="#ff9933" />
-            <stop offset="100%" stopColor="#00ff88" />
-          </linearGradient>
-        </defs>
-        <path d={arcPath} fill="none" stroke="url(#gpi-grad)" strokeWidth="10" strokeLinecap="round" />
-        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={hex} strokeWidth="3" strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r="6" fill={hex} />
-      </svg>
-      <div className="text-3xl font-bold font-mono" style={{ color: hex }}>{v.toFixed(0)}</div>
-      <div className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-0.5">
-        Gamma Pressure Index
-      </div>
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex flex-col items-center cursor-help group">
+          <svg width="180" height="110" viewBox="0 0 180 110" className="transition-transform group-hover:scale-105">
+            <defs>
+              <linearGradient id="gpi-grad" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stopColor="#ff4466" />
+                <stop offset="50%" stopColor="#ff9933" />
+                <stop offset="100%" stopColor="#00ff88" />
+              </linearGradient>
+            </defs>
+            <path d={arcPath} fill="none" stroke="url(#gpi-grad)" strokeWidth="10" strokeLinecap="round" />
+            <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={hex} strokeWidth="3" strokeLinecap="round" />
+            <circle cx={cx} cy={cy} r="6" fill={hex} />
+          </svg>
+          <div className="text-3xl font-bold font-mono flex items-center gap-1.5" style={{ color: hex }}>
+            {v.toFixed(0)}
+            <Info className="h-3 w-3 opacity-60" />
+          </div>
+          <div className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-0.5">
+            Gamma Pressure Index
+          </div>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-[320px] text-xs leading-relaxed bg-popover border-border">
+        <div className="font-bold text-sm mb-1.5 text-primary">Gamma Pressure Index (GPI)</div>
+        <p className="mb-2">Indicador <strong>0–100</strong> que mide la presión gamma neta de los dealers normalizada a una escala universal.</p>
+        <div className="font-mono bg-secondary/50 px-2 py-1 rounded text-[10px] mb-2">
+          GPI = 50 + tanh(NetGEX / GEX_max) × 50
+        </div>
+        <ul className="space-y-1">
+          <li><span className="text-put font-bold">0–40</span> · Régimen <strong>SHORT GAMMA</strong> — dealers amplifican movimientos, vol alta.</li>
+          <li><span className="text-warning font-bold">40–60</span> · Zona <strong>NEUTRAL</strong> — régimen frágil o en transición.</li>
+          <li><span className="text-call font-bold">60–100</span> · Régimen <strong>LONG GAMMA</strong> — dealers mean-revert, vol baja.</li>
+        </ul>
+        <p className="mt-2 text-muted-foreground italic">Cuanto más alejado de 50, más estable y predecible el régimen actual.</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
