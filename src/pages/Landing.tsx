@@ -303,61 +303,59 @@ export default function Landing() {
         )}
       </AnimatePresence>
 
-      <section className="relative z-10 container pt-8 pb-20">
-        <div className="grid lg:grid-cols-2 gap-10 items-center min-h-[70vh]">
-          {/* Left: radar */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8 }}
-            className="flex justify-center lg:justify-start"
-          >
-            <RadarMap size={460} />
-          </motion.div>
+      <section className="relative z-10 container pt-2 pb-20">
+        {/* Radar — arriba a la izquierda, cerca del logo */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8 }}
+          className="absolute -top-2 left-2 md:left-6 z-0 pointer-events-none"
+        >
+          <RadarMap size={260} />
+        </motion.div>
 
-          {/* Right: minimal copy */}
-          <div className="text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[11px] font-mono mb-6">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
-              </span>
-              <span className="text-white/70">​</span>
-            </div>
+        {/* Hero copy — centrado, debajo del radar */}
+        <div className="relative z-10 flex flex-col items-center text-center pt-[240px] md:pt-[200px]">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[11px] font-mono mb-6">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-400"></span>
+            </span>
+            <span className="text-white/70">​</span>
+          </div>
 
-            <h1 className="text-5xl md:text-6xl xl:text-7xl font-black tracking-tight mb-6 leading-[1.02] text-white">
-              Trading de{" "}
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={wordIdx}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="inline-block bg-clip-text text-transparent"
-                  style={{ backgroundImage: "linear-gradient(90deg, #60a5fa, #2dd4bf)" }}
-                >
-                  {heroWords[wordIdx]}
-                </motion.span>
-              </AnimatePresence>
-            </h1>
+          <h1 className="text-5xl md:text-6xl xl:text-7xl font-black tracking-tight mb-6 leading-[1.02] text-white">
+            Trading de{" "}
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={wordIdx}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.5 }}
+                className="inline-block bg-clip-text text-transparent"
+                style={{ backgroundImage: "linear-gradient(90deg, #60a5fa, #2dd4bf)" }}
+              >
+                {heroWords[wordIdx]}
+              </motion.span>
+            </AnimatePresence>
+          </h1>
 
-            <p className="text-base text-white/60 max-w-md mb-8">
-              GEX, walls y gamma flips en tiempo real.
-            </p>
+          <p className="text-base text-white/60 max-w-md mb-8">
+            GEX, walls y gamma flips en tiempo real.
+          </p>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <Link to={user ? "/dashboard" : "/auth"}>
-                <Button size="lg" className="text-base h-12 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-[0_10px_30px_-10px_rgba(59,130,246,0.7)]">
-                  Empezar <ArrowRight className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
-              <a href="#planes">
-                <Button size="lg" variant="outline" className="h-12 px-6 rounded-xl border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white">
-                  Planes
-                </Button>
-              </a>
-            </div>
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            <Link to={user ? "/dashboard" : "/auth"}>
+              <Button size="lg" className="text-base h-12 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-[0_10px_30px_-10px_rgba(59,130,246,0.7)]">
+                Empezar <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            </Link>
+            <a href="#planes">
+              <Button size="lg" variant="outline" className="h-12 px-6 rounded-xl border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white">
+                Planes
+              </Button>
+            </a>
           </div>
         </div>
       </section>
