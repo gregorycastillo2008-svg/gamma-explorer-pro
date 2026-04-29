@@ -121,60 +121,85 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
 
   const T = Math.max(1, selectedExpiry) / 365;
 
-  // ─── Options chain rows (puts | strike | calls)
+  // Index real contracts by strike for the selected expiry
+  const realByStrike = useMemo(() => {
+    const m = new Map<number, { call?: OptionContract; put?: OptionContract }>();
+    contracts.filter((c) => c.expiry === selectedExpiry).forEach((c) => {
+      const e = m.get(c.strike) ?? {};
+      if (c.type === "call") e.call = c; else e.put = c;
+      m.set(c.strike, e);
+    });
+    return m;
+  }, [contracts, selectedExpiry]);
+
+  // ─── Options chain rows: REAL strikes & IV/OI from contracts
   const chainRows = useMemo(() => {
     const step = ticker.strikeStep;
-    const rows: any[] = [];
-    const lo = Math.round((spot * 0.95) / step) * step;
-    const hi = Math.round((spot * 1.05) / step) * step;
-    for (let K = lo; K <= hi; K += step) {
-      const cIv = iv;
+    const lo = spot * 0.95;
+    const hi = spot * 1.05;
+    const strikes = Array.from(realByStrike.keys())
+      .filter((K) => K >= lo && K <= hi)
+      .sort((a, b) => a - b);
+
+    return strikes.map((K) => {
+      const entry = realByStrike.get(K)!;
+      const cReal = entry.call;
+      const pReal = entry.put;
+      const cIv = cReal?.iv ?? iv;
+      const pIv = pReal?.iv ?? iv;
       const cPrice = bsCall(spot, K, T, r, cIv);
-      const pPrice = bsPut(spot, K, T, r, cIv);
-      rows.push({
+      const pPrice = bsPut(spot, K, T, r, pIv);
+      // Spread proxied from IV (more vol → wider spread)
+      const cSpread = Math.max(0.05, cPrice * 0.02 + cIv * 0.5);
+      const pSpread = Math.max(0.05, pPrice * 0.02 + pIv * 0.5);
+      return {
         strike: K,
         isATM: Math.abs(K - spot) < step / 2,
         call: {
-          bid: cPrice * 0.98,
-          ask: cPrice * 1.02,
+          bid: Math.max(0, cPrice - cSpread / 2),
+          ask: cPrice + cSpread / 2,
           last: cPrice,
           iv: cIv,
-          delta: deltaCall(spot, K, T, r, cIv),
-          gamma: gamma(spot, K, T, r, cIv),
-          vega: vega(spot, K, T, r, cIv),
-          theta: thetaCall(spot, K, T, r, cIv),
-          volume: Math.floor(500 + Math.random() * 4000),
-          oi: Math.floor(2000 + Math.random() * 12000),
+          delta: cReal?.delta ?? deltaCall(spot, K, T, r, cIv),
+          gamma: cReal?.gamma ?? gamma(spot, K, T, r, cIv),
+          vega: cReal?.vega ?? vega(spot, K, T, r, cIv),
+          theta: cReal?.theta ?? thetaCall(spot, K, T, r, cIv),
+          oi: cReal?.oi ?? 0,
+          volume: Math.round((cReal?.oi ?? 0) * 0.15),
         },
         put: {
-          bid: pPrice * 0.98,
-          ask: pPrice * 1.02,
+          bid: Math.max(0, pPrice - pSpread / 2),
+          ask: pPrice + pSpread / 2,
           last: pPrice,
-          iv: cIv,
-          delta: deltaPut(spot, K, T, r, cIv),
-          gamma: gamma(spot, K, T, r, cIv),
-          vega: vega(spot, K, T, r, cIv),
-          theta: thetaPut(spot, K, T, r, cIv),
-          volume: Math.floor(500 + Math.random() * 4000),
-          oi: Math.floor(2000 + Math.random() * 12000),
+          iv: pIv,
+          delta: pReal?.delta ?? deltaPut(spot, K, T, r, pIv),
+          gamma: pReal?.gamma ?? gamma(spot, K, T, r, pIv),
+          vega: pReal?.vega ?? vega(spot, K, T, r, pIv),
+          theta: pReal?.theta ?? thetaPut(spot, K, T, r, pIv),
+          oi: pReal?.oi ?? 0,
+          volume: Math.round((pReal?.oi ?? 0) * 0.15),
         },
-      });
-    }
-    return rows;
-  }, [spot, T, iv, ticker.strikeStep]);
+      };
+    });
+  }, [realByStrike, spot, T, iv, ticker.strikeStep]);
 
-  // ─── Aggregated metrics
+  // ─── Aggregated metrics from ALL contracts in selected expiry (real OI weighted)
   const { totalVega, totalTheta, putVol, callVol, ivRank } = useMemo(() => {
     let tv = 0, tt = 0, pv = 0, cv = 0;
-    chainRows.forEach((r) => {
-      tv += r.call.vega * r.call.oi + r.put.vega * r.put.oi;
-      tt += r.call.theta * r.call.oi + r.put.theta * r.put.oi;
-      cv += r.call.volume;
-      pv += r.put.volume;
+    contracts.filter((c) => c.expiry === selectedExpiry).forEach((c) => {
+      const sigma = c.iv > 0 ? c.iv : iv;
+      const v = c.vega ?? vega(spot, c.strike, T, r, sigma);
+      const th = c.theta ?? (c.type === "call" ? thetaCall(spot, c.strike, T, r, sigma) : thetaPut(spot, c.strike, T, r, sigma));
+      const notional = c.oi * 100; // 100 shares per contract
+      tv += v * notional;
+      tt += th * notional;
+      if (c.type === "call") cv += c.oi; else pv += c.oi;
     });
-    const ivR = Math.min(99, Math.max(1, (iv / 0.6) * 100));
+    // IV rank: scale ATM IV against typical 10–60% range
+    const ivR = Math.min(99, Math.max(1, ((iv - 0.10) / 0.50) * 100));
     return { totalVega: tv, totalTheta: tt, putVol: pv, callVol: cv, ivRank: ivR };
-  }, [chainRows, iv]);
+  }, [contracts, selectedExpiry, spot, T, iv]);
+
 
   // ─── Theta decay timeline
   const decaySeries = useMemo(() => {
