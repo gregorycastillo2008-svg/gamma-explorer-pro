@@ -33,6 +33,7 @@ export function GexbotStyleChart({
   symbol, spot, points,
   zeroGammaSeries, majorCallSeries, majorPutSeries,
   zeroGamma, majorCall, majorPut,
+  callWall, putWall, maxPain,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
