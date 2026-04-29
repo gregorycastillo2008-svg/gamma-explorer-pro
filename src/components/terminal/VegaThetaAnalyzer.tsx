@@ -48,6 +48,24 @@ function gamma(S: number, K: number, T: number, r: number, sigma: number) {
   const { d1 } = d1d2(S, K, T, r, sigma);
   return normalPDF(d1) / (S * sigma * Math.sqrt(T));
 }
+// Vanna = ∂Δ/∂σ — per 1% vol move (industry convention)
+function vanna(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  return (-normalPDF(d1) * d2 / sigma) / 100;
+}
+// Charm = -∂Δ/∂t — per calendar day
+function charmCall(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  const sqrtT = Math.sqrt(T);
+  const common = normalPDF(d1) * (2 * r * T - d2 * sigma * sqrtT) / (2 * T * sigma * sqrtT);
+  return (-common) / 365;
+}
+function charmPut(S: number, K: number, T: number, r: number, sigma: number) {
+  const { d1, d2 } = d1d2(S, K, T, r, sigma);
+  const sqrtT = Math.sqrt(T);
+  const common = normalPDF(d1) * (2 * r * T - d2 * sigma * sqrtT) / (2 * T * sigma * sqrtT);
+  return (-common + r * Math.exp(-r * T)) / 365;
+}
 
 const COL = {
   bg: "#0a0e17",
