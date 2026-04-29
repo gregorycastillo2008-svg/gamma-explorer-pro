@@ -200,3 +200,54 @@ All colors MUST be HSL.
 .recharts-surface {
   background-color: black !important;
 }
+
+/* ── Nav link with animated blue gradient on the sides ── */
+.nav-glow {
+  position: relative;
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.5rem;
+  isolation: isolate;
+  overflow: hidden;
+}
+.nav-glow::before,
+.nav-glow::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  z-index: -1;
+}
+.nav-glow::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(59,130,246,0.85), transparent);
+  filter: blur(8px);
+  animation: nav-glow-left 2.4s ease-in-out infinite;
+}
+.nav-glow::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(96,165,250,0.85), transparent);
+  filter: blur(8px);
+  animation: nav-glow-right 2.4s ease-in-out infinite;
+}
+.nav-glow:hover::before,
+.nav-glow:hover::after {
+  opacity: 1;
+}
+.nav-glow:hover {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(96,165,250,0.6);
+}
+
+@keyframes nav-glow-left {
+  0%, 100% { transform: translateX(-6px) scaleY(0.85); }
+  50%      { transform: translateX(2px)  scaleY(1.1); }
+}
+@keyframes nav-glow-right {
+  0%, 100% { transform: translateX(6px)  scaleY(0.85); }
+  50%      { transform: translateX(-2px) scaleY(1.1); }
+}
+

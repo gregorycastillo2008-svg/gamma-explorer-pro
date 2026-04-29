@@ -70,10 +70,10 @@ export default function Landing() {
           </span>
           <span className="font-bold text-white text-xl tracking-tight">GEX SATELIT</span>
         </Link>
-        <nav className="hidden md:flex items-center gap-8 text-sm text-white/70">
-          <a href="#features" className="hover:text-white transition-colors font-mono text-base">Features</a>
-          <a href="#capabilities" className="hover:text-white transition-colors text-base font-mono">Capabilities</a>
-          <a href="#planes" className="hover:text-white transition-colors text-base font-mono">Pricing</a>
+        <nav className="hidden md:flex items-center gap-4 text-sm text-white/70">
+          <a href="#features" className="nav-glow hover:text-white transition-colors font-mono text-base">Features</a>
+          <a href="#capabilities" className="nav-glow hover:text-white transition-colors text-base font-mono">Capabilities</a>
+          <a href="#planes" className="nav-glow hover:text-white transition-colors text-base font-mono">Pricing</a>
         </nav>
         <div className="flex items-center gap-3">
           <a href="#planes">
