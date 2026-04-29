@@ -58,6 +58,11 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
   const [chain, setChain] = useState<ChainPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Historical series for the lower gexbot-style chart
+  const [zgHist, setZgHist] = useState<{ time: number; value: number }[]>([]);
+  const [callHist, setCallHist] = useState<{ time: number; value: number }[]>([]);
+  const [putHist, setPutHist] = useState<{ time: number; value: number }[]>([]);
+
   const chartRef = useRef<HTMLDivElement>(null);
   const chartApi = useRef<IChartApi | null>(null);
   const lineSeries = useRef<ISeriesApi<"Line"> | null>(null);
@@ -188,6 +193,24 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
       aggregates: { netGEX: callGEX - putGEX, callGEX, putGEX, totalCallOI: callOI, totalPutOI: putOI },
     };
   }, [strikeRows, chain]);
+
+  // Push current key levels into rolling history each time chain refreshes
+  useEffect(() => {
+    if (!chain) return;
+    const t = Math.floor(Date.now() / 1000);
+    const MAX = 600; // ~5 hours at 30s intervals
+    const push = (arr: { time: number; value: number }[], v: number | undefined) => {
+      if (v == null || !Number.isFinite(v)) return arr;
+      const last = arr[arr.length - 1];
+      if (last && last.time >= t) return arr;
+      const next = [...arr, { time: t, value: v }];
+      return next.length > MAX ? next.slice(next.length - MAX) : next;
+    };
+    setZgHist((a) => push(a, metrics.keyLevels.zeroGamma));
+    setCallHist((a) => push(a, metrics.keyLevels.callWall));
+    setPutHist((a) => push(a, metrics.keyLevels.putWall));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metrics.keyLevels.zeroGamma, metrics.keyLevels.callWall, metrics.keyLevels.putWall]);
 
   // Switch series when chartMode changes (or on mount once chart exists)
   useEffect(() => {
@@ -420,12 +443,15 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
           />
         </div>
 
-        {/* Gexbot-style sub-chart with live Zero Gamma */}
-        <div className="h-[260px] shrink-0">
+        {/* Gexbot-style sub-chart with live Zero Gamma evolving over time */}
+        <div className="h-[460px] shrink-0">
           <GexbotStyleChart
             symbol={symbol}
             spot={price?.spot ?? chain?.spot ?? 0}
             points={price?.points ?? []}
+            zeroGammaSeries={zgHist}
+            majorCallSeries={callHist}
+            majorPutSeries={putHist}
             zeroGamma={metrics.keyLevels.zeroGamma}
             majorCall={metrics.keyLevels.callWall}
             majorPut={metrics.keyLevels.putWall}

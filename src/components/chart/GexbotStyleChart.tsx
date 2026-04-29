@@ -5,31 +5,39 @@ import {
   ISeriesApi,
   LineData,
   UTCTimestamp,
-  IPriceLine,
 } from "lightweight-charts";
 
 interface PricePoint { time: number; value: number }
+export interface LevelPoint { time: number; value: number }
 
 interface Props {
   symbol: string;
   spot: number;
   points: PricePoint[];
-  zeroGamma?: number;   // delta-flip (cumulative net GEX = 0)
-  majorCall?: number;   // call wall
-  majorPut?: number;    // put wall
+  zeroGammaSeries: LevelPoint[];
+  majorCallSeries: LevelPoint[];
+  majorPutSeries: LevelPoint[];
+  // current values (for header readout)
+  zeroGamma?: number;
+  majorCall?: number;
+  majorPut?: number;
 }
 
 /**
- * Gexbot-style chart: white spot line + horizontal levels.
- * - Yellow = Zero Gamma (delta flip), recomputed live from real options chain
- * - Green  = Major Call wall
- * - Red    = Major Put wall
+ * Gexbot-style chart: white spot line + dynamic series for Zero Gamma / Walls.
+ * Each level evolves over time (recomputed each chain refresh).
  */
-export function GexbotStyleChart({ symbol, spot, points, zeroGamma, majorCall, majorPut }: Props) {
+export function GexbotStyleChart({
+  symbol, spot, points,
+  zeroGammaSeries, majorCallSeries, majorPutSeries,
+  zeroGamma, majorCall, majorPut,
+}: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const lineRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const linesRef = useRef<IPriceLine[]>([]);
+  const priceRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const zgRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const callRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const putRef = useRef<ISeriesApi<"Line"> | null>(null);
 
   // Init chart once
   useEffect(() => {
@@ -48,13 +56,21 @@ export function GexbotStyleChart({ symbol, spot, points, zeroGamma, majorCall, m
     });
     chartRef.current = chart;
 
-    const series = chart.addLineSeries({
-      color: "#ffffff",
-      lineWidth: 1,
-      lastValueVisible: true,
-      priceLineVisible: false,
+    priceRef.current = chart.addLineSeries({
+      color: "#ffffff", lineWidth: 1, lastValueVisible: true, priceLineVisible: false,
     });
-    lineRef.current = series;
+    zgRef.current = chart.addLineSeries({
+      color: "#eab308", lineWidth: 2, lastValueVisible: true, priceLineVisible: false,
+      title: "Zero γ",
+    });
+    callRef.current = chart.addLineSeries({
+      color: "#22c55e", lineWidth: 2, lastValueVisible: true, priceLineVisible: false,
+      title: "Major Call",
+    });
+    putRef.current = chart.addLineSeries({
+      color: "#ef4444", lineWidth: 2, lastValueVisible: true, priceLineVisible: false,
+      title: "Major Put",
+    });
 
     const ro = new ResizeObserver(() => {
       if (hostRef.current && chartRef.current) {
@@ -69,46 +85,43 @@ export function GexbotStyleChart({ symbol, spot, points, zeroGamma, majorCall, m
       ro.disconnect();
       chart.remove();
       chartRef.current = null;
-      lineRef.current = null;
-      linesRef.current = [];
+      priceRef.current = null;
+      zgRef.current = null;
+      callRef.current = null;
+      putRef.current = null;
     };
   }, []);
 
-  // Update price data
+  // Update price line
   useEffect(() => {
-    if (!lineRef.current || !points?.length) return;
+    if (!priceRef.current || !points?.length) return;
     const data: LineData<UTCTimestamp>[] = points.map((p) => ({
-      time: p.time as UTCTimestamp,
-      value: p.value,
+      time: p.time as UTCTimestamp, value: p.value,
     }));
-    lineRef.current.setData(data);
+    priceRef.current.setData(data);
     chartRef.current?.timeScale().fitContent();
   }, [points]);
 
-  // Redraw key-level price lines whenever they change
+  // Helper to feed level series, dedup'd & sorted
+  const toLine = (arr: LevelPoint[]): LineData<UTCTimestamp>[] => {
+    const map = new Map<number, number>();
+    for (const p of arr) map.set(p.time, p.value);
+    return Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([t, v]) => ({ time: t as UTCTimestamp, value: v }));
+  };
+
   useEffect(() => {
-    const series = lineRef.current;
-    if (!series) return;
-    linesRef.current.forEach((pl) => { try { series.removePriceLine(pl); } catch {} });
-    linesRef.current = [];
+    if (zgRef.current) zgRef.current.setData(toLine(zeroGammaSeries));
+  }, [zeroGammaSeries]);
 
-    const add = (price: number | undefined, color: string, title: string) => {
-      if (price == null || !Number.isFinite(price)) return;
-      const pl = series.createPriceLine({
-        price,
-        color,
-        lineStyle: 0,           // solid
-        lineWidth: 2,
-        axisLabelVisible: true,
-        title,
-      });
-      linesRef.current.push(pl);
-    };
+  useEffect(() => {
+    if (callRef.current) callRef.current.setData(toLine(majorCallSeries));
+  }, [majorCallSeries]);
 
-    add(majorCall, "#22c55e", `Major Call ${majorCall?.toFixed(2) ?? ""}`);
-    add(zeroGamma, "#eab308", `Zero Gamma ${zeroGamma?.toFixed(2) ?? ""}`);
-    add(majorPut, "#ef4444", `Major Put ${majorPut?.toFixed(2) ?? ""}`);
-  }, [zeroGamma, majorCall, majorPut]);
+  useEffect(() => {
+    if (putRef.current) putRef.current.setData(toLine(majorPutSeries));
+  }, [majorPutSeries]);
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0a0a0a] border-t border-[#1f1f1f]">
