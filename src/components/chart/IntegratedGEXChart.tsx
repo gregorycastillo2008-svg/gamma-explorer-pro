@@ -58,6 +58,11 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
   const [chain, setChain] = useState<ChainPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Historical series for the lower gexbot-style chart
+  const [zgHist, setZgHist] = useState<{ time: number; value: number }[]>([]);
+  const [callHist, setCallHist] = useState<{ time: number; value: number }[]>([]);
+  const [putHist, setPutHist] = useState<{ time: number; value: number }[]>([]);
+
   const chartRef = useRef<HTMLDivElement>(null);
   const chartApi = useRef<IChartApi | null>(null);
   const lineSeries = useRef<ISeriesApi<"Line"> | null>(null);
