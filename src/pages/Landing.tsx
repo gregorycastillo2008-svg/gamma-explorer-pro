@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Sparkles, Copy, Info, X, Lock, Activity, ArrowRight, CheckCircle2, Globe2 } from "lucide-react";
+import { BarChart3, Shield, Zap, TrendingUp, LineChart, Layers, BadgeCheck, Target, Eye, Sparkles, Copy, Info, X, Lock, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Scroll3DGallery } from "@/components/Scroll3DGallery";
+import { RadarMap } from "@/components/RadarMap";
 import { TestimonialsMarquee } from "@/components/TestimonialsMarquee";
 import { PlansSection } from "@/components/PlansSection";
 import { tryAdminLogin } from "@/lib/adminBypass";
@@ -51,26 +52,11 @@ export default function Landing() {
   };
 
   return (
-    <div className="gold-theme relative min-h-screen overflow-hidden my-0 opacity-100" style={{ background: "#04060d" }}>
-      {/* Modern premium background — subtle grid + aurora glows */}
+    <div className="gold-theme relative min-h-screen overflow-hidden my-0 opacity-100" style={{ background: "#000000" }}>
+      {/* Pure black background with subtle blue vignette */}
       <div className="fixed inset-0 pointer-events-none">
-        {/* Grid */}
-        <div
-          className="absolute inset-0 opacity-[0.18]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(99,140,255,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(99,140,255,0.18) 1px, transparent 1px)",
-            backgroundSize: "56px 56px",
-            maskImage: "radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 80%)",
-            WebkitMaskImage: "radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 80%)",
-          }}
-        />
-        {/* Aurora blobs */}
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full" style={{ background: "radial-gradient(circle, rgba(37,99,235,0.35), transparent 60%)", filter: "blur(40px)" }} />
-        <div className="absolute top-20 right-[-180px] h-[560px] w-[560px] rounded-full" style={{ background: "radial-gradient(circle, rgba(45,212,191,0.22), transparent 60%)", filter: "blur(50px)" }} />
-        <div className="absolute bottom-[-200px] left-1/3 h-[600px] w-[600px] rounded-full" style={{ background: "radial-gradient(circle, rgba(139,92,246,0.20), transparent 60%)", filter: "blur(60px)" }} />
-        {/* Top vignette */}
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at top, rgba(59,130,246,0.10), transparent 60%)" }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at top, rgba(59,130,246,0.08), transparent 65%)" }} />
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[500px] w-[800px] rounded-full" style={{ background: "radial-gradient(circle, rgba(37,99,235,0.10), transparent 70%)", filter: "blur(60px)" }} />
       </div>
 
       {/* Floating "Ver Planes" CTA bubble — eliminado */}
@@ -317,201 +303,62 @@ export default function Landing() {
         )}
       </AnimatePresence>
 
-      <section className="relative z-10 container pt-10 pb-16">
-        {/* Trust badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex justify-center mb-6"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/15 bg-white/[0.04] backdrop-blur-md text-xs font-mono">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-            </span>
-            <span className="text-white/80">Live · datos institucionales en tiempo real</span>
-            <span className="text-white/40">·</span>
-            <span className="text-emerald-300">99.9% uptime</span>
-          </div>
-        </motion.div>
+      <section className="relative z-10 container pt-8 pb-20">
+        <div className="grid lg:grid-cols-2 gap-10 items-center min-h-[70vh]">
+          {/* Left: radar */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8 }}
+            className="flex justify-center lg:justify-start"
+          >
+            <RadarMap size={460} />
+          </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-10 items-center">
-          {/* Left: copy */}
+          {/* Right: minimal copy */}
           <div className="text-left">
-            <h1 className="text-5xl md:text-6xl xl:text-7xl font-black tracking-tight mb-6 leading-[1.02]">
-              <span className="text-white">El terminal de </span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[11px] font-mono mb-6">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+              </span>
+              <span className="text-white/70">Live · tiempo real</span>
+            </div>
+
+            <h1 className="text-5xl md:text-6xl xl:text-7xl font-black tracking-tight mb-6 leading-[1.02] text-white">
+              Trading de{" "}
               <AnimatePresence mode="wait">
                 <motion.span
                   key={wordIdx}
-                  initial={{ opacity: 0, y: 20, rotateX: -90 }}
-                  animate={{ opacity: 1, y: 0, rotateX: 0 }}
-                  exit={{ opacity: 0, y: -20, rotateX: 90 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.5 }}
                   className="inline-block bg-clip-text text-transparent"
-                  style={{ backgroundImage: "linear-gradient(90deg, #60a5fa, #2dd4bf, #a78bfa)" }}
+                  style={{ backgroundImage: "linear-gradient(90deg, #60a5fa, #2dd4bf)" }}
                 >
                   {heroWords[wordIdx]}
                 </motion.span>
               </AnimatePresence>
-              <br />
-              <span className="text-white">para traders </span>
-              <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #fbbf24, #f59e0b)" }}>
-                de opciones
-              </span>
             </h1>
 
-            <p className="text-lg text-white/65 max-w-xl mb-8 leading-relaxed">
-              GEX, DEX, Vanna y Charm por strike. Detecta <span className="text-white font-semibold">call walls</span>, <span className="text-white font-semibold">put walls</span> y <span className="text-emerald-300 font-semibold">gamma flips</span> con la misma data que usan los hedge funds — sin pagar $2.000/mes.
+            <p className="text-base text-white/60 max-w-md mb-8">
+              GEX, walls y gamma flips en tiempo real.
             </p>
-
-            {/* Feature checklist */}
-            <ul className="space-y-2 mb-8">
-              {[
-                "Latencia < 200 ms · CBOE / Polygon",
-                "16 vistas profesionales · IV Surface 3D",
-                "AI Bias diario + alertas push",
-              ].map((t) => (
-                <li key={t} className="flex items-center gap-2 text-sm text-white/75">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  {t}
-                </li>
-              ))}
-            </ul>
 
             <div className="flex items-center gap-3 flex-wrap">
               <Link to={user ? "/dashboard" : "/auth"}>
                 <Button size="lg" className="text-base h-12 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-[0_10px_30px_-10px_rgba(59,130,246,0.7)]">
-                  Empezar ahora <ArrowRight className="ml-1 h-4 w-4" />
+                  Empezar <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
               </Link>
               <a href="#planes">
-                <Button size="lg" variant="outline" className="h-12 px-6 rounded-xl border-white/20 bg-white/[0.03] text-white hover:bg-white/10 hover:text-white">
-                  Ver planes
+                <Button size="lg" variant="outline" className="h-12 px-6 rounded-xl border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white">
+                  Planes
                 </Button>
               </a>
             </div>
-
-            {/* Mini stats */}
-            <div className="mt-8 flex items-center gap-6 text-xs text-white/55">
-              <div className="flex items-center gap-1.5"><Globe2 className="h-3.5 w-3.5" /> 14 países activos</div>
-              <div className="flex items-center gap-1.5"><BadgeCheck className="h-3.5 w-3.5 text-blue-400" /> +1.200 traders</div>
-              <div className="flex items-center gap-1.5"><Activity className="h-3.5 w-3.5 text-emerald-400" /> 24/7 monitoring</div>
-            </div>
           </div>
-
-          {/* Right: terminal mockup */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.7 }}
-            className="relative"
-          >
-            <div
-              className="relative rounded-2xl overflow-hidden border border-white/10 backdrop-blur-xl"
-              style={{
-                background: "linear-gradient(180deg, rgba(12,18,35,0.85), rgba(6,10,22,0.95))",
-                boxShadow: "0 40px 120px -30px rgba(37,99,235,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset",
-              }}
-            >
-              {/* fake window bar */}
-              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/10 bg-black/40">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500/80" />
-                <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/80" />
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
-                <span className="ml-3 text-[10px] font-mono text-white/40 tracking-widest">GEXSATELIT · TERMINAL</span>
-                <span className="ml-auto text-[10px] font-mono text-emerald-400">● LIVE</span>
-              </div>
-
-              {/* mock content */}
-              <div className="p-5 space-y-4">
-                {/* ticker row */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-[10px] text-white/40 font-mono tracking-widest">QQQ · NASDAQ</div>
-                    <div className="text-3xl font-black text-white font-mono">$486.21</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-emerald-400 font-mono font-bold">+1.84%</div>
-                    <div className="text-[10px] text-white/40 font-mono">+$8.79</div>
-                  </div>
-                </div>
-
-                {/* mini bars chart */}
-                <div className="h-32 flex items-end gap-1.5">
-                  {[35, 55, 42, 78, 92, 65, 88, 110, 95, 70, 50, 38, 28, 45, 62, 80, 95, 72, 55, 40].map((h, i) => {
-                    const isCall = i < 10;
-                    return (
-                      <motion.div
-                        key={i}
-                        initial={{ height: 0 }}
-                        animate={{ height: `${h}%` }}
-                        transition={{ delay: 0.4 + i * 0.03, duration: 0.6, ease: "easeOut" }}
-                        className="flex-1 rounded-t-sm"
-                        style={{
-                          background: isCall
-                            ? "linear-gradient(180deg, #10b981, #059669)"
-                            : "linear-gradient(180deg, #ef4444, #b91c1c)",
-                          boxShadow: isCall ? "0 0 10px rgba(16,185,129,0.4)" : "0 0 10px rgba(239,68,68,0.4)",
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-
-                {/* metric pills */}
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { k: "Call Wall", v: "490", c: "#10b981" },
-                    { k: "Put Wall", v: "475", c: "#ef4444" },
-                    { k: "γ Flip", v: "482", c: "#60a5fa" },
-                  ].map((m) => (
-                    <div key={m.k} className="rounded-lg border border-white/10 bg-black/40 px-3 py-2">
-                      <div className="text-[9px] text-white/40 uppercase tracking-widest font-mono">{m.k}</div>
-                      <div className="font-bold font-mono text-sm" style={{ color: m.c }}>{m.v}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* floating badges */}
-            <motion.div
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -top-4 -right-4 px-3 py-1.5 rounded-full bg-emerald-500/90 text-black text-xs font-bold shadow-lg"
-            >
-              ⚡ 156ms
-            </motion.div>
-            <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-              className="absolute -bottom-4 -left-4 px-3 py-1.5 rounded-full bg-blue-500/90 text-white text-xs font-bold shadow-lg"
-            >
-              🎯 AI Bias: BULLISH
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* Stats strip */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto">
-          {[
-            { k: "Tickers", v: "SPX · SPY · QQQ" },
-            { k: "Métricas", v: "GEX · DEX · VEX" },
-            { k: "Latencia", v: "< 200 ms" },
-            { k: "Uptime", v: "99.9%" },
-          ].map((s, i) => (
-            <motion.div
-              key={s.k}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 + i * 0.08 }}
-            >
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-md p-4 hover:border-white/25 hover:bg-white/[0.06] transition-all">
-                <div className="text-[10px] text-white/45 uppercase tracking-widest font-mono">{s.k}</div>
-                <div className="text-sm font-semibold mt-1 text-white">{s.v}</div>
-              </div>
-            </motion.div>
-          ))}
         </div>
       </section>
 
