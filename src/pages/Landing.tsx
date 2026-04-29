@@ -51,13 +51,27 @@ export default function Landing() {
   };
 
   return (
-    <div className="gold-theme relative min-h-screen overflow-hidden my-0 opacity-100" style={{ background: "#000" }}>
-      {/* Animated gamma chart background — taller bars, vivid */}
-      <div className="fixed inset-0 opacity-50 pointer-events-none">
-        <GammaBackgroundDark />
+    <div className="gold-theme relative min-h-screen overflow-hidden my-0 opacity-100" style={{ background: "#04060d" }}>
+      {/* Modern premium background — subtle grid + aurora glows */}
+      <div className="fixed inset-0 pointer-events-none">
+        {/* Grid */}
+        <div
+          className="absolute inset-0 opacity-[0.18]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(99,140,255,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(99,140,255,0.18) 1px, transparent 1px)",
+            backgroundSize: "56px 56px",
+            maskImage: "radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 80%)",
+            WebkitMaskImage: "radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 80%)",
+          }}
+        />
+        {/* Aurora blobs */}
+        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full" style={{ background: "radial-gradient(circle, rgba(37,99,235,0.35), transparent 60%)", filter: "blur(40px)" }} />
+        <div className="absolute top-20 right-[-180px] h-[560px] w-[560px] rounded-full" style={{ background: "radial-gradient(circle, rgba(45,212,191,0.22), transparent 60%)", filter: "blur(50px)" }} />
+        <div className="absolute bottom-[-200px] left-1/3 h-[600px] w-[600px] rounded-full" style={{ background: "radial-gradient(circle, rgba(139,92,246,0.20), transparent 60%)", filter: "blur(60px)" }} />
+        {/* Top vignette */}
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at top, rgba(59,130,246,0.10), transparent 60%)" }} />
       </div>
-      {/* Soft blue vignette */}
-      <div className="fixed inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at top, rgba(59,130,246,0.08), transparent 60%)" }} />
 
       {/* Floating "Ver Planes" CTA bubble — eliminado */}
       <header className="relative z-10 flex items-center justify-between py-5 px-8 bg-black/40 backdrop-blur-sm">
