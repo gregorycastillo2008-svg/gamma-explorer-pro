@@ -53,10 +53,10 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
     >
       <div className="h-14 flex items-center px-3 border-b border-sidebar-border">
         <div className="h-8 w-8 flex items-center justify-center shrink-0 text-base" title="GEXSATELIT">
-          🛰️
+          ​
         </div>
         {!collapsed && (
-          <span className="ml-2 font-black tracking-wider text-sm text-white">
+          <span className="ml-2 font-black tracking-wider text-sm text-white font-mono my-0 border-none rounded shadow opacity-50">
             GEXSATELIT
           </span>
         )}
