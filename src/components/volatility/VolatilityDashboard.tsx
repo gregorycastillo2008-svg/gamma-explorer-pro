@@ -21,6 +21,7 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
     () => buildVolatilityDataset(ticker.symbol, ticker.spot, ticker.baseIV, 7, contracts),
     [ticker.symbol, ticker.spot, ticker.baseIV, contracts],
   );
+  const exposures = useMemo(() => computeExposures(ticker.spot, contracts), [ticker.spot, contracts]);
 
   return (
     <div className="space-y-3" style={{ background: "#000000" }}>
@@ -38,6 +39,8 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
       </Panel>
 
       <RealVolatilityDashboard defaultTicker={ticker.symbol} />
+
+      <GexDivergingBars ticker={ticker} exposures={exposures} />
     </div>
   );
 }
