@@ -57,6 +57,7 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, min, max, spot }: 
 
   const [showDataPts, setShowDataPts] = useState(true);
   const [showRefPlane, setShowRefPlane] = useState(true);
+  const [hover, setHover] = useState<HoverInfo | null>(null);
 
   // Aseguramos strikes ascendentes para construir la grilla
   const sortedStrikes = useMemo(() => strikes.slice().sort((a, b) => a - b), [strikes]);
