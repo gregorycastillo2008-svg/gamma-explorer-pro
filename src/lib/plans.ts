@@ -56,7 +56,7 @@ export const PLANS = {
 } as const;
 
 // Sections allowed per tier (cumulative)
-const STARTER_SECTIONS: Section[] = ["overview", "chart", "oi-analytics", "gex-dex", "greeks", "levels"];
+const STARTER_SECTIONS: Section[] = ["overview", "chart", "oi-analytics", "gex-dex", "greeks", "levels", "economy"];
 const PRO_SECTIONS: Section[] = [...STARTER_SECTIONS, "volatility", "heatmap", "hedge", "vega-theta", "depth", "ai-bias"];
 const ELITE_SECTIONS: Section[] = [...PRO_SECTIONS, "vanna-charm", "anomaly", "regime", "risk"];
 
