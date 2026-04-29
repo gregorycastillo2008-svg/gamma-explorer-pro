@@ -414,7 +414,69 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
                   </tr>
                 );
               })}
+              {(() => {
+                const tot = chainRows.reduce((acc, r) => {
+                  acc.cBid += r.call.bid * r.call.oi;
+                  acc.cAsk += r.call.ask * r.call.oi;
+                  acc.cIv += r.call.iv * r.call.oi;
+                  acc.cOi += r.call.oi;
+                  acc.cDelta += r.call.delta * r.call.oi;
+                  acc.cVega += r.call.vega * r.call.oi;
+                  acc.cTheta += r.call.theta * r.call.oi;
+                  acc.pBid += r.put.bid * r.put.oi;
+                  acc.pAsk += r.put.ask * r.put.oi;
+                  acc.pIv += r.put.iv * r.put.oi;
+                  acc.pOi += r.put.oi;
+                  acc.pDelta += r.put.delta * r.put.oi;
+                  acc.pVega += r.put.vega * r.put.oi;
+                  acc.pTheta += r.put.theta * r.put.oi;
+                  return acc;
+                }, { cBid: 0, cAsk: 0, cIv: 0, cOi: 0, cDelta: 0, cVega: 0, cTheta: 0, pBid: 0, pAsk: 0, pIv: 0, pOi: 0, pDelta: 0, pVega: 0, pTheta: 0 });
+                const cW = Math.max(1, tot.cOi);
+                const pW = Math.max(1, tot.pOi);
+                return (
+                  <tr style={{ background: "#ffffff10", borderTop: `2px solid ${COL.yellow}`, fontWeight: 700 }}>
+                    <td className="px-1.5 py-1.5 text-right">{(tot.cBid / cW).toFixed(2)}</td>
+                    <td className="text-right">{(tot.cAsk / cW).toFixed(2)}</td>
+                    <td className="text-right" style={{ color: COL.txt2 }}>{((tot.cIv / cW) * 100).toFixed(1)}%</td>
+                    <td className="text-right" style={{ color: COL.green }}>{(tot.cDelta / cW).toFixed(3)}</td>
+                    <td className="text-right" style={{ color: COL.green }}>{(tot.cVega / cW).toFixed(3)}</td>
+                    <td className="text-right" style={{ color: COL.red }}>{(tot.cTheta / cW).toFixed(3)}</td>
+                    <td className="px-2 text-center" style={{ color: COL.yellow }}>TOTAL</td>
+                    <td className="text-right" style={{ color: COL.red }}>{(tot.pTheta / pW).toFixed(3)}</td>
+                    <td className="text-right" style={{ color: COL.green }}>{(tot.pVega / pW).toFixed(3)}</td>
+                    <td className="text-right" style={{ color: COL.red }}>{(tot.pDelta / pW).toFixed(3)}</td>
+                    <td className="text-right" style={{ color: COL.txt2 }}>{((tot.pIv / pW) * 100).toFixed(1)}%</td>
+                    <td className="text-right">{(tot.pBid / pW).toFixed(2)}</td>
+                    <td className="px-1.5 text-right">{(tot.pAsk / pW).toFixed(2)}</td>
+                  </tr>
+                );
+              })()}
             </tbody>
+            <tfoot>
+              {(() => {
+                const sum = chainRows.reduce((acc, r) => {
+                  acc.cVol += r.call.volume; acc.cOi += r.call.oi;
+                  acc.pVol += r.put.volume; acc.pOi += r.put.oi;
+                  acc.cVegaT += r.call.vega * r.call.oi * 100;
+                  acc.cThetaT += r.call.theta * r.call.oi * 100;
+                  acc.pVegaT += r.put.vega * r.put.oi * 100;
+                  acc.pThetaT += r.put.theta * r.put.oi * 100;
+                  return acc;
+                }, { cVol: 0, cOi: 0, pVol: 0, pOi: 0, cVegaT: 0, cThetaT: 0, pVegaT: 0, pThetaT: 0 });
+                return (
+                  <tr style={{ background: COL.bg2, color: COL.txt2 }} className="text-[9px]">
+                    <td colSpan={6} className="px-2 py-1.5 text-center" style={{ color: COL.green }}>
+                      OI {formatNumber(sum.cOi)} · VOL {formatNumber(sum.cVol)} · ΣΝ {formatNumber(sum.cVegaT)} · ΣΘ {formatNumber(sum.cThetaT)}
+                    </td>
+                    <td className="text-center" style={{ color: COL.yellow }}>SUM</td>
+                    <td colSpan={6} className="px-2 py-1.5 text-center" style={{ color: COL.red }}>
+                      ΣΘ {formatNumber(sum.pThetaT)} · ΣΝ {formatNumber(sum.pVegaT)} · OI {formatNumber(sum.pOi)} · VOL {formatNumber(sum.pVol)}
+                    </td>
+                  </tr>
+                );
+              })()}
+            </tfoot>
           </table>
         </div>
       </Panel>
