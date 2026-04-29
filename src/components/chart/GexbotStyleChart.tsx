@@ -14,19 +14,18 @@ interface Props {
   symbol: string;
   spot: number;
   points: PricePoint[];
-  zeroGammaSeries: LevelPoint[];
+  zeroGammaSeries: LevelPoint[];      // historical levels (will be smoothed)
   majorCallSeries: LevelPoint[];
   majorPutSeries: LevelPoint[];
-  // current values (for header readout)
   zeroGamma?: number;
   majorCall?: number;
   majorPut?: number;
 }
 
-/**
- * Gexbot-style chart: white spot line + dynamic series for Zero Gamma / Walls.
- * Each level evolves over time (recomputed each chain refresh).
- */
+const HEADER_BG = "#0f1419";
+const CHART_BG = "#1a1f2e";
+const AXIS = "#8894a8";
+
 export function GexbotStyleChart({
   symbol, spot, points,
   zeroGammaSeries, majorCallSeries, majorPutSeries,
@@ -45,30 +44,42 @@ export function GexbotStyleChart({
     const chart = createChart(hostRef.current, {
       width: hostRef.current.clientWidth,
       height: hostRef.current.clientHeight,
-      layout: { background: { color: "#0a0a0a" }, textColor: "#9ca3af", fontFamily: "monospace" },
+      layout: { background: { color: CHART_BG }, textColor: AXIS, fontFamily: "JetBrains Mono, ui-monospace, monospace" },
       grid: {
-        vertLines: { color: "rgba(75,75,75,0.15)", style: 2 },
-        horzLines: { color: "rgba(75,75,75,0.15)", style: 2 },
+        vertLines: { color: "rgba(75,75,90,0.18)", style: 2 },
+        horzLines: { color: "rgba(75,75,90,0.18)", style: 2 },
       },
       crosshair: { mode: 1 },
-      timeScale: { borderColor: "#1f1f1f", timeVisible: true, secondsVisible: false },
-      rightPriceScale: { borderColor: "#1f1f1f" },
+      timeScale: { borderColor: "#1f2937", timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: "#1f2937" },
     });
     chartRef.current = chart;
 
     priceRef.current = chart.addLineSeries({
-      color: "#ffffff", lineWidth: 1, lastValueVisible: true, priceLineVisible: false,
+      color: "#ffffff",
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
     });
     zgRef.current = chart.addLineSeries({
-      color: "#eab308", lineWidth: 2, lastValueVisible: true, priceLineVisible: false,
+      color: "#ffaa00",
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
       title: "Zero γ",
     });
     callRef.current = chart.addLineSeries({
-      color: "#22c55e", lineWidth: 2, lastValueVisible: true, priceLineVisible: false,
+      color: "#00ff88",
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
       title: "Major Call",
     });
     putRef.current = chart.addLineSeries({
-      color: "#ef4444", lineWidth: 2, lastValueVisible: true, priceLineVisible: false,
+      color: "#ff4466",
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
       title: "Major Put",
     });
 
@@ -102,7 +113,7 @@ export function GexbotStyleChart({
     chartRef.current?.timeScale().fitContent();
   }, [points]);
 
-  // Helper to feed level series, dedup'd & sorted
+  // Helper to dedup & sort
   const toLine = (arr: LevelPoint[]): LineData<UTCTimestamp>[] => {
     const map = new Map<number, number>();
     for (const p of arr) map.set(p.time, p.value);
@@ -111,9 +122,44 @@ export function GexbotStyleChart({
       .map(([t, v]) => ({ time: t as UTCTimestamp, value: v }));
   };
 
+  /**
+   * Zero-gamma series rendered on the price timeline:
+   *  - Sample the level (latest known value) at every price tick,
+   *  - Apply an EMA so it lags & smooths vs. price (acts like dynamic resistance),
+   *  - Bias slightly toward price so it tracks but stays distinct.
+   */
+  const zgRendered = useMemo<LineData<UTCTimestamp>[]>(() => {
+    if (!points.length) return [];
+    if (!zeroGammaSeries.length && zeroGamma == null) return [];
+    const sortedLevels = [...zeroGammaSeries].sort((a, b) => a.time - b.time);
+    const getLevelAt = (t: number) => {
+      // last level whose time <= t
+      let lo = 0, hi = sortedLevels.length - 1, idx = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (sortedLevels[mid].time <= t) { idx = mid; lo = mid + 1; }
+        else hi = mid - 1;
+      }
+      if (idx === -1) return sortedLevels[0]?.value ?? zeroGamma ?? null;
+      return sortedLevels[idx].value;
+    };
+
+    const alpha = 0.06; // EMA smoothing — lower = laggier line
+    const bias = 0.25;  // pull toward price (0..1) for dynamic-resistance feel
+    let ema: number | null = null;
+    const out: LineData<UTCTimestamp>[] = [];
+    for (const p of points) {
+      const lvl = getLevelAt(p.time);
+      const target = lvl == null ? p.value : lvl * (1 - bias) + p.value * bias;
+      ema = ema == null ? target : ema + alpha * (target - ema);
+      out.push({ time: p.time as UTCTimestamp, value: ema });
+    }
+    return out;
+  }, [points, zeroGammaSeries, zeroGamma]);
+
   useEffect(() => {
-    if (zgRef.current) zgRef.current.setData(toLine(zeroGammaSeries));
-  }, [zeroGammaSeries]);
+    if (zgRef.current) zgRef.current.setData(zgRendered);
+  }, [zgRendered]);
 
   useEffect(() => {
     if (callRef.current) callRef.current.setData(toLine(majorCallSeries));
@@ -123,25 +169,61 @@ export function GexbotStyleChart({
     if (putRef.current) putRef.current.setData(toLine(majorPutSeries));
   }, [majorPutSeries]);
 
+  // Header datetime
+  const dt = new Date();
+  const dtStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}:${String(dt.getSeconds()).padStart(2, "0")}`;
+
   return (
-    <div className="w-full h-full flex flex-col bg-[#0a0a0a] border-t border-[#1f1f1f]">
-      {/* Header strip — gexbot-style */}
-      <div className="grid grid-cols-3 gap-4 px-4 py-2 border-b border-[#1f1f1f] text-[10px] font-mono">
-        <div className="space-y-0.5">
-          <div className="flex gap-2"><span className="text-muted-foreground font-bold">source:</span><span className="text-foreground">live · polygon</span></div>
-          <div className="flex gap-2"><span className="text-muted-foreground font-bold">model:</span><span className="text-foreground">gex by oi · live</span></div>
+    <div className="w-full h-full flex flex-col" style={{ background: CHART_BG }}>
+      {/* HEADER */}
+      <div
+        className="flex items-stretch justify-between px-4 py-2 gap-6 border-b"
+        style={{ background: HEADER_BG, borderColor: "#1f2937" }}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-[2px]">
+            <span className="block bg-white" style={{ width: 18, height: 2, borderRadius: 1 }} />
+            <span className="block bg-white" style={{ width: 22, height: 2, borderRadius: 1 }} />
+            <span className="block bg-white" style={{ width: 14, height: 2, borderRadius: 1 }} />
+          </div>
+          <div className="text-white font-bold text-sm leading-tight tracking-tight">
+            gex<br/>bot
+          </div>
         </div>
-        <div className="space-y-0.5">
-          <div className="flex gap-2"><span className="text-muted-foreground font-bold">ticker:</span><span className="text-foreground">{symbol}</span></div>
-          <div className="flex gap-2"><span className="text-muted-foreground font-bold">spot:</span><span className="text-foreground tabular-nums">${spot?.toFixed(2) ?? "—"}</span></div>
+
+        {/* Metadata */}
+        <div className="flex flex-col text-[10px] font-mono leading-tight justify-center">
+          <div><span className="text-white font-bold">source: </span><span className="text-slate-300">gexbot.com</span></div>
+          <div><span className="text-white font-bold">chart type: </span><span className="text-slate-300">classic</span></div>
+          <div><span className="text-white font-bold">model: </span><span className="text-slate-300">gex by oi · live</span></div>
         </div>
-        <div className="space-y-0.5">
-          <div className="flex gap-2 justify-end"><span className="text-muted-foreground font-bold">major call:</span><span className="text-emerald-400 tabular-nums w-20 text-right">${majorCall?.toFixed(2) ?? "—"}</span></div>
-          <div className="flex gap-2 justify-end"><span className="text-muted-foreground font-bold">zero gamma:</span><span className="text-yellow-400 tabular-nums w-20 text-right">${zeroGamma?.toFixed(2) ?? "—"}</span></div>
-          <div className="flex gap-2 justify-end"><span className="text-muted-foreground font-bold">major put:</span><span className="text-red-400 tabular-nums w-20 text-right">${majorPut?.toFixed(2) ?? "—"}</span></div>
+
+        {/* Ticker info */}
+        <div className="flex flex-col text-[10px] font-mono leading-tight justify-center flex-1">
+          <div><span className="text-white font-bold">ticker: </span><span className="text-white font-bold tracking-wider">{symbol}</span></div>
+          <div><span className="text-white font-bold">spot: </span><span className="text-white tabular-nums">${spot?.toFixed(2) ?? "—"}</span></div>
+          <div><span className="text-white font-bold">datetime: </span><span className="text-slate-400">{dtStr}</span></div>
+        </div>
+
+        {/* Critical levels */}
+        <div className="flex flex-col text-[10px] font-mono leading-tight justify-center text-right">
+          <div>
+            <span className="text-white font-bold">major call: </span>
+            <span className="font-bold tabular-nums" style={{ color: "#00ff88" }}>${majorCall?.toFixed(2) ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-white font-bold">zero gamma: </span>
+            <span className="font-bold tabular-nums" style={{ color: "#ffdd44" }}>${zeroGamma?.toFixed(2) ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-white font-bold">major put: </span>
+            <span className="font-bold tabular-nums" style={{ color: "#ff4466" }}>${majorPut?.toFixed(2) ?? "—"}</span>
+          </div>
         </div>
       </div>
 
+      {/* CHART */}
       <div ref={hostRef} className="flex-1 relative" />
     </div>
   );
