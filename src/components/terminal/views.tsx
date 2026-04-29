@@ -1308,39 +1308,67 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
     return () => clearInterval(id);
   }, [candidates, ticker.symbol]);
 
-  // ── Z-Distance from VWAP (synthetic intraday walk) ──
-  const vwapSeries = useMemo(() => {
-    const n = 60;
-    let p = ticker.spot;
-    let sumPV = 0, sumV = 0;
-    const data: { i: number; price: number; vwap: number; z: number; anomaly: number | null; buy: number | null; sell: number | null; side: "BUY" | "SELL" | null; sigma: number }[] = [];
-    const prices: number[] = [];
-    for (let i = 0; i < n; i++) {
-      const v = 1 + Math.random();
-      p += (Math.random() - 0.5) * ticker.spot * 0.0015 + Math.sin(i / 7) * ticker.spot * 0.0008;
-      sumPV += p * v; sumV += v;
-      const vwap = sumPV / sumV;
-      prices.push(p);
-      const recent = prices.slice(-20);
-      const m = recent.reduce((s, x) => s + x, 0) / recent.length;
-      const sd = Math.sqrt(recent.reduce((s, x) => s + (x - m) ** 2, 0) / recent.length) || 1;
-      const z = (p - vwap) / sd;
-      const isAnom = Math.abs(z) > 2;
-      const side: "BUY" | "SELL" | null = isAnom ? (z < 0 ? "BUY" : "SELL") : null;
-      data.push({
-        i,
-        price: Number(p.toFixed(2)),
-        vwap: Number(vwap.toFixed(2)),
-        z: Number(z.toFixed(2)),
-        sigma: Number(Math.abs(z).toFixed(2)),
-        anomaly: isAnom ? z : null,
-        buy: side === "BUY" ? z : null,
-        sell: side === "SELL" ? z : null,
-        side,
+  // ── Z-Distance from VWAP (REAL intraday prices via Yahoo/Polygon) ──
+  type VwapPoint = { i: number; price: number; vwap: number; z: number; anomaly: number | null; buy: number | null; sell: number | null; side: "BUY" | "SELL" | null; sigma: number };
+  const [vwapSeries, setVwapSeries] = useState<VwapPoint[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    const computeFromOhlc = (ohlc: { high: number; low: number; close: number; open: number }[]): VwapPoint[] => {
+      // Use last 60 bars
+      const bars = ohlc.slice(-60);
+      let sumPV = 0, sumV = 0;
+      const prices: number[] = [];
+      const out: VwapPoint[] = [];
+      bars.forEach((b, i) => {
+        const typical = (b.high + b.low + b.close) / 3;
+        const v = 1; // volume not available — use 1 (TWAP-like). Still real prices.
+        sumPV += typical * v; sumV += v;
+        const vwap = sumPV / sumV;
+        prices.push(b.close);
+        const recent = prices.slice(-20);
+        const m = recent.reduce((s, x) => s + x, 0) / recent.length;
+        const sd = Math.sqrt(recent.reduce((s, x) => s + (x - m) ** 2, 0) / recent.length) || 1;
+        const z = (b.close - vwap) / sd;
+        const isAnom = Math.abs(z) > 2;
+        const side: "BUY" | "SELL" | null = isAnom ? (z < 0 ? "BUY" : "SELL") : null;
+        out.push({
+          i,
+          price: Number(b.close.toFixed(2)),
+          vwap: Number(vwap.toFixed(2)),
+          z: Number(z.toFixed(2)),
+          sigma: Number(Math.abs(z).toFixed(2)),
+          anomaly: isAnom ? z : null,
+          buy: side === "BUY" ? z : null,
+          sell: side === "SELL" ? z : null,
+          side,
+        });
       });
-    }
-    return data;
-  }, [ticker.spot, ticker.symbol]);
+      return out;
+    };
+
+    const fetchReal = async () => {
+      try {
+        const url = `${SUPABASE_URL}/functions/v1/polygon-price-history?symbol=${encodeURIComponent(ticker.symbol)}&timeframe=1D`;
+        const r = await fetch(url, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } });
+        const j = await r.json();
+        const ohlc = Array.isArray(j?.ohlc) ? j.ohlc : [];
+        if (cancelled) return;
+        if (ohlc.length >= 5) {
+          setVwapSeries(computeFromOhlc(ohlc));
+        }
+      } catch {
+        /* keep prior series */
+      }
+    };
+
+    fetchReal();
+    const id = setInterval(fetchReal, 60_000); // refresh every minute
+    return () => { cancelled = true; clearInterval(id); };
+  }, [ticker.symbol]);
   const lastZ = vwapSeries[vwapSeries.length - 1]?.z ?? 0;
 
   // ── Entropy (flow stability) ──
