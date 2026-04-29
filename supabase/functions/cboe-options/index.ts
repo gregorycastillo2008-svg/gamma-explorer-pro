@@ -12,10 +12,14 @@ interface CboeOption {
   option: string;
   iv: number;
   open_interest: number;
+  volume: number;
   delta: number;
   gamma: number;
   vega: number;
   theta: number;
+  bid?: number;
+  ask?: number;
+  last_trade_price?: number;
 }
 
 interface SlimContract {
@@ -24,10 +28,14 @@ interface SlimContract {
   type: "call" | "put";
   iv: number;
   oi: number;
+  volume: number;
   delta: number;
   gamma: number;
   vega: number;
   theta: number;
+  bid: number;
+  ask: number;
+  last: number;
 }
 
 // Parse OCC-style symbol tail: "SPX260515C04225000" -> {expiry, type, strike}
