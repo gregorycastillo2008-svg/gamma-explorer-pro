@@ -60,7 +60,7 @@ export function ExposureChart({ data, spot, callWall, putWall, flip, metric }: P
       </div>
       <div className="flex-1 min-h-0">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} margin={{ top: 60, right: 20, left: 10, bottom: 0 }} barCategoryGap="12%">
+        <BarChart data={chartData} margin={{ top: 28, right: 20, left: 10, bottom: 0 }} barCategoryGap="12%">
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
           <XAxis dataKey="strike" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={25} tickMargin={2} />
           <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={55} />
