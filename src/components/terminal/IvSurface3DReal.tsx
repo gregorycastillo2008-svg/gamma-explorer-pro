@@ -47,7 +47,7 @@ function bsGreeks(S: number, K: number, T: number, sigma: number) {
  * sliders Elev/Az, malla wireframe, ejes y barra de color rainbow.
  * Usa los datos de IV reales (cellMap) en lugar de una superficie sintética.
  */
-export function IvSurface3DReal({ strikes, expiries, cellMap, min, max }: Props) {
+export function IvSurface3DReal({ strikes, expiries, cellMap, min, max, spot }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const elevRef = useRef<HTMLInputElement>(null);
