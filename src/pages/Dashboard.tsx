@@ -208,6 +208,7 @@ export default function Dashboard() {
       case "regime": return <RegimeView {...ctx} />;
       case "risk": return <RiskView {...ctx} />;
       case "anomaly": return <AnomalyView {...ctx} />;
+      case "economy": return <EconomyView />;
       case "ai-bias": return <AiBiasView {...ctx} />;
       default: return null;
     }
