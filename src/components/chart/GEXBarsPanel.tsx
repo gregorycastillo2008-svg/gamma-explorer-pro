@@ -243,30 +243,51 @@ export function GEXBarsPanel({ rows, spot }: Props) {
           })}
         </div>
 
-        {hover && (
-          <div
-            className="absolute pointer-events-none z-30 rounded px-2 py-1.5 text-[10px] font-mono leading-tight whitespace-nowrap animate-fade-in"
-            style={{
-              left: Math.min(hover.x + 14, 220),
-              top: hover.y + 14,
-              background: "rgba(0,0,0,0.94)",
-              border: "1px solid #06b6d4",
-              color: "#e5e7eb",
-              boxShadow: "0 0 10px rgba(6,182,212,0.45)",
-            }}
-          >
-            <div style={{ color: "#facc15", fontWeight: 700 }}>STRIKE ${hover.row.strike}</div>
-            <div style={{ color: "#00ff88" }}>Call γ: +{fmtGex(hover.row.callGEX)}</div>
-            <div style={{ color: "#ff4466" }}>Put γ: -{fmtGex(hover.row.putGEX)}</div>
-            <div style={{ color: (hover.row.callGEX - hover.row.putGEX) >= 0 ? "#00ff88" : "#ff4466" }}>
-              NET γ: {(hover.row.callGEX - hover.row.putGEX) >= 0 ? "+" : ""}{fmtGex(hover.row.callGEX - hover.row.putGEX)}
+        {hover && (() => {
+          const net = hover.row.callGEX - hover.row.putGEX;
+          const dex = hover.row.callOI - hover.row.putOI; // proxy net dex (calls - puts OI)
+          const FONT = `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace`;
+          const C = { cyan: "#00e5ff", red: "#ff3d00", muted: "#666", text: "#e5e7eb", border: "#1f1f1f" };
+          return (
+            <div
+              className="absolute pointer-events-none z-30 animate-fade-in"
+              style={{
+                left: Math.min(hover.x + 14, 220),
+                top: hover.y + 14,
+                background: "#000",
+                border: `1px solid ${C.border}`,
+                color: C.text,
+                fontFamily: FONT,
+                padding: "10px 12px",
+                borderRadius: 4,
+                minWidth: 200,
+                boxShadow: "0 0 24px rgba(0,229,255,0.15)",
+              }}
+            >
+              <div style={{ color: C.cyan, fontSize: 11, letterSpacing: "0.15em" }}>
+                STRIKE ${hover.row.strike}
+              </div>
+              <div style={{ height: 1, background: C.border, margin: "6px 0" }} />
+              <TooltipRow label="Call GEX" value={fmtGex(hover.row.callGEX)} color={C.cyan} muted={C.muted} />
+              <TooltipRow label="Put GEX" value={fmtGex(hover.row.putGEX)} color={C.red} muted={C.muted} />
+              <TooltipRow label="Net GEX" value={`${net >= 0 ? "+" : ""}${fmtGex(net)}`} color={net >= 0 ? C.cyan : C.red} bold muted={C.muted} />
+              <div style={{ height: 1, background: C.border, margin: "6px 0" }} />
+              <TooltipRow label="Calls OI" value={fmtOI(hover.row.callOI)} color={C.cyan} muted={C.muted} />
+              <TooltipRow label="Puts OI" value={fmtOI(hover.row.putOI)} color={C.red} muted={C.muted} />
+              <TooltipRow label="Net DEX" value={`${dex >= 0 ? "+" : ""}${fmtOI(Math.abs(dex))}`} color={dex >= 0 ? C.cyan : C.red} bold muted={C.muted} />
             </div>
-            <div style={{ color: "#9ca3af" }}>Calls OI: {fmtOI(hover.row.callOI)}</div>
-            <div style={{ color: "#9ca3af" }}>Puts OI: {fmtOI(hover.row.putOI)}</div>
-            <div style={{ color: "#6b7280" }}>vs Spot: {hover.row.strike >= spot ? "+" : ""}{(hover.row.strike - spot).toFixed(2)}</div>
-          </div>
-        )}
+          );
+        })()}
       </div>
+    </div>
+  );
+}
+
+function TooltipRow({ label, value, color, bold, muted }: { label: string; value: string; color: string; bold?: boolean; muted: string }) {
+  return (
+    <div className="flex justify-between text-[11px] py-0.5" style={{ gap: 12 }}>
+      <span style={{ color: muted, letterSpacing: "0.05em" }} className="uppercase tracking-wider">{label}</span>
+      <span style={{ color, fontWeight: bold ? 700 : 500 }}>{value}</span>
     </div>
   );
 }
