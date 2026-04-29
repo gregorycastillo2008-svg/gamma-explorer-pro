@@ -110,7 +110,8 @@ Deno.serve(async (req) => {
     }
     const dataSymbol = symbol === "NQ" ? "NDX" : symbol;
     const expirationParam = url.searchParams.get("expiration") || "";
-    const cacheKey = `${dataSymbol}|${expirationParam}`;
+    const allParam = url.searchParams.get("all") === "1";
+    const cacheKey = `${dataSymbol}|${expirationParam}|${allParam ? "ALL" : "ONE"}`;
     const hit = cache.get(cacheKey);
     if (hit && Date.now() - hit.ts < TTL_MS) {
       return new Response(JSON.stringify(hit.data), {
@@ -167,13 +168,30 @@ Deno.serve(async (req) => {
     // Window strikes around spot ±15%
     const lo = spot * 0.85;
     const hi = spot * 1.15;
-    const contracts = (byExp.get(selectedExpiration) ?? [])
-      .filter((c) => c.strike >= lo && c.strike <= hi)
-      .sort((a, b) => a.strike - b.strike);
 
-    // Skew at ATM
-    const calls = contracts.filter((c) => c.side === "call" && c.iv > 0);
-    const puts = contracts.filter((c) => c.side === "put" && c.iv > 0);
+    let contracts: Contract[];
+    if (allParam) {
+      // Return ALL expirations within next 14 days for DTE-bucketed views
+      contracts = [];
+      for (const [expIso, list] of byExp.entries()) {
+        const d = expDaysMap.get(expIso) ?? 999;
+        if (d > 14) continue;
+        for (const c of list) {
+          if (c.strike >= lo && c.strike <= hi) contracts.push(c);
+        }
+      }
+      contracts.sort((a, b) => a.expiration.localeCompare(b.expiration) || a.strike - b.strike);
+    } else {
+      contracts = (byExp.get(selectedExpiration) ?? [])
+        .filter((c) => c.strike >= lo && c.strike <= hi)
+        .sort((a, b) => a.strike - b.strike);
+    }
+
+    // Skew at ATM (use selected expiration only)
+    const selectedContracts = (byExp.get(selectedExpiration) ?? [])
+      .filter((c) => c.strike >= lo && c.strike <= hi);
+    const calls = selectedContracts.filter((c) => c.side === "call" && c.iv > 0);
+    const puts = selectedContracts.filter((c) => c.side === "put" && c.iv > 0);
     const closest = (arr: Contract[]) =>
       arr.reduce((b, c) => (Math.abs(c.strike - spot) < Math.abs(b.strike - spot) ? c : b), arr[0]);
     const atmCall = calls.length ? closest(calls) : null;
