@@ -231,6 +231,9 @@ export default function Dashboard() {
             priceChangePct={priceChangePct}
             onReload={reload}
             levels={levels}
+            atmIv={atmIv}
+            pcr={pcr}
+            netDex={netDex}
           />
           <main className="flex-1 overflow-hidden p-1">
             <SectionTransition sectionKey={`${section}-${active}`}>
