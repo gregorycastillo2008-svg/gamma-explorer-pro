@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Check, Mail, X, Info } from "lucide-react";
+import { Check, Mail, X, Info, Shield, Lock } from "lucide-react";
 import { PLANS, type Tier } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { applyDiscount, PLAN_DISCOUNTS, tryAdminLogin } from "@/lib/adminBypass";
 
 interface PaywallProps {
   email?: string;
@@ -19,6 +20,10 @@ export function Paywall(_props: PaywallProps) {
   const [chosen, setChosen] = useState<Tier | null>(null);
   const [email, setEmail] = useState("");
   const [billing, setBilling] = useState<Billing>("monthly");
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminName, setAdminName] = useState("");
+  const [adminPwd, setAdminPwd] = useState("");
+  const navigate = useNavigate();
 
   const startCheckout = async (tier: Tier, emailToUse: string) => {
     const plan = PLANS[tier];
@@ -133,8 +138,10 @@ export function Paywall(_props: PaywallProps) {
             const yearlyTotal = plan.priceYearly;
             const yearlyPerMonth = +(yearlyTotal / 12).toFixed(2);
             const displayPrice = billing === "yearly" ? yearlyPerMonth : monthlyPrice;
-            const originalPrice = billing === "yearly" ? monthlyPrice : null;
             const yearlyAvailable = !!plan.priceIdYearly;
+            const promoPct = PLAN_DISCOUNTS[key] ?? 0;
+            const promoCode = promoPct === 50 ? "ELITE50" : promoPct === 30 ? "GAMMA30" : "FLIP15";
+            const finalPrice = applyDiscount(displayPrice, key);
 
             return (
               <div
@@ -149,11 +156,11 @@ export function Paywall(_props: PaywallProps) {
                 }}
               >
                 {/* Plan name + discount badge */}
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
                   <h3 className="text-xl font-bold" style={{ color: TEAL }}>
                     {plan.name}
                   </h3>
-                  {billing === "yearly" && (
+                  {promoPct > 0 && (
                     <span
                       className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                       style={{
@@ -162,33 +169,50 @@ export function Paywall(_props: PaywallProps) {
                         border: "1px solid rgba(244,63,94,0.3)",
                       }}
                     >
-                      -30%
+                      -{promoPct}% OFF
+                    </span>
+                  )}
+                  {billing === "yearly" && (
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: "rgba(45,212,191,0.15)",
+                        color: TEAL,
+                        border: "1px solid rgba(45,212,191,0.3)",
+                      }}
+                    >
+                      ANUAL
                     </span>
                   )}
                 </div>
 
                 {/* Price */}
-                <div className="flex items-baseline gap-2 mb-1">
-                  {originalPrice && (
+                <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                  {promoPct > 0 && (
                     <span
                       className="text-xl line-through"
                       style={{ color: "rgba(255,255,255,0.3)" }}
                     >
-                      ${monthlyPrice}
+                      ${displayPrice}
                     </span>
                   )}
                   <span className="text-5xl font-bold" style={{ color: TEAL }}>
-                    ${displayPrice}
+                    ${finalPrice}
                   </span>
                   <span className="text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>
                     /mes
                   </span>
                 </div>
-                <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.5)" }}>
+                <p className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.5)" }}>
                   {billing === "yearly"
                     ? `Facturado anualmente a $${yearlyTotal}`
                     : "Facturación mensual"}
                 </p>
+                {promoPct > 0 && (
+                  <p className="text-[11px] mb-4" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Aplica código <span className="font-mono" style={{ color: TEAL }}>{promoCode}</span> al pagar
+                  </p>
+                )}
 
                 {/* CTA */}
                 <button
@@ -247,7 +271,102 @@ export function Paywall(_props: PaywallProps) {
         >
           Pago seguro vía Stripe · Sin permanencia · Crea tu cuenta tras pagar
         </p>
+
+        <div className="mt-6 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setAdminOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono uppercase tracking-wider transition"
+            style={{
+              border: `1px solid ${TEAL}55`,
+              background: "rgba(45,212,191,0.05)",
+              color: "rgba(255,255,255,0.7)",
+            }}
+          >
+            <Shield className="h-3.5 w-3.5" style={{ color: TEAL }} />
+            Acceso admin
+          </button>
+        </div>
       </div>
+
+      {/* Admin modal */}
+      {adminOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div
+            className="relative w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+            style={{ background: CARD_BG, border: `1.5px solid ${TEAL}` }}
+          >
+            <button
+              type="button"
+              onClick={() => { setAdminOpen(false); setAdminName(""); setAdminPwd(""); }}
+              className="absolute top-3 right-3 text-white/60 hover:text-white"
+              aria-label="Cerrar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="h-5 w-5" style={{ color: TEAL }} />
+              <h2 className="text-xl font-bold text-white">Acceso admin</h2>
+            </div>
+            <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.55)" }}>
+              Acceso directo al terminal sin pago.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (tryAdminLogin(adminName, adminPwd)) {
+                  toast.success("Acceso admin concedido");
+                  setAdminOpen(false);
+                  navigate("/dashboard");
+                } else {
+                  toast.error("Credenciales incorrectas");
+                }
+              }}
+              className="space-y-3"
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-name" className="text-white">Nombre</Label>
+                <Input
+                  id="admin-name"
+                  required
+                  autoFocus
+                  value={adminName}
+                  onChange={(e) => setAdminName(e.target.value)}
+                  placeholder="admin"
+                  className="h-11 bg-black/40 text-white"
+                  style={{ borderColor: `${TEAL}55` }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-pwd" className="text-white">Contraseña</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: TEAL }} />
+                  <Input
+                    id="admin-pwd"
+                    type="password"
+                    required
+                    value={adminPwd}
+                    onChange={(e) => setAdminPwd(e.target.value)}
+                    className="pl-10 h-11 bg-black/40 text-white"
+                    style={{ borderColor: `${TEAL}55` }}
+                  />
+                </div>
+              </div>
+              <Button
+                type="submit"
+                className="w-full h-11 font-bold rounded-full"
+                style={{
+                  background: `linear-gradient(180deg, ${TEAL}, #14b8a6)`,
+                  color: "#021a18",
+                  boxShadow: `0 8px 28px -8px ${TEAL_GLOW}`,
+                }}
+              >
+                Entrar
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Email modal */}
       {chosen && (

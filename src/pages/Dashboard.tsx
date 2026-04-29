@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useSubscription } from "@/hooks/useSubscription";
+import { isAdminBypass, clearAdminBypass } from "@/lib/adminBypass";
 import { allowedSections } from "@/lib/plans";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -36,12 +37,16 @@ import { Label } from "@/components/ui/label";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
-  const { isAdmin, loading: adminLoading } = useIsAdmin(user?.id);
+  const { isAdmin: isDbAdmin, loading: adminLoading } = useIsAdmin(user?.id);
   const { tier, subscribed, loading: subLoading, refresh: refreshSub } = useSubscription(user?.id);
   const nav = useNavigate();
   const { toast } = useToast();
 
+  // Local admin bypass (master password from Plans/Paywall)
+  const adminBypass = isAdminBypass();
+
   // Admin → acceso total. Sin plan → mostrar dashboard borroso + paywall.
+  const isAdmin = isDbAdmin || adminBypass;
   const hasAccess = isAdmin || subscribed;
   const allowed = isAdmin ? undefined : allowedSections(tier);
 
@@ -54,7 +59,7 @@ export default function Dashboard() {
   const [newTicker, setNewTicker] = useState("");
   const [pricingOpen, setPricingOpen] = useState(false);
 
-  useEffect(() => { if (!loading && !user) nav("/auth"); }, [user, loading, nav]);
+  useEffect(() => { if (!loading && !user && !adminBypass) nav("/auth"); }, [user, loading, nav, adminBypass]);
 
   // Refresh subscription if returning from successful checkout
   useEffect(() => {
