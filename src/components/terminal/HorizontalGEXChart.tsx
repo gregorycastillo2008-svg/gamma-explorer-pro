@@ -171,7 +171,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
 
   return (
     <div
-      className="w-full h-full flex flex-col rounded-lg overflow-hidden"
+      className="w-full h-full flex flex-col rounded-lg overflow-hidden relative mx-0 my-0 px-[11px]"
       style={{ background: C.bg, border: `1px solid ${C.border}`, fontFamily: FONT }}
     >
       {/* ─── TOOLBAR ─── */}
