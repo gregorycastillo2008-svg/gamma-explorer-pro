@@ -106,10 +106,12 @@ export function useOptionsData(symbol: string): OptionsData {
         strikeStep: step,
         expiries,
       });
-      setContracts(json.contracts.map((c) => ({
-        strike: c.strike, expiry: c.expiry, type: c.type, iv: c.iv, oi: c.oi,
-        gamma: c.gamma, delta: c.delta, vega: c.vega, theta: c.theta,
-      })));
+    setContracts(json.contracts.map((c: any) => ({
+      strike: c.strike, expiry: c.expiry, type: c.type, iv: c.iv, oi: c.oi,
+      volume: c.volume ?? 0,
+      gamma: c.gamma, delta: c.delta, vega: c.vega, theta: c.theta,
+      bid: c.bid, ask: c.ask, last: c.last,
+    })));
       setStatus("live");
       setSource(json.source);
       setFetchedAt(json.fetchedAt);

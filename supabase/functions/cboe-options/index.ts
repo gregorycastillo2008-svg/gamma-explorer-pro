@@ -12,10 +12,14 @@ interface CboeOption {
   option: string;
   iv: number;
   open_interest: number;
+  volume: number;
   delta: number;
   gamma: number;
   vega: number;
   theta: number;
+  bid?: number;
+  ask?: number;
+  last_trade_price?: number;
 }
 
 interface SlimContract {
@@ -24,10 +28,14 @@ interface SlimContract {
   type: "call" | "put";
   iv: number;
   oi: number;
+  volume: number;
   delta: number;
   gamma: number;
   vega: number;
   theta: number;
+  bid: number;
+  ask: number;
+  last: number;
 }
 
 // Parse OCC-style symbol tail: "SPX260515C04225000" -> {expiry, type, strike}
@@ -109,10 +117,14 @@ Deno.serve(async (req) => {
         type: parsed.cp === "C" ? "call" : "put",
         iv,
         oi,
+        volume: Number(o.volume) || 0,
         delta: Number(o.delta) || 0,
         gamma: Number(o.gamma) || 0,
         vega: Number(o.vega) || 0,
         theta: Number(o.theta) || 0,
+        bid: Number(o.bid) || 0,
+        ask: Number(o.ask) || 0,
+        last: Number(o.last_trade_price) || 0,
       });
       totalOI += oi;
     }
