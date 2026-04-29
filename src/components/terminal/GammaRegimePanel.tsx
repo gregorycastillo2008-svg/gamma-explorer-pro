@@ -531,6 +531,10 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
               action={netGex >= 0 ? "Dealers VENDEN futuros" : "Dealers COMPRAN futuros"}
               tone={netGex >= 0 ? "call" : "put"}
               note={netGex >= 0 ? "Frena la subida (mean-revert)" : "Acelera la subida (chase)"}
+              info={netGex >= 0
+                ? <>En <strong>long gamma</strong>, cuando el spot sube los dealers están <em>cortos delta</em> (les sobra delta positivo del lado call). Para neutralizar venden futuros → <span className="text-call">presión bajista</span> que frena el rally.</>
+                : <>En <strong>short gamma</strong>, cuando sube el spot los dealers necesitan <em>comprar más delta</em>. Compran futuros → <span className="text-put">refuerza la subida</span> en cascada (gamma squeeze).</>
+              }
             />
             <BehaviorCell
               icon={<ArrowDown className="h-4 w-4" />}
@@ -538,6 +542,10 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
               action={netGex >= 0 ? "Dealers COMPRAN futuros" : "Dealers VENDEN futuros"}
               tone={netGex >= 0 ? "call" : "put"}
               note={netGex >= 0 ? "Frena la caída (soporte)" : "Acelera la caída (cascade)"}
+              info={netGex >= 0
+                ? <>En <strong>long gamma</strong>, cuando el spot baja los dealers ganan delta negativo. Para neutralizar compran futuros → <span className="text-call">soporte automático</span>.</>
+                : <>En <strong>short gamma</strong>, cuando baja el spot los dealers <em>se quedan más cortos delta</em>. Venden futuros → <span className="text-put">cascada bajista</span> (vol crush al alza).</>
+              }
             />
             <BehaviorCell
               icon={<Minus className="h-4 w-4" />}
@@ -545,6 +553,10 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
               action={netGex >= 0 ? "Pin a strikes con alto GEX" : "Whipsaw / chop"}
               tone="default"
               note={netGex >= 0 ? `Pin probable: $${levels.majorWall}` : "Sin nivel claro de pin"}
+              info={netGex >= 0
+                ? <>El precio tiende a quedarse <em>magnetizado</em> al strike con mayor GEX (Major Wall = <strong>${levels.majorWall}</strong>) sobre todo cerca del vencimiento. Ideal para vender straddles ATM.</>
+                : <>Sin gamma positivo que estabilice, el precio rebota erráticamente. Esperar <strong>whipsaws</strong> y rangos rotos en ambas direcciones.</>
+              }
             />
             <BehaviorCell
               icon={callBias > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -552,6 +564,12 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
               action={callBias > 0.05 ? "CALL HEAVY" : callBias < -0.05 ? "PUT HEAVY" : "BALANCED"}
               tone={callBias > 0 ? "call" : callBias < 0 ? "put" : "default"}
               note={`Skew ${(callBias * 100).toFixed(1)}%`}
+              info={
+                <>
+                  <strong>OI Bias</strong> = (CallOI − PutOI) / (CallOI + PutOI). Mide qué lado tiene más <em>open interest</em>.
+                  <div className="mt-1.5 text-muted-foreground"><span className="text-call">CALL HEAVY</span> = sentimiento alcista o coberturas de call sellers. <span className="text-put">PUT HEAVY</span> = miedo / hedging defensivo. <span>BALANCED</span> = sin sesgo claro.</div>
+                </>
+              }
             />
           </div>
         </div>
@@ -563,6 +581,13 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
           title="Trader Playbook"
           subtitle={`Estrategias recomendadas para ${regime.title}`}
           icon={<AlertTriangle className="h-3.5 w-3.5" style={{ color: regime.hex }} />}
+          info={
+            <>
+              <div className="font-bold text-primary mb-1">Trader Playbook</div>
+              Recomendaciones <strong>específicas para el régimen actual</strong> ({regime.title}). Las listas cambian dinámicamente cuando el régimen cambia.
+              <div className="mt-1.5 text-muted-foreground italic">No es asesoría financiera — son guidelines basadas en la mecánica de hedging de dealers.</div>
+            </>
+          }
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
           <div className="rounded border border-call/30 bg-call/5 p-3">
