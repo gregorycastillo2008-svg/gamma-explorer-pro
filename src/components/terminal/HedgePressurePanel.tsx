@@ -157,7 +157,15 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
 
   return (
     <TooltipProvider delayDuration={120}>
-      <div className="bg-[#0a0c1a] text-white/90 space-y-3 p-3">
+      <div
+        className="bg-[#0a0c1a] text-white/90 space-y-3 p-3 overflow-y-auto"
+        style={{
+          height: "100%",
+          maxHeight: "100%",
+          scrollbarWidth: "thin",
+          scrollbarColor: "#2a2d4a transparent",
+        }}
+      >
 
         {/* ROW 1 ─ ATM IV / VANNA FLOW / NET DEX SUMMARY */}
         <div className="grid grid-cols-12 gap-3">

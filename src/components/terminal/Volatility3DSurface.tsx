@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { IvPoint } from "@/lib/volatilityCalculations";
 import { Surface3DTooltip, type TooltipData } from "./Surface3DTooltip";
@@ -7,6 +7,59 @@ interface Props {
   surface?: IvPoint[];
   spot?: number;
   symbol?: string;
+}
+
+// Build a bilinear-interpolation function from real IvPoint data.
+// Returns a fn(u,v)→iv where u∈[0,1] maps across strikes and v∈[0,1] across expiries.
+// Falls back to the synthetic surfaceFn when no data is available.
+function buildSurfaceFn(
+  surface: IvPoint[] | undefined,
+): (u: number, v: number) => number {
+  if (!surface || surface.length < 4) return surfaceFn;
+
+  const moneynesses = Array.from(new Set(surface.map((p) => +p.moneyness.toFixed(4)))).sort((a, b) => a - b);
+  const expiries = Array.from(new Set(surface.map((p) => p.expiry))).sort((a, b) => a - b);
+  if (moneynesses.length < 2 || expiries.length < 2) return surfaceFn;
+
+  const ivMap = new Map<string, number>();
+  for (const p of surface) ivMap.set(`${p.moneyness.toFixed(4)}|${p.expiry}`, p.iv);
+
+  const mLo = moneynesses[0], mHi = moneynesses[moneynesses.length - 1];
+  const eLo = expiries[0],    eHi = expiries[expiries.length - 1];
+
+  function bilinear(m: number, e: number): number {
+    // Clamp to data range
+    m = Math.max(mLo, Math.min(mHi, m));
+    e = Math.max(eLo, Math.min(eHi, e));
+
+    let iLo = 0, iHi = moneynesses.length - 1;
+    for (let i = 0; i < moneynesses.length - 1; i++) {
+      if (moneynesses[i] <= m && m <= moneynesses[i + 1]) { iLo = i; iHi = i + 1; break; }
+    }
+    let jLo = 0, jHi = expiries.length - 1;
+    for (let j = 0; j < expiries.length - 1; j++) {
+      if (expiries[j] <= e && e <= expiries[j + 1]) { jLo = j; jHi = j + 1; break; }
+    }
+
+    const s0 = moneynesses[iLo], s1 = moneynesses[iHi];
+    const e0 = expiries[jLo],    e1 = expiries[jHi];
+    const f = s1 > s0 ? (m - s0) / (s1 - s0) : 0;
+    const g = e1 > e0 ? (e - e0) / (e1 - e0) : 0;
+
+    const get = (si: number, ei: number) =>
+      ivMap.get(`${moneynesses[si].toFixed(4)}|${expiries[ei]}`) ?? 0;
+    const v00 = get(iLo, jLo), v10 = get(iHi, jLo);
+    const v01 = get(iLo, jHi), v11 = get(iHi, jHi);
+
+    return v00 * (1 - f) * (1 - g) + v10 * f * (1 - g)
+         + v01 * (1 - f) * g       + v11 * f * g;
+  }
+
+  return (u: number, v: number) => {
+    const m = mLo + u * (mHi - mLo);
+    const e = eLo + v * (eHi - eLo);
+    return bilinear(m, e);
+  };
 }
 
 const SX = 4.4;
@@ -52,7 +105,7 @@ function surfaceFn(u: number, v: number) {
   return base + peak + drop + wave;
 }
 
-export function Volatility3DSurface({ spot = 100, symbol }: Props) {
+export function Volatility3DSurface({ spot = 100, surface }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [elev, setElev] = useState(32);
@@ -60,6 +113,9 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
   const [showDataPts, setShowDataPts] = useState(true);
   const [showRefPlane, setShowRefPlane] = useState(true);
   const [tip, setTip] = useState<TooltipData | null>(null);
+
+  // Memoize so the effect only re-runs when surface data actually changes
+  const activeSurfaceFn = useMemo(() => buildSurfaceFn(surface), [surface]);
 
   const elevRef = useRef(32);
   const azimRef = useRef(220);
@@ -114,7 +170,7 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
     for (let i = 0; i < N; i++) {
       raw.push([]);
       for (let j = 0; j < N; j++) {
-        const v = surfaceFn(i / (N - 1), j / (N - 1));
+        const v = activeSurfaceFn(i / (N - 1), j / (N - 1));
         raw[i].push(v);
         if (v < mn) mn = v;
         if (v > mx) mx = v;
@@ -331,7 +387,9 @@ export function Volatility3DSurface({ spot = 100, symbol }: Props) {
       geo.dispose();
       mat.dispose();
     };
-  }, []);
+    // Rebuild the mesh when real surface data arrives or surface fn changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSurfaceFn]);
 
   return (
     <div ref={containerRef} style={{ width: "100%", background: "#111", borderRadius: 12, padding: 12, boxSizing: "border-box" }}>

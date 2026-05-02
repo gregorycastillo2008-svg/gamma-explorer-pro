@@ -82,7 +82,7 @@ export function bsGreeks(S: number, K: number, T: number, r: number, sigma: numb
   const charmCommon = nd1 * (2 * r * T - d2 * sigma * sqrtT) / (2 * T * sigma * sqrtT);
   const charmYear = type === "call"
     ? -charmCommon
-    : -charmCommon + r * Math.exp(-r * T);
+    : -charmCommon + r * Math.exp(-r * T) * cdf(-d1);
   const charm = charmYear / 365;                              // per calendar day
 
   return { delta, gamma, vega, theta, vanna, charm };
@@ -107,14 +107,15 @@ export function computeExposures(spot: number, contracts: OptionContract[], r = 
   const map = new Map<number, ExposurePoint>();
   for (const c of contracts) {
     const T = Math.max(c.expiry, 1) / 365;
-    // Use real greeks from CBOE/Polygon when available, fallback to Black-Scholes
+    // Always compute BS for vanna/charm — CBOE/Polygon do not provide them.
+    const bs = bsGreeks(spot, c.strike, T, r, c.iv, c.type);
+    // Prefer real greeks from CBOE/Polygon for delta, gamma, vega, theta when non-zero.
     const hasRealGreeks = (c.gamma != null && c.gamma !== 0) || (c.delta != null && c.delta !== 0);
-    const bs = hasRealGreeks ? null : bsGreeks(spot, c.strike, T, r, c.iv, c.type);
-    const gamma = hasRealGreeks ? (c.gamma ?? 0) : bs!.gamma;
-    const delta = hasRealGreeks ? (c.delta ?? 0) : bs!.delta;
-    const vega  = hasRealGreeks ? (c.vega  ?? 0) : bs!.vega;
-    const vanna = bs ? bs.vanna : 0;
-    const charm = bs ? bs.charm : 0;
+    const gamma = hasRealGreeks ? (c.gamma ?? 0) : bs.gamma;
+    const delta = hasRealGreeks ? (c.delta ?? 0) : bs.delta;
+    const vega  = (hasRealGreeks && c.vega)  ? c.vega  : bs.vega;
+    const vanna = bs.vanna; // always BS — not provided by market data feeds
+    const charm = bs.charm; // always BS — not provided by market data feeds
 
     const notional = c.oi * CONTRACT_SIZE;
     const point = map.get(c.strike) ?? {

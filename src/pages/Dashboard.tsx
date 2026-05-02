@@ -18,7 +18,7 @@ import { Topbar } from "@/components/terminal/Topbar";
 import {
   OverviewView, ChartView, GreeksView, DepthView, LevelsView,
   HedgeView, VannaCharmView, VegaThetaView, VolatilityView, RegimeView,
-  OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
+  OiAnalyticsView, HeatmapView, RiskView, AnomalyView, PhysicsViewWrapper,
 } from "@/components/terminal/views";
 import { GexDexExposure } from "@/components/terminal/GexDexExposure";
 import { HorizontalGEXChart } from "@/components/terminal/HorizontalGEXChart";
@@ -210,6 +210,7 @@ export default function Dashboard() {
       case "anomaly": return <AnomalyView {...ctx} />;
       case "economy": return <EconomyView />;
       case "ai-bias": return <AiBiasView {...ctx} />;
+      case "physics": return <PhysicsViewWrapper {...ctx} />;
       default: return null;
     }
   };

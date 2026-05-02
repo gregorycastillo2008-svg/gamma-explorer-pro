@@ -1,4 +1,4 @@
-import { Activity, BarChart3, LineChart, Layers, Target, TrendingUp, Wind, Gauge, Shuffle, Sigma, Shield, LogOut, ChevronLeft, ChevronRight, Grid3x3, AlertTriangle, BarChart2, Brain, CandlestickChart, Newspaper } from "lucide-react";
+import { Activity, BarChart3, LineChart, Layers, Target, TrendingUp, Wind, Gauge, Shuffle, Sigma, Shield, LogOut, ChevronLeft, ChevronRight, Grid3x3, AlertTriangle, BarChart2, Brain, CandlestickChart, Newspaper, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 
@@ -6,7 +6,7 @@ export type Section =
   | "overview" | "chart" | "oi-analytics" | "gex-dex" | "greeks" | "depth" | "levels"
   | "hedge" | "vanna-charm" | "vega-theta"
   | "volatility" | "heatmap" | "regime" | "risk" | "anomaly" | "economy"
-  | "ai-bias";
+  | "ai-bias" | "physics";
 
 export const SECTIONS: { id: Section; label: string; icon: any; group: string }[] = [
   { id: "overview", label: "Overview", icon: Activity, group: "MAIN" },
@@ -25,6 +25,7 @@ export const SECTIONS: { id: Section; label: string; icon: any; group: string }[
   { id: "risk", label: "Risk", icon: Shield, group: "ANALYSIS" },
   { id: "anomaly", label: "Anomaly Detection", icon: AlertTriangle, group: "ANALYSIS" },
   { id: "economy", label: "Economy", icon: Newspaper, group: "ANALYSIS" },
+  { id: "physics", label: "Física γ", icon: Zap, group: "MAIN" },
   { id: "ai-bias", label: "AI Bias Forecast", icon: Brain, group: "AI" },
 ];
 

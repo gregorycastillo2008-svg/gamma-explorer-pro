@@ -7,13 +7,17 @@ import { bsGreeks, formatNumber } from "@/lib/gex";
 import { ZoomIn, ZoomOut, RotateCcw, Camera, Home, Maximize2 } from "lucide-react";
 import { VannaCharmSurfacePlot } from "./VannaCharmSurfacePlot";
 import { VannaCharmTerrainPlot } from "./VannaCharmTerrainPlot";
+import {
+  ResponsiveContainer, ComposedChart, Bar, Line, Area, XAxis, YAxis,
+  CartesianGrid, Tooltip as RTooltip, ReferenceLine, Cell, Legend,
+} from "recharts";
 
 interface Props {
   ticker: DemoTicker;
   contracts: OptionContract[];
 }
 
-type Tab = "heatmap" | "strike" | "surface";
+type Tab = "heatmap" | "strike" | "surface" | "vctp";
 type Greek = "vanna" | "charm";
 
 const CYAN = "#06b6d4";
@@ -84,6 +88,7 @@ export function VannaCharmWorkspace({ ticker, contracts }: Props) {
         <div className="flex items-center gap-1">
           <TabBtn active={tab === "heatmap"} onClick={() => setTab("heatmap")}>HEATMAP</TabBtn>
           <TabBtn active={tab === "strike"} onClick={() => setTab("strike")}>STRIKE CHART</TabBtn>
+          <TabBtn active={tab === "vctp"} onClick={() => setTab("vctp")}>VCTP SIGNAL</TabBtn>
           <span className="ml-4 text-[10px] uppercase tracking-wider" style={{ color: MUTED }}>EXPIRY</span>
           <select
             value={String(expiry)}
@@ -107,6 +112,7 @@ export function VannaCharmWorkspace({ ticker, contracts }: Props) {
       <div className="flex-1 min-h-0 p-4 bg-black">
         {tab === "heatmap" && <HeatmapTab spot={ticker.spot} vannaGrid={vannaGrid} charmGrid={charmGrid} expiries={expiries} expiryFilter={expiry} />}
         {tab === "strike" && <StrikeChartTab spot={ticker.spot} vannaGrid={vannaGrid} charmGrid={charmGrid} expiries={expiries} expiryFilter={expiry} setExpiryFilter={setExpiry} />}
+        {tab === "vctp" && <VctpTab ticker={ticker} contracts={filteredContracts} />}
       </div>
     </div>
   );
@@ -409,6 +415,274 @@ function DteBtn({ active, onClick, children }: { active: boolean; onClick: () =>
     >
       {children}
     </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// VCTP — Vanna-Charm-Theta Pressure Signal
+//
+// Formula per strike:
+//   vannEx  = Σ vanna × OI × 100  (∂Δ/∂σ exposure)
+//   charmEx = Σ charm × OI × 100  (∂Δ/∂t exposure)
+//   vegaEx  = Σ vega  × OI × 100  (vol-dollar exposure, weights importance)
+//   thetaEx = Σ theta × OI × 100  (daily decay cost, normalizes signal)
+//
+//   VCTP = (vannEx × |vegaEx|) / (|thetaEx| + ε) × sign(charmEx)
+//
+//   Interpretation:
+//   VCTP > 0: Dealers gain delta when IV rises AND charm pushes delta toward
+//             spot → natural pinning pressure → expect mean reversion.
+//   VCTP < 0: Dealers lose delta when IV moves AND charm drives delta away
+//             from spot → directional hedging flow builds → trend extension.
+//
+//   GFM (Greek Flow Momentum) = cumulative VCTP from lowest to highest
+//   strike (like an OBV but for dealer greek exposure).
+//
+//   VCTP5 = 5-strike simple moving average of VCTP (smoothed signal line).
+// ─────────────────────────────────────────────────────────────────────
+
+interface VctpPoint {
+  strike: number;
+  vctp: number;
+  vctp5: number;   // smoothed
+  gfm: number;     // cumulative momentum
+  vannaEx: number;
+  charmEx: number;
+  vegaEx: number;
+  thetaEx: number;
+}
+
+function buildVctpData(spot: number, contracts: OptionContract[]): VctpPoint[] {
+  const map = new Map<number, { vannEx: number; charmEx: number; vegaEx: number; thetaEx: number }>();
+  for (const c of contracts) {
+    const T = Math.max(c.expiry, 1) / 365;
+    const g = bsGreeks(spot, c.strike, T, 0.05, Math.max(c.iv, 0.01), c.type);
+    const sign = c.type === "call" ? 1 : -1;
+    const n = c.oi * 100;
+    const cur = map.get(c.strike) ?? { vannEx: 0, charmEx: 0, vegaEx: 0, thetaEx: 0 };
+    cur.vannEx  += g.vanna * n * sign;
+    cur.charmEx += g.charm * n * sign;
+    cur.vegaEx  += g.vega  * n * sign;
+    cur.thetaEx += g.theta * n * sign;
+    map.set(c.strike, cur);
+  }
+
+  const sorted = Array.from(map.entries())
+    .map(([strike, d]) => {
+      const eps = 1e-12;
+      const vctp = (d.vannEx * Math.abs(d.vegaEx)) / (Math.abs(d.thetaEx) + eps) * Math.sign(d.charmEx || 1);
+      return { strike, vctp, vannaEx: d.vannEx, charmEx: d.charmEx, vegaEx: d.vegaEx, thetaEx: d.thetaEx };
+    })
+    .sort((a, b) => a.strike - b.strike);
+
+  // 5-strike SMA (VCTP5)
+  const withSmooth = sorted.map((p, i) => {
+    const window = sorted.slice(Math.max(0, i - 2), i + 3);
+    const avg = window.reduce((s, w) => s + w.vctp, 0) / window.length;
+    return { ...p, vctp5: avg };
+  });
+
+  // Cumulative GFM
+  let cum = 0;
+  return withSmooth.map((p) => {
+    cum += p.vctp;
+    return { ...p, gfm: cum };
+  });
+}
+
+function VctpTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const d: VctpPoint = payload[0]?.payload;
+  const cyan = "#06b6d4";
+  const muted = "#6b7280";
+  const green = "#10b981";
+  const red = "#ef4444";
+  const yellow = "#fbbf24";
+  return (
+    <div style={{ background: "#000", border: `1px solid #1f1f1f`, padding: "10px 14px", borderRadius: 6, fontFamily: "monospace", fontSize: 11, minWidth: 200, boxShadow: `0 0 20px rgba(6,182,212,0.15)` }}>
+      <div style={{ color: cyan, fontWeight: 700, marginBottom: 6 }}>STRIKE ${label}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 2 }}>
+        <span style={{ color: muted }}>VCTP</span>
+        <span style={{ color: d?.vctp >= 0 ? green : red, fontWeight: 700 }}>{formatNumber(d?.vctp ?? 0, 2)}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 2 }}>
+        <span style={{ color: muted }}>VCTP-5 (smooth)</span>
+        <span style={{ color: cyan }}>{formatNumber(d?.vctp5 ?? 0, 2)}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 2 }}>
+        <span style={{ color: muted }}>GFM (cum.)</span>
+        <span style={{ color: yellow }}>{formatNumber(d?.gfm ?? 0, 2)}</span>
+      </div>
+      <div style={{ borderTop: `1px solid #1f1f1f`, marginTop: 6, paddingTop: 6 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 2 }}>
+          <span style={{ color: muted }}>VannaEx</span>
+          <span style={{ color: "#a78bfa" }}>{formatNumber(d?.vannaEx ?? 0, 2)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 2 }}>
+          <span style={{ color: muted }}>CharmEx</span>
+          <span style={{ color: "#f472b6" }}>{formatNumber(d?.charmEx ?? 0, 2)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 2 }}>
+          <span style={{ color: muted }}>VegaEx</span>
+          <span style={{ color: "#34d399" }}>{formatNumber(d?.vegaEx ?? 0, 2)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+          <span style={{ color: muted }}>ThetaEx</span>
+          <span style={{ color: "#f87171" }}>{formatNumber(d?.thetaEx ?? 0, 2)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VctpTab({ ticker, contracts }: { ticker: DemoTicker; contracts: OptionContract[] }) {
+  const data = useMemo(() => buildVctpData(ticker.spot, contracts), [ticker.spot, contracts]);
+
+  const netVctp = data.reduce((s, d) => s + d.vctp, 0);
+  const gfmFinal = data[data.length - 1]?.gfm ?? 0;
+  const maxAbsVctp = Math.max(...data.map((d) => Math.abs(d.vctp)), 1);
+
+  // Find nearest strike to spot for signal interpretation
+  const nearSpot = data.reduce((best, d) =>
+    Math.abs(d.strike - ticker.spot) < Math.abs(best.strike - ticker.spot) ? d : best,
+    data[0] ?? { strike: 0, vctp: 0, vctp5: 0, gfm: 0, vannaEx: 0, charmEx: 0, vegaEx: 0, thetaEx: 0 }
+  );
+  const signal: "PIN" | "TREND" | "NEUTRAL" =
+    Math.abs(nearSpot.vctp5) < maxAbsVctp * 0.12 ? "NEUTRAL"
+    : nearSpot.vctp5 > 0 ? "PIN"
+    : "TREND";
+
+  const signalColor = signal === "PIN" ? "#10b981" : signal === "TREND" ? "#ef4444" : "#fbbf24";
+  const signalDesc = signal === "PIN"
+    ? "Dealers pin near spot — hedging demand stabilizes price"
+    : signal === "TREND"
+    ? "Dealer flow amplifies moves — directional pressure building"
+    : "Mixed greek flow — no dominant regime";
+
+  const BORDER = "#1f1f1f";
+
+  return (
+    <div className="h-full flex flex-col gap-3 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#2a2a2a transparent" }}>
+
+      {/* ── KPI bar ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
+        {[
+          { label: "Net VCTP", value: formatNumber(netVctp, 2), color: netVctp >= 0 ? "#10b981" : "#ef4444" },
+          { label: "GFM (cumul.)", value: formatNumber(gfmFinal, 2), color: "#fbbf24" },
+          { label: "ATM VCTP-5", value: formatNumber(nearSpot.vctp5, 2), color: "#06b6d4" },
+          { label: "Regime", value: signal, color: signalColor },
+        ].map((kpi) => (
+          <div key={kpi.label} className="rounded-lg p-3 flex flex-col gap-1" style={{ background: "#0d0d0d", border: `1px solid ${BORDER}` }}>
+            <span className="text-[9px] uppercase tracking-widest" style={{ color: "#6b7280" }}>{kpi.label}</span>
+            <span className="font-mono font-bold text-lg tabular-nums" style={{ color: kpi.color }}>{kpi.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Signal description ── */}
+      <div className="rounded-lg px-4 py-2 text-[11px] font-mono shrink-0" style={{ background: "#0d0d0d", border: `1px solid ${BORDER}`, color: signalColor }}>
+        <span className="font-bold tracking-wider">{signal} REGIME · </span>
+        <span style={{ color: "#9ca3af" }}>{signalDesc}</span>
+      </div>
+
+      {/* ── Main VCTP + VCTP5 chart ── */}
+      <div className="rounded-lg shrink-0" style={{ background: "#000", border: `1px solid ${BORDER}` }}>
+        <div className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-widest font-bold" style={{ color: "#6b7280", borderBottom: `1px solid ${BORDER}` }}>
+          VCTP · Vanna-Charm-Theta Pressure · per Strike
+          <span className="ml-3 text-[9px] normal-case tracking-normal font-normal" style={{ color: "#4b5563" }}>
+            bars = raw signal · cyan line = VCTP-5 smoothed
+          </span>
+        </div>
+        <div style={{ height: 260, padding: "8px 4px 4px" }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 4 }} barCategoryGap={1}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+              <XAxis dataKey="strike" tick={{ fill: "#4b5563", fontSize: 9, fontFamily: "monospace" }} tickLine={false} axisLine={{ stroke: BORDER }} interval="preserveStartEnd" />
+              <YAxis tick={{ fill: "#4b5563", fontSize: 9, fontFamily: "monospace" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v, 1)} />
+              <RTooltip content={<VctpTooltip />} />
+              <ReferenceLine y={0} stroke="#2a2a2a" />
+              <ReferenceLine x={ticker.spot} stroke="#7c5af7" strokeDasharray="4 3" strokeWidth={1.5}
+                label={{ value: `$${ticker.spot}`, fill: "#7c5af7", fontSize: 9, position: "top", fontFamily: "monospace" }} />
+              <Bar dataKey="vctp" isAnimationActive={false} maxBarSize={18}>
+                {data.map((d, i) => (
+                  <Cell key={i}
+                    fill={d.vctp >= 0 ? "#10b981" : "#ef4444"}
+                    fillOpacity={Math.abs(d.vctp) / maxAbsVctp > 0.6 ? 0.9 : 0.55}
+                  />
+                ))}
+              </Bar>
+              <Line type="monotone" dataKey="vctp5" stroke="#06b6d4" strokeWidth={2} dot={false} isAnimationActive={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── GFM momentum line ── */}
+      <div className="rounded-lg shrink-0" style={{ background: "#000", border: `1px solid ${BORDER}` }}>
+        <div className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-widest font-bold" style={{ color: "#6b7280", borderBottom: `1px solid ${BORDER}` }}>
+          GFM · Greek Flow Momentum (cumulative VCTP)
+          <span className="ml-3 text-[9px] normal-case tracking-normal font-normal" style={{ color: "#4b5563" }}>
+            rising = net pinning accumulation · falling = directional pressure builds
+          </span>
+        </div>
+        <div style={{ height: 180, padding: "8px 4px 4px" }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} margin={{ top: 4, right: 12, left: 4, bottom: 4 }}>
+              <defs>
+                <linearGradient id="gfmGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.03} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+              <XAxis dataKey="strike" tick={{ fill: "#4b5563", fontSize: 9, fontFamily: "monospace" }} tickLine={false} axisLine={{ stroke: BORDER }} interval="preserveStartEnd" />
+              <YAxis tick={{ fill: "#4b5563", fontSize: 9, fontFamily: "monospace" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v, 1)} />
+              <RTooltip content={<VctpTooltip />} />
+              <ReferenceLine y={0} stroke="#2a2a2a" />
+              <ReferenceLine x={ticker.spot} stroke="#7c5af7" strokeDasharray="4 3" strokeWidth={1.5} />
+              <Area type="monotone" dataKey="gfm" stroke="#fbbf24" strokeWidth={2} fill="url(#gfmGrad)" dot={false} isAnimationActive={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── Greek breakdown table (top 10 strikes by |VCTP|) ── */}
+      <div className="rounded-lg shrink-0 overflow-hidden" style={{ background: "#000", border: `1px solid ${BORDER}` }}>
+        <div className="px-4 pt-3 pb-2 text-[10px] uppercase tracking-widest font-bold" style={{ color: "#6b7280", borderBottom: `1px solid ${BORDER}` }}>
+          Top Strikes by |VCTP| — Greek Breakdown
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[10px] font-mono">
+            <thead>
+              <tr style={{ background: "#0a0a0a", borderBottom: `1px solid ${BORDER}` }}>
+                {["Strike", "VCTP", "VCTP-5", "VannaEx", "CharmEx", "VegaEx", "ThetaEx"].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left" style={{ color: "#4b5563", fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...data].sort((a, b) => Math.abs(b.vctp) - Math.abs(a.vctp)).slice(0, 12).map((d) => {
+                const isSpot = Math.abs(d.strike - ticker.spot) < 1;
+                return (
+                  <tr key={d.strike} style={{ borderBottom: `1px solid #0f0f0f`, background: isSpot ? "rgba(124,90,247,0.06)" : "transparent" }}>
+                    <td className="px-3 py-1.5 tabular-nums" style={{ color: isSpot ? "#7c5af7" : "#e5e7eb", fontWeight: isSpot ? 700 : 400 }}>
+                      ${d.strike}{isSpot && " ◀"}
+                    </td>
+                    <td className="px-3 py-1.5 tabular-nums" style={{ color: d.vctp >= 0 ? "#10b981" : "#ef4444", fontWeight: 600 }}>{formatNumber(d.vctp, 2)}</td>
+                    <td className="px-3 py-1.5 tabular-nums" style={{ color: "#06b6d4" }}>{formatNumber(d.vctp5, 2)}</td>
+                    <td className="px-3 py-1.5 tabular-nums" style={{ color: "#a78bfa" }}>{formatNumber(d.vannaEx, 2)}</td>
+                    <td className="px-3 py-1.5 tabular-nums" style={{ color: "#f472b6" }}>{formatNumber(d.charmEx, 2)}</td>
+                    <td className="px-3 py-1.5 tabular-nums" style={{ color: "#34d399" }}>{formatNumber(d.vegaEx, 2)}</td>
+                    <td className="px-3 py-1.5 tabular-nums" style={{ color: "#f87171" }}>{formatNumber(d.thetaEx, 2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
   );
 }
 

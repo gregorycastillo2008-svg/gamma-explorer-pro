@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { DemoTicker, OptionContract, computeExposures } from "@/lib/gex";
+import { DemoTicker, OptionContract } from "@/lib/gex";
 import { buildVolatilityDataset } from "@/lib/mockVolatilityData";
 import { TopMetricsBar } from "./TopMetricsBar";
 import { Volatility3DSurface } from "@/components/terminal/Volatility3DSurface";
@@ -8,7 +8,6 @@ import { PutCallSkewPanel } from "./PutCallSkewPanel";
 import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
 import { VolatilityTable } from "./VolatilityTable";
 import { RealVolatilityDashboard } from "./RealVolatilityDashboard";
-import { GexDivergingBars } from "./GexDivergingBars";
 
 
 interface Props {
@@ -21,8 +20,6 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
     () => buildVolatilityDataset(ticker.symbol, ticker.spot, ticker.baseIV, 7, contracts),
     [ticker.symbol, ticker.spot, ticker.baseIV, contracts],
   );
-  const exposures = useMemo(() => computeExposures(ticker.spot, contracts), [ticker.spot, contracts]);
-
   return (
     <div className="space-y-3" style={{ background: "#000000" }}>
       <TopMetricsBar data={data} />
@@ -39,10 +36,6 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
       </Panel>
 
       <RealVolatilityDashboard defaultTicker={ticker.symbol} />
-
-      <div className="mt-6 pt-4 border-t border-[#1f1f1f] overflow-hidden">
-        <GexDivergingBars ticker={ticker} exposures={exposures} />
-      </div>
     </div>
   );
 }

@@ -43,6 +43,7 @@ export function PriceGexChartContainer({ defaultSymbol = "QQQ" }: Props) {
       callGEX: p.callGex,
       putGEX: p.putGex,
       netGEX: p.netGex,
+      dex: p.dex,
       callOI: p.callOI,
       putOI: p.putOI,
       oiPct: ((p.callOI + p.putOI) / maxOI) * 100,

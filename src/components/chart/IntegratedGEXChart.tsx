@@ -12,6 +12,7 @@ import { type StrikeRow } from "./GEXBarsPanel";
 import { GEXSidebar } from "./GEXSidebar";
 import { GexbotStyleChart } from "./GexbotStyleChart";
 import { GEXBarsPanel } from "./GEXBarsPanel";
+import { PriceDeltaZeroChart } from "./PriceDeltaZeroChart";
 
 const TICKERS = ["QQQ", "SPY", "NQ", "IWM", "DIA", "AAPL", "MSFT", "NVDA", "TSLA", "AMD", "META"];
 const TIMEFRAMES = ["1D", "5D", "1M", "3M", "6M", "1Y"] as const;
@@ -484,6 +485,16 @@ export function IntegratedGEXChart({ defaultSymbol = "QQQ" }: Props) {
             callWall={metrics.keyLevels.callWallOI}
             putWall={metrics.keyLevels.putWallOI}
             maxPain={metrics.keyLevels.maxPain}
+          />
+        </div>
+
+        {/* Professional Price & Delta Zero smooth chart */}
+        <div className="h-[300px] sm:h-[400px] lg:h-[480px] shrink-0 mt-4 sm:mt-6 border-t-2 border-[#1f1f1f]">
+          <PriceDeltaZeroChart
+            symbol={symbol}
+            spot={price?.spot ?? chain?.spot ?? 0}
+            pricePoints={price?.points ?? []}
+            deltaZeroHistory={zgHist}
           />
         </div>
       </div>

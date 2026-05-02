@@ -41,6 +41,7 @@ export function GexbotStyleChart({
   const zgRef = useRef<ISeriesApi<"Line"> | null>(null);
   const callRef = useRef<ISeriesApi<"Line"> | null>(null);
   const putRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const zgAnimRef = useRef<number | null>(null);
 
   // Init chart once
   useEffect(() => {
@@ -67,7 +68,7 @@ export function GexbotStyleChart({
     });
     zgRef.current = chart.addLineSeries({
       color: "#ffaa00",
-      lineWidth: 2,
+      lineWidth: 3,
       lastValueVisible: true,
       priceLineVisible: false,
       title: "Zero γ",
@@ -163,6 +164,30 @@ export function GexbotStyleChart({
 
   useEffect(() => {
     if (zgRef.current) zgRef.current.setData(zgRendered);
+  }, [zgRendered]);
+
+  useEffect(() => {
+    if (!zgRef.current || zgRendered.length === 0) return;
+
+    const animate = (time: number) => {
+      const phase = time / 600;
+      const data = zgRendered.map((point, index) => {
+        const wobble = Math.sin(phase + index * 0.25) * 0.4 + Math.cos(phase * 0.7 + index * 0.17) * 0.35;
+        const amplitude = Math.max(0.35, Math.min(3, Math.abs(point.value) * 0.0025));
+        return {
+          time: point.time,
+          value: point.value + wobble * amplitude,
+        };
+      });
+      zgRef.current?.setData(data);
+      zgAnimRef.current = requestAnimationFrame(animate);
+    };
+
+    zgAnimRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (zgAnimRef.current !== null) cancelAnimationFrame(zgAnimRef.current);
+      zgAnimRef.current = null;
+    };
   }, [zgRendered]);
 
   useEffect(() => {

@@ -7,6 +7,8 @@ export type GexStrike = {
   callGEX: number;
   putGEX: number;
   netGEX: number;
+  /** Dealer delta exposure aggregated for this strike (optional; available in real chain mode). */
+  dex?: number;
   callOI: number;
   putOI: number;
   oiPct: number; // 0..100

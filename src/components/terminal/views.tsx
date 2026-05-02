@@ -1,3 +1,4 @@
+import React from "react";
 import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, computeMaxPain, buildIvGrid, computeExposures, computeKeyLevels } from "@/lib/gex";
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
@@ -10,7 +11,6 @@ import { ThirdOrderGreeksPanel } from "./ThirdOrderGreeksPanel";
 import { GexHeatmapForVolatility, GexHillSurfaceForVolatility } from "./VolatilityGexExtras";
 import { VolatilityDashboard } from "@/components/volatility/VolatilityDashboard";
 import { PriceGexChartContainer } from "@/components/chart/PriceGexChartContainer";
-import { IntegratedGEXChart } from "@/components/chart/IntegratedGEXChart";
 import { TradingViewGexChart } from "@/components/chart/TradingViewGexChart";
 import { GreekLadder } from "@/components/greeks/GreekLadder";
 import { OptionsFlowHeatmap } from "./OptionsFlowHeatmap";
@@ -25,9 +25,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { AlertTriangle, TrendingUp, TrendingDown, Activity, Zap, Shield, Target } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend, BarChart, Bar } from "recharts";
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend, BarChart, Bar, Cell, AreaChart, Area } from "recharts";
 import { IvSurface3D } from "./IvSurface3D";
+import { GexBotChart } from "./GexBotChart";
 import { IvSurface3DReal } from "./IvSurface3DReal";
+import { PhysicsView } from "./PhysicsView";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -108,11 +110,159 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
   );
 }
 
-// ─────── PRICE + GEX CHART (sección propia) ───────
+// ─────── PRICE + GEX CHART (GEX Bot — canvas, datos reales) ───────
 export function ChartView({ ticker, exposures, levels }: Ctx) {
   return (
-    <div className="h-full overflow-hidden">
-      <IntegratedGEXChart defaultSymbol={ticker.symbol} />
+    <div className="h-full w-full flex gap-1 overflow-hidden" style={{ minHeight: 520 }}>
+      {/* Gamma canvas — left half */}
+      <div style={{ flex: "1 1 0", minWidth: 0, height: "100%", overflow: "hidden" }}>
+        <GexBotChart ticker={ticker} exposures={exposures} levels={levels} />
+      </div>
+      {/* TradingView chart + info panel — right half */}
+      <div style={{ flex: "1 1 0", minWidth: 0, height: "100%", overflow: "hidden", display: "flex" }}>
+        <div style={{ flex: 1, minWidth: 0, height: "100%", overflow: "hidden" }}>
+          <TradingViewGexChart ticker={ticker} exposures={exposures} levels={levels} embedded />
+        </div>
+        <GexInfoPanel ticker={ticker} exposures={exposures} levels={levels} />
+      </div>
+    </div>
+  );
+}
+
+// ── GEX Info Panel ────────────────────────────────────────────────
+function GexInfoPanel({ ticker, exposures, levels }: { ticker: DemoTicker; exposures: ExposurePoint[]; levels: KeyLevels }) {
+  const spot = ticker.spot;
+  const today = new Date().toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" });
+
+  const totalCallOI = exposures.reduce((s, p) => s + p.callOI, 0);
+  const totalPutOI  = exposures.reduce((s, p) => s + p.putOI, 0);
+  const totalOI     = totalCallOI + totalPutOI;
+  const callPct     = totalOI > 0 ? ((totalCallOI / totalOI) * 100).toFixed(0) : "–";
+  const putPct      = totalOI > 0 ? ((totalPutOI  / totalOI) * 100).toFixed(0) : "–";
+
+  const peakGex = exposures.length
+    ? exposures.reduce((b, p) => Math.abs(p.netGex) > Math.abs(b.netGex) ? p : b, exposures[0]).strike
+    : null;
+
+  const isPositive    = levels.totalGex >= 0;
+  const aboveZeroGamma = levels.gammaFlip != null ? spot > levels.gammaFlip : null;
+  const netGex         = levels.totalGex;
+
+  const fmt = (n: number) => {
+    const a = Math.abs(n);
+    if (a >= 1e9) return `${n >= 0 ? "+" : ""}${(n / 1e9).toFixed(2)}B`;
+    if (a >= 1e6) return `${n >= 0 ? "+" : ""}${(n / 1e6).toFixed(1)}M`;
+    if (a >= 1e3) return `${n >= 0 ? "+" : ""}${(n / 1e3).toFixed(1)}K`;
+    return `${n >= 0 ? "+" : ""}${n.toFixed(0)}`;
+  };
+  const fmtOI = (n: number) => {
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+    return n.toFixed(0);
+  };
+  const px = (n: number | null | undefined) => n != null ? `$${n.toLocaleString()}` : "–";
+
+  const S: React.CSSProperties = {
+    fontFamily: "'Courier New', monospace",
+    fontSize: 9,
+    lineHeight: "15px",
+  };
+  const Row = ({ label, value, col }: { label: string; value: string; col: string }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 4 }}>
+      <span style={{ color: "#2a3d52", whiteSpace: "nowrap" }}>{label}</span>
+      <span style={{ color: col, fontWeight: 700, whiteSpace: "nowrap" }}>{value}</span>
+    </div>
+  );
+  const Sec = ({ label }: { label: string }) => (
+    <div style={{ color: "#1e6e3a", fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", marginTop: 8, marginBottom: 2, borderBottom: "1px solid #0e1a10", paddingBottom: 2 }}>
+      {label}
+    </div>
+  );
+
+  return (
+    <div style={{
+      width: 168, flexShrink: 0,
+      height: "100%", overflowY: "auto", overflowX: "hidden",
+      background: "#04060a",
+      borderLeft: "1px solid #0c1218",
+      padding: "6px 8px",
+      scrollbarWidth: "none",
+      ...S,
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
+        <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 900, letterSpacing: "0.05em" }}>gex</span>
+        <span style={{ color: "#1a2530", fontSize: 8 }}>bot</span>
+        <span style={{
+          marginLeft: "auto", background: "#0e2a1a", border: "1px solid #22c55e",
+          color: "#22c55e", fontSize: 8, padding: "1px 6px", borderRadius: 2, fontWeight: 700,
+        }}>LATEST</span>
+      </div>
+
+      <Sec label="IDENTIFY" />
+      <Row label="ticker"      value={ticker.symbol}             col="#22d3ee" />
+      <Row label="date"        value={today}                     col="#facc15" />
+      <Row label="spot"        value={px(spot)}                  col="#e8963a" />
+      <Row label="delta zero"  value={px(levels.gammaFlip ?? levels.volTrigger)} col="#facc15" />
+
+      <Sec label="KEY LEVELS / CBOE" />
+      <Row label="zero gamma"  value={px(levels.gammaFlip ?? levels.volTrigger)} col="#facc15" />
+      <Row label="call wall"   value={px(levels.callWall)}       col="#22c55e" />
+      <Row label="put wall"    value={px(levels.putWall)}        col="#ef4444" />
+      <Row label="peak GEX"    value={px(peakGex)}               col="#22d3ee" />
+      <Row label="max pain"    value={px(levels.maxPain)}        col="#fb923c" />
+      {levels.majorWall && <Row label="major wall" value={px(levels.majorWall)} col="#c084fc" />}
+
+      <Sec label="GEX STATUS" />
+      <Row label="net gex"     value={fmt(netGex)}               col={isPositive ? "#22c55e" : "#ef4444"} />
+      <Row label="regime"      value={isPositive ? "POS γ" : "NEG γ"} col={isPositive ? "#22c55e" : "#ef4444"} />
+      <Row label="total OI"    value={fmtOI(totalOI)}            col="#4a6688" />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 4 }}>
+        <span style={{ color: "#2a3d52" }}>call OI</span>
+        <span>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>{fmtOI(totalCallOI)}</span>
+          {" "}<span style={{ color: "#22c55e" }}>{callPct}%</span>
+        </span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 4 }}>
+        <span style={{ color: "#2a3d52" }}>put OI</span>
+        <span>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>{fmtOI(totalPutOI)}</span>
+          {" "}<span style={{ color: "#ef4444" }}>{putPct}%</span>
+        </span>
+      </div>
+
+      <Sec label="LEVEL RATES" />
+      <Row
+        label="above γ0"
+        value={aboveZeroGamma == null ? "–" : aboveZeroGamma ? "✓ POS γ" : "✗ NEG γ"}
+        col={aboveZeroGamma == null ? "#4a6688" : aboveZeroGamma ? "#22c55e" : "#ef4444"}
+      />
+      <Row
+        label="range"
+        value={levels.putWall && levels.callWall ? `$${levels.putWall}–${levels.callWall}` : "–"}
+        col="#4a6688"
+      />
+      <Row
+        label="dist flip"
+        value={levels.gammaFlip ? `${(((spot - levels.gammaFlip) / spot) * 100).toFixed(2)}%` : "–"}
+        col={Math.abs(spot - (levels.gammaFlip ?? spot)) / spot < 0.01 ? "#f59e0b" : "#4a6688"}
+      />
+
+      {/* OI bar */}
+      <div style={{ marginTop: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", color: "#1a2530", fontSize: 8, marginBottom: 2 }}>
+          <span style={{ color: "#22c55e" }}>C {callPct}%</span>
+          <span style={{ color: "#ef4444" }}>P {putPct}%</span>
+        </div>
+        <div style={{ height: 4, borderRadius: 2, background: "#0c1218", overflow: "hidden" }}>
+          <div style={{
+            height: "100%", borderRadius: 2,
+            width: `${callPct}%`,
+            background: "linear-gradient(90deg, #22c55e, #16a34a)",
+          }} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -414,7 +564,11 @@ export function LevelsView({ ticker, exposures, levels }: Ctx) {
 
 // ─────── HEDGE PRESSURE ───────
 export function HedgeView(ctx: Ctx) {
-  return <HedgePressurePanel {...ctx} />;
+  return (
+    <div className="h-full overflow-hidden">
+      <HedgePressurePanel {...ctx} />
+    </div>
+  );
 }
 
 // ─────── VANNA / CHARM ───────
@@ -746,10 +900,246 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
 }
 
 // ─────── VOLATILITY ───────
-export function VolatilityView({ ticker, contracts }: Ctx) {
+export function VolatilityView({ ticker, exposures, levels, contracts }: Ctx) {
   return (
     <div className="space-y-3 h-full overflow-y-auto pr-1">
       <VolatilityDashboard ticker={ticker} contracts={contracts} />
+      <VolatilityAnomalyPanel ticker={ticker} exposures={exposures} levels={levels} contracts={contracts} />
+    </div>
+  );
+}
+
+// ─────── VOLATILITY ANOMALY PANEL ────────────────────────────────
+function VolatilityAnomalyPanel({ ticker, contracts }: Ctx) {
+  const spot       = ticker.spot;
+  const strikeStep = ticker.strikeStep;
+
+  // ── ATM IV ──────────────────────────────────────────────────
+  const atmIv = useMemo(() => {
+    const near = contracts.filter(c => Math.abs(c.strike - spot) <= strikeStep * 1.5);
+    return near.length
+      ? (near.reduce((s, c) => s + c.iv, 0) / near.length) * 100
+      : ticker.baseIV * 100;
+  }, [contracts, spot, strikeStep, ticker.baseIV]);
+
+  // ── Term structure: ATM IV per expiry ────────────────────────
+  const termStructure = useMemo(() => {
+    const map = new Map<number, number[]>();
+    for (const c of contracts) {
+      if (Math.abs(c.strike - spot) > strikeStep * 2.5) continue;
+      const arr = map.get(c.expiry) ?? [];
+      arr.push(c.iv * 100);
+      map.set(c.expiry, arr);
+    }
+    return Array.from(map.entries())
+      .map(([dte, ivs]) => ({ dte, iv: ivs.reduce((s, v) => s + v, 0) / ivs.length }))
+      .sort((a, b) => a.dte - b.dte);
+  }, [contracts, spot, strikeStep]);
+
+  // ── Skew surface: IV by strike (nearest expiry) ──────────────
+  const skewData = useMemo(() => {
+    if (!contracts.length) return [];
+    const minExp = contracts.reduce((m, c) => c.expiry < m ? c.expiry : m, Infinity);
+    const near   = contracts.filter(c => c.expiry === minExp);
+    const strikes = Array.from(new Set(near.map(c => c.strike))).sort((a, b) => a - b);
+    return strikes
+      .map(strike => {
+        const calls = near.filter(c => c.strike === strike && c.type === "call");
+        const puts  = near.filter(c => c.strike === strike && c.type === "put");
+        const cIv   = calls.length ? calls.reduce((s, c) => s + c.iv, 0) / calls.length * 100 : null;
+        const pIv   = puts.length  ? puts.reduce((s, c) => s + c.iv, 0) / puts.length  * 100 : null;
+        const mono  = Number(((strike - spot) / spot * 100).toFixed(2));
+        return { mono, callIv: cIv, putIv: pIv };
+      })
+      .filter(d => Math.abs(d.mono) <= 8);
+  }, [contracts, spot]);
+
+  // ── Stats ────────────────────────────────────────────────────
+  const allIvs  = contracts.map(c => c.iv * 100);
+  const meanIv  = allIvs.reduce((s, v) => s + v, 0) / Math.max(allIvs.length, 1);
+  const minIv   = allIvs.length ? Math.min(...allIvs) : 0;
+  const maxIv   = allIvs.length ? Math.max(...allIvs) : 0;
+  const sdIv    = Math.sqrt(allIvs.reduce((s, v) => s + (v - meanIv) ** 2, 0) / Math.max(allIvs.length, 1));
+  const ivRank  = maxIv > minIv ? ((atmIv - minIv) / (maxIv - minIv)) * 100 : 50;
+  const vov     = sdIv;
+
+  const putIvs    = contracts.filter(c => c.type === "put").map(c => c.iv * 100);
+  const callIvs   = contracts.filter(c => c.type === "call").map(c => c.iv * 100);
+  const avgPutIv  = putIvs.reduce((s, v) => s + v, 0) / Math.max(putIvs.length, 1);
+  const avgCallIv = callIvs.reduce((s, v) => s + v, 0) / Math.max(callIvs.length, 1);
+  const pcSpread  = avgPutIv - avgCallIv;
+
+  const termRegime = termStructure.length >= 2
+    ? (termStructure[0].iv > termStructure[termStructure.length - 1].iv
+        ? "BACKWARDATION" : "CONTANGO")
+    : "N/A";
+
+  // ── Forward vol between adjacent expiries ────────────────────
+  const forwardVols = useMemo(() => {
+    if (termStructure.length < 2) return [];
+    return termStructure.slice(0, -1).map((t, i) => {
+      const t1 = t.dte / 252, t2 = termStructure[i + 1].dte / 252;
+      const v1 = t.iv / 100,   v2 = termStructure[i + 1].iv / 100;
+      if (t2 <= t1 || t1 <= 0) return null;
+      const fvSq = (v2 * v2 * t2 - v1 * v1 * t1) / (t2 - t1);
+      const fv   = fvSq > 0 ? Math.sqrt(fvSq) * 100 : 0;
+      return {
+        label: `${t.dte}→${termStructure[i + 1].dte}d`,
+        fv: Number(fv.toFixed(2)),
+        anomaly: fv > v2 * 100 * 1.4 || fv < v1 * 100 * 0.6,
+      };
+    }).filter(Boolean) as { label: string; fv: number; anomaly: boolean }[];
+  }, [termStructure]);
+
+  // ── Anomaly scores ───────────────────────────────────────────
+  const zAtm    = sdIv > 0 ? (atmIv - meanIv) / sdIv : 0;
+  const zSkew   = sdIv > 0 ? pcSpread / (sdIv * 0.5) : 0;
+  const zVov    = meanIv > 0 ? (vov / meanIv - 0.15) / 0.08 : 0;
+  const zTerm   = termRegime === "BACKWARDATION" ? 2.8 : -0.5;
+  const zRank   = (ivRank - 50) / 25;
+  const zFwdVol = forwardVols.filter(f => f.anomaly).length > 0 ? 2.2 : 0.3;
+
+  const anomalies = [
+    { label: "ATM IV Spike",    value: `${atmIv.toFixed(1)}%`,                            z: zAtm,   desc: `${zAtm >= 0 ? "+" : ""}${zAtm.toFixed(2)}σ vs chain mean`          },
+    { label: "Put/Call Skew",   value: `${pcSpread >= 0 ? "+" : ""}${pcSpread.toFixed(1)}%`, z: zSkew, desc: pcSpread > 0 ? "Put premium (hedging demand)" : "Call skew (upside)" },
+    { label: "Vol of Vol",      value: `${vov.toFixed(1)}%`,                              z: zVov,   desc: vov > meanIv * 0.2 ? "High IV dispersion" : "Normal dispersion"       },
+    { label: "Term Structure",  value: termRegime,                                        z: zTerm,  desc: termRegime === "BACKWARDATION" ? "Short-term fear spike" : "Normal"   },
+    { label: "IV Rank",         value: `${ivRank.toFixed(0)}/100`,                        z: zRank,  desc: ivRank > 75 ? "Expensive options" : ivRank < 25 ? "Cheap options" : "Neutral" },
+    { label: "Forward Vol",     value: forwardVols.length ? `${forwardVols[0].fv.toFixed(1)}%` : "–", z: zFwdVol, desc: zFwdVol > 2 ? "Fwd vol kink detected" : "Normal fwd structure" },
+  ];
+
+  const zColor = (z: number) =>
+    Math.abs(z) > 2.5 ? "#f43f5e" : Math.abs(z) > 1.5 ? "#f59e0b" : "#22d3ee";
+  const zLabel = (z: number) =>
+    Math.abs(z) > 2.5 ? "CRITICAL" : Math.abs(z) > 1.5 ? "ELEVATED" : "NORMAL";
+
+  return (
+    <div className="space-y-3">
+      {/* ── Header row ───────────────────────────────────── */}
+      <Panel title="Volatility Anomaly Detection" subtitle={`${ticker.symbol} · real-time chain analysis`}
+        right={
+          <span style={{ fontFamily: "'Courier New',monospace", fontSize: 10, color: termRegime === "BACKWARDATION" ? "#f43f5e" : "#22d3ee", fontWeight: 700 }}>
+            {termRegime}
+          </span>
+        }
+      >
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
+          <StatBlock label="ATM IV"       value={`${atmIv.toFixed(1)}%`}    tone={atmIv > meanIv + sdIv * 1.5 ? "put" : "default"} />
+          <StatBlock label="IV Rank"      value={`${ivRank.toFixed(0)}/100`} tone={ivRank > 75 ? "put" : ivRank < 25 ? "call" : "default"} sub={ivRank > 75 ? "expensive" : ivRank < 25 ? "cheap" : "neutral"} />
+          <StatBlock label="Vol of Vol"   value={`${vov.toFixed(1)}%`}      tone={vov > meanIv * 0.2 ? "warning" : "default"} sub="IV dispersion" />
+          <StatBlock label="P/C IV Spread" value={`${pcSpread >= 0 ? "+" : ""}${pcSpread.toFixed(1)}%`} tone={pcSpread > 2 ? "put" : pcSpread < -2 ? "call" : "default"} sub={pcSpread > 0 ? "put premium" : "call prem."} />
+          <StatBlock label="Term Regime"  value={termRegime}                tone={termRegime === "BACKWARDATION" ? "put" : "call"} />
+          <StatBlock label="Min/Max IV"   value={`${minIv.toFixed(0)}/${maxIv.toFixed(0)}%`} tone="default" sub={`mean ${meanIv.toFixed(1)}%`} />
+        </div>
+
+        {/* ── Charts ───────────────────────────────────── */}
+        <div className="grid lg:grid-cols-2 gap-4 mb-4">
+          {/* Term structure */}
+          <div>
+            <div className="text-[10px] font-mono font-bold tracking-widest text-muted-foreground mb-2">
+              TERM STRUCTURE · IV% vs DTE
+            </div>
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={termStructure} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                  <defs>
+                    <linearGradient id="termGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis dataKey="dte" tick={{ fill: "#4a6688", fontSize: 9 }} tickFormatter={v => `${v}d`} />
+                  <YAxis tick={{ fill: "#4a6688", fontSize: 9 }} tickFormatter={v => `${Number(v).toFixed(0)}%`} />
+                  <RTooltip
+                    contentStyle={{ background: "#04060a", border: "1px solid #0e1420", borderRadius: 4, fontSize: 11, fontFamily: "monospace" }}
+                    labelFormatter={l => `DTE: ${l}d`}
+                    formatter={(v: number) => [`${v.toFixed(2)}%`, "ATM IV"]}
+                  />
+                  <Area type="monotone" dataKey="iv" stroke="#22d3ee" strokeWidth={2} fill="url(#termGrad)" dot={{ r: 3, fill: "#22d3ee" }} isAnimationActive={false} />
+                  <ReferenceLine y={atmIv} stroke="#e8963a" strokeDasharray="3 3"
+                    label={{ value: "SPOT IV", fill: "#e8963a", fontSize: 9, position: "right" }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Skew by strike */}
+          <div>
+            <div className="text-[10px] font-mono font-bold tracking-widest text-muted-foreground mb-2">
+              VOL SKEW · IV% by STRIKE MONEYNESS
+            </div>
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={skewData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis dataKey="mono" tick={{ fill: "#4a6688", fontSize: 9 }} tickFormatter={v => `${Number(v) >= 0 ? "+" : ""}${v}%`} />
+                  <YAxis tick={{ fill: "#4a6688", fontSize: 9 }} tickFormatter={v => `${Number(v).toFixed(0)}%`} />
+                  <RTooltip
+                    contentStyle={{ background: "#04060a", border: "1px solid #0e1420", borderRadius: 4, fontSize: 11, fontFamily: "monospace" }}
+                    labelFormatter={l => `Moneyness: ${Number(l) >= 0 ? "+" : ""}${l}%`}
+                    formatter={(v: number, name: string) => [`${v.toFixed(2)}%`, name === "callIv" ? "Call IV" : "Put IV"]}
+                  />
+                  <ReferenceLine x={0} stroke="#e8963a" strokeDasharray="3 3" label={{ value: "ATM", fill: "#e8963a", fontSize: 9 }} />
+                  <Line type="monotone" dataKey="putIv"  stroke="#f87171" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls />
+                  <Line type="monotone" dataKey="callIv" stroke="#4ade80" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls />
+                  <Legend wrapperStyle={{ fontSize: 10, fontFamily: "monospace" }} formatter={v => v === "callIv" ? "Call IV" : "Put IV"} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Anomaly scores ────────────────────────────── */}
+        <div className="text-[10px] font-mono font-bold tracking-widest text-muted-foreground mb-2">
+          ANOMALY SCORES · Z-SCORE ANALYSIS
+        </div>
+        <div className="space-y-1.5">
+          {anomalies.map(a => {
+            const col = zColor(a.z);
+            const lbl = zLabel(a.z);
+            const pct = Math.min(100, Math.abs(a.z) / 3 * 100);
+            return (
+              <div key={a.label} className="grid items-center gap-2"
+                style={{ gridTemplateColumns: "120px 70px 1fr 80px 70px" }}>
+                <span className="text-[10px] font-mono text-muted-foreground">{a.label}</span>
+                <span className="text-[10px] font-mono font-bold" style={{ color: col }}>{a.value}</span>
+                <div className="h-1.5 rounded-full bg-secondary/40 overflow-hidden">
+                  <div className="h-full rounded-full transition-all"
+                    style={{ width: `${pct}%`, background: col, boxShadow: `0 0 6px ${col}` }} />
+                </div>
+                <span className="text-[9px] font-mono text-muted-foreground truncate">{a.desc}</span>
+                <span className="text-[9px] font-mono font-bold text-right" style={{ color: col }}>{lbl}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Forward vol table ─────────────────────────── */}
+        {forwardVols.length > 0 && (
+          <div className="mt-4">
+            <div className="text-[10px] font-mono font-bold tracking-widest text-muted-foreground mb-2">
+              FORWARD VOL · TERM STRUCTURE IMPLIED
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {forwardVols.map(f => (
+                <div key={f.label}
+                  className="rounded border px-2 py-1.5 font-mono text-[10px] text-center min-w-[80px]"
+                  style={{
+                    borderColor: f.anomaly ? "#f43f5e" : "#0e1420",
+                    background: f.anomaly ? "rgba(244,63,94,0.08)" : "#04060a",
+                  }}>
+                  <div className="text-muted-foreground text-[9px]">{f.label}</div>
+                  <div className="font-bold mt-0.5" style={{ color: f.anomaly ? "#f43f5e" : "#22d3ee" }}>
+                    {f.fv.toFixed(1)}%
+                  </div>
+                  {f.anomaly && <div className="text-[8px] text-[#f43f5e] mt-0.5">KINK</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }
@@ -1182,6 +1572,11 @@ export function RiskView({ ticker, exposures, levels, contracts }: Ctx) {
   );
 }
 
+// ─────── FÍSICA γ ───────
+export function PhysicsViewWrapper({ ticker, exposures, levels }: Ctx) {
+  return <PhysicsView ticker={ticker} exposures={exposures} levels={levels} />;
+}
+
 // ─────── ANOMALY DETECTION ───────
 // ─────── ANOMALY DETECTION (Bloomberg-style) ───────
 interface AlertItem {
@@ -1233,29 +1628,17 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
   // ── Live alert feed (animated) ──
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   useEffect(() => {
-    setAlerts([]);
-    if (candidates.length === 0) return;
-    // Seed with top 4 immediately
-    const seed = [...candidates]
+    if (candidates.length === 0) { setAlerts([]); return; }
+    // Show top anomalies sorted by |Z| — no random jitter, no artificial feed
+    const sorted = [...candidates]
       .sort((a, b) => Math.abs(b.z) - Math.abs(a.z))
-      .slice(0, 4)
+      .slice(0, 18)
       .map((c, i) => ({
-        id: `${Date.now()}-${i}`,
+        id: `${c.kind}-${c.strike}-${i}`,
         ts: Date.now() - i * 12000,
         kind: c.kind, z: c.z, symbol: ticker.symbol, strike: c.strike, detail: c.detail,
       }));
-    setAlerts(seed);
-    const id = setInterval(() => {
-      const pick = candidates[Math.floor(Math.random() * candidates.length)];
-      const jitter = (Math.random() - 0.5) * 0.6;
-      const newAlert: AlertItem = {
-        id: `${Date.now()}-${Math.random()}`,
-        ts: Date.now(),
-        kind: pick.kind, z: pick.z + jitter, symbol: ticker.symbol, strike: pick.strike, detail: pick.detail,
-      };
-      setAlerts((prev) => [newAlert, ...prev].slice(0, 18));
-    }, 4500);
-    return () => clearInterval(id);
+    setAlerts(sorted);
   }, [candidates, ticker.symbol]);
 
   // ── Z-Distance from VWAP (REAL intraday prices via Yahoo/Polygon) ──
