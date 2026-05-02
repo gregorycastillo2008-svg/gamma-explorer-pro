@@ -1,4 +1,4 @@
-import { useState, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export interface TerminalTab {
@@ -10,6 +10,9 @@ export interface TerminalTab {
 interface Props {
   tabs: TerminalTab[];
   defaultKey?: string;
+  /** Controlled mode — pass activeKey + onTabChange together */
+  activeKey?: string;
+  onTabChange?: (key: string) => void;
   /** unique layoutId so multiple switchers don't share the animated background */
   layoutId?: string;
   /** optional className for the outer wrapper */
@@ -18,10 +21,16 @@ interface Props {
 
 /**
  * Terminal-style tab switcher with neon active state and animated underline.
- * Same look & feel as the original GEX HEATMAP / STRIKE CHART / 3D SURFACE selector.
+ * Supports both uncontrolled (defaultKey) and controlled (activeKey + onTabChange) modes.
  */
-export function TerminalTabs({ tabs, defaultKey, layoutId = "terminal-tab-bg", className = "" }: Props) {
-  const [active, setActive] = useState<string>(defaultKey ?? tabs[0]?.key);
+export function TerminalTabs({ tabs, defaultKey, activeKey, onTabChange, layoutId = "terminal-tab-bg", className = "" }: Props) {
+  const [_active, _setActive] = useState<string>(activeKey ?? defaultKey ?? tabs[0]?.key);
+  const controlled = activeKey !== undefined;
+  const active = controlled ? activeKey : _active;
+  const setActive = (key: string) => { if (!controlled) _setActive(key); onTabChange?.(key); };
+
+  useEffect(() => { if (controlled) _setActive(activeKey); }, [activeKey, controlled]);
+
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
 
   return (

@@ -599,9 +599,12 @@ export function VannaCharmView({ ticker, exposures }: Ctx) {
 
 // ─────── VEGA / THETA ───────
 export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
+  const [activeVTTab, setActiveVTTab] = useState("analyzer");
   const [live, setLive] = useState(true);
   const [expiryFilter, setExpiryFilter] = useState<string>("all");
   const [tick, setTick] = useState(0);
+  const mapScrollRef = React.useRef<HTMLDivElement>(null);
+  const topVegaRowRef = React.useRef<HTMLTableRowElement>(null);
 
   // Live ticker for subtle pulsing values
   useEffect(() => {
@@ -693,6 +696,24 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
       .sort((a, b) => a.strike - b.strike);
   }, [filteredCells, ticker.spot]);
 
+  // Top-vega strike — the row we auto-scroll to when entering EXPOSURE MAP
+  const topVegaStrike = useMemo(() => {
+    const byStrike = new Map<number, number>();
+    for (const c of filteredCells) byStrike.set(c.strike, (byStrike.get(c.strike) ?? 0) + Math.abs(c.vega));
+    let best = { strike: ticker.spot, vega: 0 };
+    byStrike.forEach((v, k) => { if (v > best.vega) best = { strike: k, vega: v }; });
+    return best.strike;
+  }, [filteredCells, ticker.spot]);
+
+  // Auto-scroll to the top-vega row when EXPOSURE MAP tab activates
+  useEffect(() => {
+    if (activeVTTab !== "classic") return;
+    const frame = requestAnimationFrame(() => {
+      topVegaRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeVTTab, topVegaStrike]);
+
   // Heatmap color scaling
   const maxAbsVega = Math.max(1, ...filteredCells.map((c) => Math.abs(c.vega)));
   const maxAbsTheta = Math.max(1, ...filteredCells.map((c) => Math.abs(c.theta)));
@@ -729,6 +750,8 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
   return (
     <TerminalTabs
       layoutId="vegatheta-master-tab-bg"
+      activeKey={activeVTTab}
+      onTabChange={setActiveVTTab}
       tabs={[
         {
           key: "analyzer",
@@ -739,7 +762,27 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
           key: "classic",
           label: "EXPOSURE MAP",
           content: (
-    <div className="h-full overflow-y-auto space-y-3 pr-1 terminal-scrollbar">
+    <div ref={mapScrollRef} className="h-full overflow-y-auto space-y-3 pr-1 terminal-scrollbar">
+      {/* Sticky tab bar — always visible while scrolling the heatmap */}
+      <div className="sticky top-0 z-30 flex items-center justify-between px-3 py-2 rounded-lg border border-border/60 backdrop-blur-md" style={{ background: "rgba(0,0,0,0.88)" }}>
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+          Vega / Theta · Exposure Map
+        </span>
+        <div className="flex gap-0.5 bg-black/60 border border-border rounded p-0.5">
+          {[{ key: "analyzer", label: "ANALYZER" }, { key: "classic", label: "EXPOSURE MAP" }].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveVTTab(t.key)}
+              className="relative px-3 py-1 text-[10px] font-mono uppercase tracking-widest rounded transition-colors"
+              style={activeVTTab === t.key
+                ? { background: "#00ff88", color: "#000", fontWeight: 700 }
+                : { color: "rgba(255,255,255,0.4)" }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <div className="kpi-card rounded border border-border bg-card/60 px-3 py-2">
@@ -809,13 +852,20 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
             <tbody>
               {allStrikes.map((strike) => {
                 const isSpot = Math.abs(strike - ticker.spot) < ticker.strikeStep / 2;
+                const isTopVega = strike === topVegaStrike;
                 return (
-                  <tr key={strike}>
+                  <tr
+                    key={strike}
+                    ref={isTopVega ? topVegaRowRef : undefined}
+                    style={isTopVega && !isSpot ? { outline: "1px solid rgba(0,229,160,0.45)", outlineOffset: -1 } : undefined}
+                  >
                     <td
                       className={`sticky left-0 z-10 px-2 py-1 font-bold text-right ${isSpot ? "text-primary-foreground" : "text-foreground"}`}
                       style={{ background: isSpot ? "hsl(190 100% 45%)" : "hsl(var(--card))" }}
                     >
-                      {strike}{isSpot && <span className="ml-1">●</span>}
+                      {strike}
+                      {isSpot && <span className="ml-1">●</span>}
+                      {isTopVega && !isSpot && <span className="ml-1 text-[7px] font-bold px-1 rounded" style={{ background: "rgba(0,229,160,0.2)", color: "#00e5a0" }}>▲VEX</span>}
                     </td>
                     {visibleExpiries.map((exp) => {
                       const cell = cellMap.get(`${strike}|${exp}`);
