@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { DemoTicker, OptionContract } from "@/lib/gex";
+import { DemoTicker, OptionContract, computeExposures } from "@/lib/gex";
 import { buildVolatilityDataset } from "@/lib/mockVolatilityData";
 import { TopMetricsBar } from "./TopMetricsBar";
 import { Volatility3DSurface } from "@/components/terminal/Volatility3DSurface";
@@ -8,7 +8,8 @@ import { PutCallSkewPanel } from "./PutCallSkewPanel";
 import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
 import { VolatilityTable } from "./VolatilityTable";
 import { RealVolatilityDashboard } from "./RealVolatilityDashboard";
-
+import { VolatilityImbalanceDetector } from "./VolatilityImbalanceDetector";
+import { GexDivergingBars } from "./GexDivergingBars";
 
 interface Props {
   ticker: DemoTicker;
@@ -20,6 +21,8 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
     () => buildVolatilityDataset(ticker.symbol, ticker.spot, ticker.baseIV, 7, contracts),
     [ticker.symbol, ticker.spot, ticker.baseIV, contracts],
   );
+  const exposures = useMemo(() => computeExposures(ticker.spot, contracts), [ticker.spot, contracts]);
+
   return (
     <div className="space-y-3" style={{ background: "#000000" }}>
       <TopMetricsBar data={data} />
@@ -35,12 +38,21 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
         <RealizedVolatilityChart data={data} />
       </Panel>
 
-      <RealVolatilityDashboard defaultTicker={ticker.symbol} />
+      {/* Real Volatility Dashboard — GARCH + Yang-Zhang + Parkinson + VRP */}
+      <RealVolatilityDashboard defaultTicker={ticker.symbol} impliedVol={ticker.baseIV} />
+
+      {/* Volatility Imbalance Detector — Skew · Term Structure · OI Bias · Wing · VEX · GEX Pin */}
+      <VolatilityImbalanceDetector ticker={ticker} contracts={contracts} exposures={exposures} />
+
+      {/* GEX Diverging Bars */}
+      <div className="pt-1">
+        <GexDivergingBars ticker={ticker} exposures={exposures} />
+      </div>
     </div>
   );
 }
 
-function Panel({ className = "mx-0 my-0 px-0 py-0 mr-0 mb-0", children }: { className?: string; children: React.ReactNode }) {
+function Panel({ className = "", children }: { className?: string; children: React.ReactNode }) {
   return (
     <div className={`rounded-xl border border-[#1f1f1f] bg-[#0a0a0a] p-4 overflow-auto ${className}`}>
       {children}
