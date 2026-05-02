@@ -48,7 +48,8 @@ export function GexDivergingBars({ ticker, exposures }: Props) {
         <div>
           <div className="text-[11px] uppercase tracking-widest text-zinc-500">Gamma Exposure Analysis (GEX)</div>
           <div className="text-base font-semibold text-zinc-100">
-            Net Gamma Exposure by Strike Price · <span className="text-cyan-400">{ticker.symbol}</span>
+            <span className="text-cyan-400">{ticker.symbol}</span>
+            <span className="text-zinc-500 text-sm ml-2">GEX por Strike</span>
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs">
