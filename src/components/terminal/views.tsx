@@ -30,9 +30,10 @@ import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tool
 import { IvSurface3D } from "./IvSurface3D";
 import { GexBotChart } from "./GexBotChart";
 import { IvSurface3DReal } from "./IvSurface3DReal";
-import { PhysicsView } from "./PhysicsView";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { VolatilityRegimeIndicator } from "./VolatilityRegimeIndicator";
+import { ExpectedMoveCalculator } from "./ExpectedMoveCalculator";
 
 interface Ctx {
   ticker: DemoTicker;
@@ -76,37 +77,353 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
           {
             key: "levels",
             label: "KEY LEVELS",
-            content: (
-              <Panel title="Key Levels" className="h-full flex flex-col">
-                <div className="space-y-2 text-sm font-mono">
-                  <KV k="Call Wall" v={`$${levels.callWall}`} tone="call" />
-                  <KV k="Put Wall" v={`$${levels.putWall}`} tone="put" />
-                  <KV k="Gamma Flip" v={levels.gammaFlip ? `$${levels.gammaFlip}` : "—"} tone="warning" />
-                  <KV k="Spot vs Flip" v={levels.gammaFlip ? `${(((ticker.spot - levels.gammaFlip) / levels.gammaFlip) * 100).toFixed(2)}%` : "—"} />
-                  <KV k="Distance to Call Wall" v={`${(((levels.callWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-                  <KV k="Distance to Put Wall" v={`${(((levels.putWall - ticker.spot) / ticker.spot) * 100).toFixed(2)}%`} />
-                </div>
-              </Panel>
-            ),
+            content: <KeyLevelsPanel ticker={ticker} exposures={exposures} levels={levels} contracts={contracts} />,
           },
           {
             key: "oi",
             label: "OPEN INTEREST",
-            content: (
-              <Panel title="Open Interest" className="h-full flex flex-col">
-                <div className="space-y-2 text-sm font-mono">
-                  <KV k="Call OI" v={formatNumber(totalCallOI, 0)} tone="call" />
-                  <KV k="Put OI" v={formatNumber(totalPutOI, 0)} tone="put" />
-                  <KV k="P/C OI Ratio" v={pcr.toFixed(2)} />
-                  <KV k="Strikes" v={String(exposures.length)} />
-                  <KV k="Contracts" v={formatNumber(contracts.length, 0)} />
-                  <KV k="Expiries loaded" v={String(ticker.expiries.length)} />
-                </div>
-              </Panel>
-            ),
+            content: <OpenInterestPanel ticker={ticker} exposures={exposures} levels={levels} contracts={contracts} />,
           },
         ]}
       />
+    </div>
+  );
+}
+
+// ─────── KEY LEVELS ───────
+function KeyLevelsPanel({ ticker, exposures, levels }: Ctx) {
+  const spot = ticker.spot;
+
+  const allLevels = useMemo(() => [
+    { id: "callWall",  label: "CALL WALL",    price: levels.callWall,            color: "#22c55e", glyph: "▲" },
+    { id: "putWall",   label: "PUT WALL",     price: levels.putWall,             color: "#ef4444", glyph: "▼" },
+    { id: "majorWall", label: "MAJOR WALL",   price: levels.majorWall,           color: "#22d3ee", glyph: "◆" },
+    { id: "maxPain",   label: "MAX PAIN",     price: levels.maxPain,             color: "#fb923c", glyph: "✦" },
+    { id: "volTrig",   label: "VOL TRIGGER",  price: levels.volTrigger,          color: "#a78bfa", glyph: "⬡" },
+    { id: "totalVt",   label: "TOTAL VT",     price: levels.totalVt,             color: "#f472b6", glyph: "◉" },
+    { id: "flip",      label: "GAMMA FLIP",   price: levels.gammaFlip ?? 0,      color: "#fbbf24", glyph: "⚡" },
+  ].filter((l) => l.price > 0), [levels]);
+
+  const gexByStrike = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const e of exposures) m.set(e.strike, e.netGex);
+    return m;
+  }, [exposures]);
+
+  const sorted = useMemo(() => [...allLevels].sort((a, b) => b.price - a.price), [allLevels]);
+
+  const prices = [...sorted.map((l) => l.price), spot];
+  const pMin = Math.min(...prices);
+  const pMax = Math.max(...prices);
+  const range = Math.max(pMax - pMin, 1);
+  const toPct = (p: number) => ((p - pMin) / range) * 100;
+
+  const isPos = levels.gammaFlip == null || spot > levels.gammaFlip;
+  const netGex = levels.totalGex;
+
+  const fmtPx = (n: number) => `$${n.toLocaleString()}`;
+  const fmtDist = (p: number) => {
+    const d = ((p - spot) / spot) * 100;
+    return (d >= 0 ? "+" : "") + d.toFixed(2) + "%";
+  };
+  const fmtGex = (n: number) => {
+    const a = Math.abs(n);
+    const s = n >= 0 ? "+" : "−";
+    if (a >= 1e9) return `${s}${(a / 1e9).toFixed(1)}B`;
+    if (a >= 1e6) return `${s}${(a / 1e6).toFixed(2)}M`;
+    if (a >= 1e3) return `${s}${(a / 1e3).toFixed(1)}K`;
+    return `${s}${a.toFixed(0)}`;
+  };
+
+  const MONO: React.CSSProperties = { fontFamily: "JetBrains Mono, ui-monospace, monospace" };
+  const BG = "#07090f";
+  const BORDER = "#131929";
+
+  return (
+    <div className="h-full overflow-y-auto terminal-scrollbar" style={{ background: BG, ...MONO }}>
+      <div className="p-4 space-y-4">
+        {/* Zone banner */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "8px 14px", borderRadius: 6,
+          background: isPos ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)",
+          border: `1px solid ${isPos ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: isPos ? "#22c55e" : "#ef4444", display: "inline-block", boxShadow: `0 0 6px ${isPos ? "#22c55e" : "#ef4444"}` }} />
+            <span style={{ color: isPos ? "#22c55e" : "#ef4444", fontSize: 11, fontWeight: 800, letterSpacing: "0.18em" }}>
+              {isPos ? "POSITIVE GAMMA" : "NEGATIVE GAMMA"} REGIME
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 16 }}>
+            <span style={{ fontSize: 10, color: "#6b7280" }}>NET GEX</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: netGex >= 0 ? "#22c55e" : "#ef4444" }}>{fmtGex(netGex)}</span>
+          </div>
+        </div>
+
+        {/* Horizontal price ruler */}
+        <div style={{ padding: "12px 0 20px", position: "relative" }}>
+          <div style={{ fontSize: 9, color: "#374151", letterSpacing: "0.14em", marginBottom: 10, textTransform: "uppercase" }}>Price Strip · All Levels</div>
+          <div style={{ position: "relative", height: 28, margin: "0 16px" }}>
+            {/* Track */}
+            <div style={{ position: "absolute", top: 13, left: 0, right: 0, height: 2, background: BORDER, borderRadius: 1 }} />
+            {/* Positive gamma zone fill */}
+            {levels.gammaFlip && (
+              <div style={{
+                position: "absolute", top: 12, height: 4, borderRadius: 2,
+                background: "rgba(34,197,94,0.15)",
+                left: `${toPct(Math.min(spot, levels.gammaFlip))}%`,
+                width: `${Math.abs(toPct(spot) - toPct(levels.gammaFlip))}%`,
+              }} />
+            )}
+            {/* Level markers */}
+            {sorted.map((lv) => (
+              <div key={lv.id} style={{ position: "absolute", left: `${toPct(lv.price)}%`, transform: "translateX(-50%)", top: 0 }}>
+                <div style={{ width: 2, height: 28, background: lv.color, opacity: 0.8, margin: "0 auto" }} />
+                <div style={{ position: "absolute", top: -16, left: "50%", transform: "translateX(-50%)", fontSize: 8, color: lv.color, whiteSpace: "nowrap", fontWeight: 700 }}>
+                  {lv.glyph}
+                </div>
+              </div>
+            ))}
+            {/* Spot marker */}
+            <div style={{ position: "absolute", left: `${toPct(spot)}%`, transform: "translateX(-50%)", top: -2 }}>
+              <div style={{ width: 3, height: 32, background: "#fff", borderRadius: 2, margin: "0 auto", boxShadow: "0 0 8px rgba(255,255,255,0.6)" }} />
+              <div style={{ position: "absolute", top: 33, left: "50%", transform: "translateX(-50%)", fontSize: 8, color: "#fff", whiteSpace: "nowrap", fontWeight: 800 }}>
+                SPOT
+              </div>
+            </div>
+          </div>
+          {/* Min / Max labels */}
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 18, fontSize: 8, color: "#374151" }}>
+            <span>{fmtPx(pMin)}</span>
+            <span>{fmtPx(pMax)}</span>
+          </div>
+        </div>
+
+        {/* Detail table */}
+        <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
+          {/* Header */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 72px 80px", gap: 0, padding: "6px 12px", background: "#0d1117", borderBottom: `1px solid ${BORDER}` }}>
+            {["LEVEL", "PRICE", "DIST", "NET GEX"].map((h) => (
+              <div key={h} style={{ fontSize: 8, letterSpacing: "0.14em", color: "#374151", textTransform: "uppercase" }}>{h}</div>
+            ))}
+          </div>
+          {/* Spot row */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 72px 80px", gap: 0, padding: "7px 12px", background: "rgba(255,255,255,0.04)", borderBottom: `1px solid ${BORDER}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 9, color: "#6b7280", letterSpacing: "0.06em" }}>●</span>
+              <span style={{ fontSize: 10, fontWeight: 800, color: "#fff", letterSpacing: "0.08em" }}>SPOT</span>
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "#fff" }}>{fmtPx(spot)}</div>
+            <div style={{ fontSize: 9, color: "#6b7280" }}>—</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: netGex >= 0 ? "#22c55e" : "#ef4444" }}>{fmtGex(netGex)}</div>
+          </div>
+          {sorted.map((lv, i) => {
+            const gex = gexByStrike.get(lv.price) ?? 0;
+            const dist = ((lv.price - spot) / spot) * 100;
+            const above = lv.price > spot;
+            return (
+              <div key={lv.id} style={{
+                display: "grid", gridTemplateColumns: "1fr 80px 72px 80px", gap: 0,
+                padding: "7px 12px",
+                borderBottom: i < sorted.length - 1 ? `1px solid ${BORDER}` : undefined,
+                background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 10, color: lv.color }}>{lv.glyph}</span>
+                  <span style={{ fontSize: 9, color: "#9ca3af", letterSpacing: "0.1em" }}>{lv.label}</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: lv.color }}>{fmtPx(lv.price)}</div>
+                <div style={{ fontSize: 9, color: above ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
+                  {above ? "↑ " : "↓ "}{Math.abs(dist).toFixed(2)}%
+                </div>
+                <div style={{ fontSize: 10, color: gex >= 0 ? "#22c55e" : "#ef4444" }}>{gex !== 0 ? fmtGex(gex) : "—"}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Trap zone */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {[
+            { label: "To Call Wall", price: levels.callWall, color: "#22c55e" },
+            { label: "To Put Wall", price: levels.putWall, color: "#ef4444" },
+            { label: "To Gamma Flip", price: levels.gammaFlip ?? levels.volTrigger, color: "#fbbf24" },
+            { label: "To Max Pain", price: levels.maxPain, color: "#fb923c" },
+          ].map(({ label, price, color }) => {
+            const dist = price > 0 ? ((price - spot) / spot) * 100 : null;
+            return (
+              <div key={label} style={{ background: "#0d1117", border: `1px solid ${BORDER}`, borderRadius: 6, padding: "8px 10px" }}>
+                <div style={{ fontSize: 8, color: "#374151", letterSpacing: "0.12em", textTransform: "uppercase" }}>{label}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color, marginTop: 2 }}>
+                  {dist != null ? `${dist >= 0 ? "+" : ""}${dist.toFixed(2)}%` : "—"}
+                </div>
+                <div style={{ fontSize: 9, color: "#4b5563" }}>{price > 0 ? fmtPx(price) : "—"}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────── OPEN INTEREST ───────
+function OpenInterestPanel({ ticker, exposures, contracts }: Ctx) {
+  const spot = ticker.spot;
+  const MONO: React.CSSProperties = { fontFamily: "JetBrains Mono, ui-monospace, monospace" };
+  const BG = "#07090f";
+  const BORDER = "#131929";
+  const CYAN = "#22d3ee";
+  const RED = "#ef4444";
+
+  const totalCallOI = exposures.reduce((s, p) => s + p.callOI, 0);
+  const totalPutOI  = exposures.reduce((s, p) => s + p.putOI, 0);
+  const totalOI     = totalCallOI + totalPutOI;
+  const pcr         = totalCallOI > 0 ? totalPutOI / totalCallOI : 0;
+  const totalVol    = contracts.reduce((s, c) => s + (c.volume ?? 0), 0);
+  const callVol     = contracts.filter((c) => c.type === "call").reduce((s, c) => s + (c.volume ?? 0), 0);
+  const putVol      = contracts.filter((c) => c.type === "put").reduce((s, c) => s + (c.volume ?? 0), 0);
+  const callPct     = totalOI > 0 ? (totalCallOI / totalOI) * 100 : 50;
+  const putPct      = 100 - callPct;
+
+  // Top strikes by total OI from exposures
+  const topStrikes = useMemo(() =>
+    [...exposures]
+      .sort((a, b) => (b.callOI + b.putOI) - (a.callOI + a.putOI))
+      .slice(0, 12),
+    [exposures]
+  );
+  const maxStrikeOI = Math.max(1, ...topStrikes.map((e) => Math.max(e.callOI, e.putOI)));
+
+  // OI by expiry
+  const byExpiry = useMemo(() => {
+    const m = new Map<number, { callOI: number; putOI: number }>();
+    for (const c of contracts) {
+      const cur = m.get(c.expiry) ?? { callOI: 0, putOI: 0 };
+      if (c.type === "call") cur.callOI += c.oi;
+      else cur.putOI += c.oi;
+      m.set(c.expiry, cur);
+    }
+    return Array.from(m.entries())
+      .map(([exp, v]) => ({ exp, total: v.callOI + v.putOI, callOI: v.callOI, putOI: v.putOI }))
+      .sort((a, b) => a.exp - b.exp)
+      .slice(0, 8);
+  }, [contracts]);
+  const maxExpOI = Math.max(1, ...byExpiry.map((e) => e.total));
+
+  const fmtOI = (n: number) => {
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+    return n.toFixed(0);
+  };
+  const fmtPx = (n: number) => `$${n.toLocaleString()}`;
+
+  return (
+    <div className="h-full overflow-y-auto terminal-scrollbar" style={{ background: BG, ...MONO }}>
+      <div className="p-4 space-y-4">
+
+        {/* KPI strip */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
+          {[
+            { label: "TOTAL OI",   value: fmtOI(totalOI),   color: "#e4e4e7" },
+            { label: "P/C RATIO",  value: pcr.toFixed(2),    color: pcr > 1 ? RED : CYAN },
+            { label: "TOTAL VOL",  value: fmtOI(totalVol),  color: "#a78bfa" },
+            { label: "STRIKES",    value: String(exposures.length), color: "#6b7280" },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ background: "#0d1117", border: `1px solid ${BORDER}`, borderRadius: 6, padding: "8px 10px" }}>
+              <div style={{ fontSize: 8, color: "#374151", letterSpacing: "0.14em", textTransform: "uppercase" }}>{label}</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color, marginTop: 2 }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Call / Put split megabar */}
+        <div style={{ background: "#0d1117", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "12px 14px" }}>
+          <div style={{ fontSize: 9, color: "#374151", letterSpacing: "0.14em", marginBottom: 8, textTransform: "uppercase" }}>Open Interest Split</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 9, color: CYAN, width: 36, textAlign: "right" }}>{callPct.toFixed(1)}%</span>
+            <div style={{ flex: 1, height: 12, background: RED, borderRadius: 6, overflow: "hidden", position: "relative" }}>
+              <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${callPct}%`, background: CYAN, borderRadius: 6 }} />
+              <div style={{ position: "absolute", left: `${callPct / 2}%`, top: "50%", transform: "translate(-50%,-50%)", fontSize: 8, fontWeight: 800, color: "#000", pointerEvents: "none" }}>
+                CALLS
+              </div>
+              <div style={{ position: "absolute", left: `${callPct + (100 - callPct) / 2}%`, top: "50%", transform: "translate(-50%,-50%)", fontSize: 8, fontWeight: 800, color: "#fff", pointerEvents: "none" }}>
+                PUTS
+              </div>
+            </div>
+            <span style={{ fontSize: 9, color: RED, width: 36 }}>{putPct.toFixed(1)}%</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 9 }}>
+            <div><span style={{ color: "#374151" }}>CALL OI </span><span style={{ color: CYAN, fontWeight: 700 }}>{fmtOI(totalCallOI)}</span> <span style={{ color: "#374151" }}>VOL </span><span style={{ color: `${CYAN}99` }}>{fmtOI(callVol)}</span></div>
+            <div><span style={{ color: "#374151" }}>PUT OI </span><span style={{ color: RED, fontWeight: 700 }}>{fmtOI(totalPutOI)}</span> <span style={{ color: "#374151" }}>VOL </span><span style={{ color: `${RED}99` }}>{fmtOI(putVol)}</span></div>
+          </div>
+        </div>
+
+        {/* Diverging OI bar chart */}
+        <div style={{ background: "#0d1117", border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px 6px", borderBottom: `1px solid ${BORDER}` }}>
+            <div style={{ fontSize: 9, color: "#374151", letterSpacing: "0.14em", textTransform: "uppercase" }}>Top Strikes by Open Interest</div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 16, marginTop: 4, fontSize: 8 }}>
+              <span style={{ color: CYAN }}>◀ CALLS</span>
+              <span style={{ color: RED }}>PUTS ▶</span>
+            </div>
+          </div>
+          {topStrikes.map((e) => {
+            const isSpot = Math.abs(e.strike - spot) < ticker.strikeStep / 2;
+            const callW = (e.callOI / maxStrikeOI) * 100;
+            const putW  = (e.putOI  / maxStrikeOI) * 100;
+            return (
+              <div key={e.strike} style={{
+                display: "grid", gridTemplateColumns: "1fr 56px 1fr",
+                alignItems: "center", gap: 4, padding: "4px 10px",
+                background: isSpot ? "rgba(255,255,255,0.04)" : "transparent",
+                borderBottom: `1px solid ${BORDER}`,
+              }}>
+                {/* Call bar — right-aligned */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                  <span style={{ fontSize: 8, color: `${CYAN}99` }}>{fmtOI(e.callOI)}</span>
+                  <div style={{ width: `${callW}%`, maxWidth: "100%", minWidth: callW > 1 ? 2 : 0, height: 8, background: CYAN, borderRadius: "4px 0 0 4px", opacity: 0.85 }} />
+                </div>
+                {/* Strike label */}
+                <div style={{ textAlign: "center", fontSize: 9, fontWeight: 700, color: isSpot ? "#fff" : "#9ca3af", whiteSpace: "nowrap" }}>
+                  {isSpot && <span style={{ color: "#fbbf24", fontSize: 7 }}>● </span>}
+                  {e.strike}
+                </div>
+                {/* Put bar — left-aligned */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ width: `${putW}%`, maxWidth: "100%", minWidth: putW > 1 ? 2 : 0, height: 8, background: RED, borderRadius: "0 4px 4px 0", opacity: 0.85 }} />
+                  <span style={{ fontSize: 8, color: `${RED}99` }}>{fmtOI(e.putOI)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* OI by expiry */}
+        <div style={{ background: "#0d1117", border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px 6px", borderBottom: `1px solid ${BORDER}` }}>
+            <div style={{ fontSize: 9, color: "#374151", letterSpacing: "0.14em", textTransform: "uppercase" }}>OI by Expiry</div>
+          </div>
+          {byExpiry.map(({ exp, total, callOI, putOI }) => {
+            const barW = (total / maxExpOI) * 100;
+            const cPct = total > 0 ? (callOI / total) * 100 : 50;
+            return (
+              <div key={exp} style={{ display: "grid", gridTemplateColumns: "52px 1fr 52px", alignItems: "center", gap: 8, padding: "5px 14px", borderBottom: `1px solid ${BORDER}` }}>
+                <span style={{ fontSize: 9, color: "#9ca3af", textAlign: "right" }}>
+                  {exp === 0 ? "0DTE" : `${exp}D`}
+                </span>
+                <div style={{ height: 8, background: "#1a1f2e", borderRadius: 4, overflow: "hidden", position: "relative" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${barW * (cPct / 100)}%`, background: CYAN, opacity: 0.8 }} />
+                  <div style={{ position: "absolute", left: `${barW * (cPct / 100)}%`, top: 0, height: "100%", width: `${barW * ((100 - cPct) / 100)}%`, background: RED, opacity: 0.8 }} />
+                </div>
+                <span style={{ fontSize: 9, color: "#6b7280", textAlign: "right" }}>{fmtOI(total)}</span>
+              </div>
+            );
+          })}
+        </div>
+
+      </div>
     </div>
   );
 }
@@ -605,6 +922,18 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
   const [tick, setTick] = useState(0);
   const mapScrollRef = React.useRef<HTMLDivElement>(null);
   const topVegaRowRef = React.useRef<HTMLTableRowElement>(null);
+  const expiryDefaultSet = React.useRef(false);
+
+  type HoverCell = {
+    strike: number; exp: number;
+    vega: number; theta: number; iv: number;
+    callVega: number; putVega: number;
+    callTheta: number; putTheta: number;
+    callOi: number; putOi: number;
+    callVol: number; putVol: number;
+    x: number; y: number; yBottom: number;
+  };
+  const [hoverCell, setHoverCell] = React.useState<HoverCell | null>(null);
 
   // Live ticker for subtle pulsing values
   useEffect(() => {
@@ -627,7 +956,16 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
       return 0.5 * (1 + sign * y);
     };
     const r = 0.05;
-    const map = new Map<string, { strike: number; expiry: number; vega: number; theta: number; iv: number; n: number }>();
+    const map = new Map<string, {
+      strike: number; expiry: number;
+      vega: number; theta: number; iv: number; n: number;
+      callVega: number; putVega: number;
+      callTheta: number; putTheta: number;
+      callOi: number; putOi: number;
+      callVol: number; putVol: number;
+      gamma: number; callGamma: number; putGamma: number;
+      delta: number; callDelta: number; putDelta: number;
+    }>();
     for (const c of contracts) {
       const T = Math.max(c.expiry, 1) / 365;
       const sigma = c.iv;
@@ -635,19 +973,48 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
       const d1 = (Math.log(ticker.spot / c.strike) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
       const d2 = d1 - sigma * Math.sqrt(T);
       const nd1 = pdf(d1);
+      const gammaBS = nd1 / (ticker.spot * sigma * Math.sqrt(T));
+      const gexUnit = gammaBS * ticker.spot * ticker.spot * 0.01 * c.oi * 100;
+      const deltaBS = c.type === "call" ? cdfApprox(d1) : cdfApprox(d1) - 1;
       const vega = ticker.spot * nd1 * Math.sqrt(T);
       // Theta per year, then convert to per-day
       const thetaCall = -(ticker.spot * nd1 * sigma) / (2 * Math.sqrt(T)) - r * c.strike * Math.exp(-r * T) * cdfApprox(d2);
       const thetaPut  = -(ticker.spot * nd1 * sigma) / (2 * Math.sqrt(T)) + r * c.strike * Math.exp(-r * T) * cdfApprox(-d2);
       const thetaPerDay = (c.type === "call" ? thetaCall : thetaPut) / 365;
-      const sign = c.type === "call" ? 1 : -1; // dealer convention (matches gex.ts)
+      const sign = c.type === "call" ? 1 : -1;
       const notional = c.oi * 100;
       const key = `${c.strike}|${c.expiry}`;
-      const cur = map.get(key) ?? { strike: c.strike, expiry: c.expiry, vega: 0, theta: 0, iv: 0, n: 0 };
+      const cur = map.get(key) ?? {
+        strike: c.strike, expiry: c.expiry,
+        vega: 0, theta: 0, iv: 0, n: 0,
+        callVega: 0, putVega: 0,
+        callTheta: 0, putTheta: 0,
+        callOi: 0, putOi: 0,
+        callVol: 0, putVol: 0,
+        gamma: 0, callGamma: 0, putGamma: 0,
+        delta: 0, callDelta: 0, putDelta: 0,
+      };
       cur.vega += vega * notional * sign;
       cur.theta += thetaPerDay * notional * sign;
       cur.iv += c.iv;
       cur.n++;
+      if (c.type === "call") {
+        cur.callVega += vega * notional;
+        cur.callTheta += thetaPerDay * notional;
+        cur.callOi += c.oi;
+        cur.callVol += c.volume ?? 0;
+        cur.callGamma += gexUnit;
+        cur.callDelta += deltaBS * c.oi * 100;
+      } else {
+        cur.putVega += vega * notional;
+        cur.putTheta += thetaPerDay * notional;
+        cur.putOi += c.oi;
+        cur.putVol += c.volume ?? 0;
+        cur.putGamma += gexUnit;
+        cur.putDelta += deltaBS * c.oi * 100;
+      }
+      cur.gamma += gexUnit * sign;
+      cur.delta += deltaBS * c.oi * 100;
       map.set(key, cur);
     }
     return Array.from(map.values()).map((v) => ({ ...v, iv: v.iv / Math.max(1, v.n) }));
@@ -657,6 +1024,14 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
     () => Array.from(new Set(grid.map((g) => g.expiry))).sort((a, b) => a - b),
     [grid]
   );
+
+  // Default to nearest expiry (0DTE or closest) on first data load
+  useEffect(() => {
+    if (expiryDefaultSet.current || allExpiries.length === 0) return;
+    expiryDefaultSet.current = true;
+    setExpiryFilter(String(allExpiries[0]));
+  }, [allExpiries]);
+
   const visibleExpiries = expiryFilter === "all" ? allExpiries : allExpiries.filter((e) => String(e) === expiryFilter);
 
   const allStrikes = useMemo(() => {
@@ -666,10 +1041,53 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
   }, [grid, visibleExpiries]);
 
   const cellMap = useMemo(() => {
-    const m = new Map<string, { vega: number; theta: number; iv: number }>();
-    for (const g of grid) m.set(`${g.strike}|${g.expiry}`, { vega: g.vega, theta: g.theta, iv: g.iv });
+    const m = new Map<string, {
+      vega: number; theta: number; iv: number;
+      callVega: number; putVega: number;
+      callTheta: number; putTheta: number;
+      callOi: number; putOi: number;
+      callVol: number; putVol: number;
+    }>();
+    for (const g of grid) m.set(`${g.strike}|${g.expiry}`, {
+      vega: g.vega, theta: g.theta, iv: g.iv,
+      callVega: g.callVega, putVega: g.putVega,
+      callTheta: g.callTheta, putTheta: g.putTheta,
+      callOi: g.callOi, putOi: g.putOi,
+      callVol: g.callVol, putVol: g.putVol,
+    });
     return m;
   }, [grid]);
+
+  const gammaMap = useMemo(() => {
+    const m = new Map<string, { gamma: number; callGamma: number; putGamma: number }>();
+    for (const g of grid) m.set(`${g.strike}|${g.expiry}`, { gamma: g.gamma, callGamma: g.callGamma, putGamma: g.putGamma });
+    return m;
+  }, [grid]);
+
+  const deltaMap = useMemo(() => {
+    const m = new Map<string, { delta: number; callDelta: number; putDelta: number }>();
+    for (const g of grid) m.set(`${g.strike}|${g.expiry}`, { delta: g.delta, callDelta: g.callDelta, putDelta: g.putDelta });
+    return m;
+  }, [grid]);
+
+  const maxAbsGamma = useMemo(() => Math.max(1, ...grid.map((g) => Math.abs(g.gamma))), [grid]);
+  const maxAbsDelta = useMemo(() => Math.max(1, ...grid.map((g) => Math.abs(g.delta))), [grid]);
+
+  const topGammaStrike = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const g of grid) m.set(g.strike, (m.get(g.strike) ?? 0) + Math.abs(g.gamma));
+    let best = { strike: ticker.spot, v: 0 };
+    m.forEach((v, k) => { if (v > best.v) best = { strike: k, v }; });
+    return best.strike;
+  }, [grid, ticker.spot]);
+
+  const topDeltaStrike = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const g of grid) m.set(g.strike, (m.get(g.strike) ?? 0) + Math.abs(g.delta));
+    let best = { strike: ticker.spot, v: 0 };
+    m.forEach((v, k) => { if (v > best.v) best = { strike: k, v }; });
+    return best.strike;
+  }, [grid, ticker.spot]);
 
   // Header KPIs (filtered)
   const filteredCells = grid.filter((g) => visibleExpiries.includes(g.expiry));
@@ -705,13 +1123,14 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
     return best.strike;
   }, [filteredCells, ticker.spot]);
 
-  // Auto-scroll to the top-vega row when EXPOSURE MAP tab activates
+  // Auto-scroll to the top-vega row when EXPOSURE MAP tab activates.
+  // Delay must exceed AnimatePresence exit duration (180 ms) + mount + first paint.
   useEffect(() => {
     if (activeVTTab !== "classic") return;
-    const frame = requestAnimationFrame(() => {
+    const id = setTimeout(() => {
       topVegaRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-    return () => cancelAnimationFrame(frame);
+    }, 320);
+    return () => clearTimeout(id);
   }, [activeVTTab, topVegaStrike]);
 
   // Heatmap color scaling
@@ -760,7 +1179,7 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
         },
         {
           key: "classic",
-          label: "EXPOSURE MAP",
+          label: "VEGA MAP",
           content: (
     <div ref={mapScrollRef} className="h-full overflow-y-auto space-y-3 pr-1 terminal-scrollbar">
       {/* Sticky tab bar — always visible while scrolling the heatmap */}
@@ -769,7 +1188,12 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
           Vega / Theta · Exposure Map
         </span>
         <div className="flex gap-0.5 bg-black/60 border border-border rounded p-0.5">
-          {[{ key: "analyzer", label: "ANALYZER" }, { key: "classic", label: "EXPOSURE MAP" }].map((t) => (
+          {[
+            { key: "analyzer", label: "ANALYZER" },
+            { key: "classic", label: "VEGA MAP" },
+            { key: "gamma", label: "GAMMA MAP" },
+            { key: "delta", label: "DELTA MAP" },
+          ].map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveVTTab(t.key)}
@@ -818,7 +1242,7 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
               className="mt-1 bg-secondary/60 border border-border rounded px-2 py-1 text-xs font-mono text-foreground"
             >
               <option value="all">ALL ({allExpiries.length})</option>
-              {allExpiries.map((e) => <option key={e} value={String(e)}>{e}D</option>)}
+              {allExpiries.map((e) => <option key={e} value={String(e)}>{e === 0 ? "0DTE" : `${e}D`}</option>)}
             </select>
           </div>
           <button
@@ -841,7 +1265,7 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
                 {visibleExpiries.map((exp) => {
                   const h = fmtExpiryHeader(exp);
                   return (
-                    <th key={exp} className="px-1 py-2 text-center text-muted-foreground text-[9px] tracking-widest min-w-[70px]">
+                    <th key={exp} className="px-1 py-2 text-center text-muted-foreground text-[9px] tracking-widest min-w-[40px]">
                       <div>{h.line1}</div>
                       <div className="text-foreground/70">{h.line2}</div>
                     </th>
@@ -870,15 +1294,19 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
                     {visibleExpiries.map((exp) => {
                       const cell = cellMap.get(`${strike}|${exp}`);
                       if (!cell) {
-                        return <td key={exp} style={{ background: "hsl(0 0% 6%)" }} className="px-1 py-1 text-center text-muted-foreground/30">–</td>;
+                        return <td key={exp} style={{ background: "hsl(0 0% 6%)" }} className="py-0.5 px-0 text-center text-muted-foreground/20">–</td>;
                       }
                       const c = cellColor(cell.vega, cell.theta, cell.iv);
                       return (
                         <td
                           key={exp}
-                          title={`Strike ${strike} · ${exp}D\nVega ${formatNumber(cell.vega)}\nTheta ${formatNumber(cell.theta)}\nIV ${(cell.iv * 100).toFixed(1)}%`}
                           style={{ background: c.bg, color: c.fg }}
-                          className="px-1 py-1 text-center cursor-default transition-colors"
+                          className="py-0.5 px-0 text-center cursor-crosshair transition-colors"
+                          onMouseEnter={(e) => {
+                            const r = e.currentTarget.getBoundingClientRect();
+                            setHoverCell({ strike, exp, ...cell, x: r.left + r.width / 2, y: r.top, yBottom: r.bottom });
+                          }}
+                          onMouseLeave={() => setHoverCell(null)}
                         >
                           {formatNumber(cell.vega, 0)}
                         </td>
@@ -942,11 +1370,337 @@ export function VegaThetaView({ ticker, contracts, exposures }: Ctx) {
           </ResponsiveContainer>
         </div>
       </Panel>
+
+      {/* ── Floating heatmap tooltip ─────────────────────────────────────── */}
+      {hoverCell && <VegaHeatmapTooltip cell={hoverCell} spot={ticker.spot} maxAbsVega={maxAbsVega} maxAbsTheta={maxAbsTheta} />}
     </div>
+          ),
+        },
+        {
+          key: "gamma",
+          label: "GAMMA MAP",
+          content: (
+            <div className="h-full overflow-y-auto space-y-3 pr-1 terminal-scrollbar">
+              <div className="sticky top-0 z-30 flex items-center justify-between px-3 py-2 rounded-lg border border-border/60 backdrop-blur-md" style={{ background: "rgba(0,0,0,0.88)" }}>
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Gamma Exposure Map</span>
+                <div className="flex gap-0.5 bg-black/60 border border-border rounded p-0.5">
+                  {[
+                    { key: "analyzer", label: "ANALYZER" },
+                    { key: "classic", label: "VEGA MAP" },
+                    { key: "gamma", label: "GAMMA MAP" },
+                    { key: "delta", label: "DELTA MAP" },
+                  ].map((t) => (
+                    <button key={t.key} onClick={() => setActiveVTTab(t.key)}
+                      className="relative px-3 py-1 text-[10px] font-mono uppercase tracking-widest rounded transition-colors"
+                      style={activeVTTab === t.key ? { background: "#00ff88", color: "#000", fontWeight: 700 } : { color: "rgba(255,255,255,0.4)" }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Panel title="Gamma Exposure Map" subtitle={`GEX per Strike × Expiry · spot $${ticker.spot}`} noPad>
+                <div className="overflow-x-auto">
+                  <table className="text-[10px] font-mono w-full" style={{ borderCollapse: "separate", borderSpacing: 1 }}>
+                    <thead>
+                      <tr>
+                        <th className="sticky left-0 z-10 bg-card text-left px-2 py-2 text-muted-foreground text-[9px] uppercase tracking-widest">Strike</th>
+                        {visibleExpiries.map((exp) => {
+                          const h = fmtExpiryHeader(exp);
+                          return (
+                            <th key={exp} className="px-1 py-2 text-center text-muted-foreground text-[9px] tracking-widest min-w-[40px]">
+                              <div>{h.line1}</div><div className="text-foreground/70">{h.line2}</div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allStrikes.map((strike) => {
+                        const isSpot = Math.abs(strike - ticker.spot) < ticker.strikeStep / 2;
+                        const isTop = strike === topGammaStrike;
+                        return (
+                          <tr key={strike} style={isTop && !isSpot ? { outline: "1px solid rgba(0,229,160,0.45)", outlineOffset: -1 } : undefined}>
+                            <td className={`sticky left-0 z-10 px-2 py-1 font-bold text-right ${isSpot ? "text-primary-foreground" : "text-foreground"}`}
+                              style={{ background: isSpot ? "hsl(190 100% 45%)" : "hsl(var(--card))" }}>
+                              {strike}{isSpot && <span className="ml-1">●</span>}
+                              {isTop && !isSpot && <span className="ml-1 text-[7px] font-bold px-1 rounded" style={{ background: "rgba(0,229,160,0.2)", color: "#00e5a0" }}>▲GEX</span>}
+                            </td>
+                            {visibleExpiries.map((exp) => {
+                              const cell = gammaMap.get(`${strike}|${exp}`);
+                              if (!cell) return <td key={exp} style={{ background: "hsl(0 0% 6%)" }} className="py-0.5 px-0 text-center text-muted-foreground/20">–</td>;
+                              const intensity = Math.min(1, Math.abs(cell.gamma) / maxAbsGamma);
+                              const isPos = cell.gamma >= 0;
+                              const l = 10 + intensity * 40;
+                              const bg = intensity < 0.03 ? "hsl(0 0% 6%)" : `hsl(${isPos ? 142 : 0} 90% ${l}%)`;
+                              const fg = intensity > 0.5 ? "hsl(220 30% 8%)" : isPos ? "hsl(142 100% 80%)" : "hsl(0 100% 85%)";
+                              const abs = Math.abs(cell.gamma);
+                              const label = abs >= 1e6 ? `${(abs / 1e6).toFixed(1)}M` : abs >= 1e3 ? `${(abs / 1e3).toFixed(0)}K` : abs.toFixed(0);
+                              return (
+                                <td key={exp} style={{ background: bg, color: fg }} className="py-0.5 px-0 text-center cursor-default transition-colors"
+                                  title={`Strike ${strike} · ${exp === 0 ? "0DTE" : exp + "D"}\nGamma: ${isPos ? "+" : "−"}${label}\nCall GEX: ${(cell.callGamma / 1e3).toFixed(1)}K\nPut GEX: ${(cell.putGamma / 1e3).toFixed(1)}K`}>
+                                  {isPos ? "" : "−"}{label}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center gap-4 px-3 py-2 border-t border-border text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm" style={{ background: "#22c55e" }} /> GEX+ (long gamma)</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm" style={{ background: "#ef4444" }} /> GEX− (short gamma)</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-primary" /> Spot anchor</span>
+                </div>
+              </Panel>
+            </div>
+          ),
+        },
+        {
+          key: "delta",
+          label: "DELTA MAP",
+          content: (
+            <div className="h-full overflow-y-auto space-y-3 pr-1 terminal-scrollbar">
+              <div className="sticky top-0 z-30 flex items-center justify-between px-3 py-2 rounded-lg border border-border/60 backdrop-blur-md" style={{ background: "rgba(0,0,0,0.88)" }}>
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Delta Exposure Map</span>
+                <div className="flex gap-0.5 bg-black/60 border border-border rounded p-0.5">
+                  {[
+                    { key: "analyzer", label: "ANALYZER" },
+                    { key: "classic", label: "VEGA MAP" },
+                    { key: "gamma", label: "GAMMA MAP" },
+                    { key: "delta", label: "DELTA MAP" },
+                  ].map((t) => (
+                    <button key={t.key} onClick={() => setActiveVTTab(t.key)}
+                      className="relative px-3 py-1 text-[10px] font-mono uppercase tracking-widest rounded transition-colors"
+                      style={activeVTTab === t.key ? { background: "#00ff88", color: "#000", fontWeight: 700 } : { color: "rgba(255,255,255,0.4)" }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Panel title="Delta Exposure Map" subtitle={`DEX per Strike × Expiry · spot $${ticker.spot}`} noPad>
+                <div className="overflow-x-auto">
+                  <table className="text-[10px] font-mono w-full" style={{ borderCollapse: "separate", borderSpacing: 1 }}>
+                    <thead>
+                      <tr>
+                        <th className="sticky left-0 z-10 bg-card text-left px-2 py-2 text-muted-foreground text-[9px] uppercase tracking-widest">Strike</th>
+                        {visibleExpiries.map((exp) => {
+                          const h = fmtExpiryHeader(exp);
+                          return (
+                            <th key={exp} className="px-1 py-2 text-center text-muted-foreground text-[9px] tracking-widest min-w-[40px]">
+                              <div>{h.line1}</div><div className="text-foreground/70">{h.line2}</div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allStrikes.map((strike) => {
+                        const isSpot = Math.abs(strike - ticker.spot) < ticker.strikeStep / 2;
+                        const isTop = strike === topDeltaStrike;
+                        return (
+                          <tr key={strike} style={isTop && !isSpot ? { outline: "1px solid rgba(251,191,36,0.5)", outlineOffset: -1 } : undefined}>
+                            <td className={`sticky left-0 z-10 px-2 py-1 font-bold text-right ${isSpot ? "text-primary-foreground" : "text-foreground"}`}
+                              style={{ background: isSpot ? "hsl(190 100% 45%)" : "hsl(var(--card))" }}>
+                              {strike}{isSpot && <span className="ml-1">●</span>}
+                              {isTop && !isSpot && <span className="ml-1 text-[7px] font-bold px-1 rounded" style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}>▲DEX</span>}
+                            </td>
+                            {visibleExpiries.map((exp) => {
+                              const cell = deltaMap.get(`${strike}|${exp}`);
+                              if (!cell) return <td key={exp} style={{ background: "hsl(0 0% 6%)" }} className="py-0.5 px-0 text-center text-muted-foreground/20">–</td>;
+                              const intensity = Math.min(1, Math.abs(cell.delta) / maxAbsDelta);
+                              const isPos = cell.delta >= 0;
+                              const l = 10 + intensity * 40;
+                              const bg = intensity < 0.03 ? "hsl(0 0% 6%)" : `hsl(${isPos ? 200 : 30} 90% ${l}%)`;
+                              const fg = intensity > 0.5 ? "hsl(220 30% 8%)" : isPos ? "hsl(200 100% 85%)" : "hsl(30 100% 85%)";
+                              const abs = Math.abs(cell.delta);
+                              const label = abs >= 1e6 ? `${(abs / 1e6).toFixed(1)}M` : abs >= 1e3 ? `${(abs / 1e3).toFixed(0)}K` : abs.toFixed(0);
+                              return (
+                                <td key={exp} style={{ background: bg, color: fg }} className="py-0.5 px-0 text-center cursor-default transition-colors"
+                                  title={`Strike ${strike} · ${exp === 0 ? "0DTE" : exp + "D"}\nNet Delta: ${isPos ? "+" : "−"}${label}\nCall Δ: ${(cell.callDelta / 1e3).toFixed(1)}K\nPut Δ: ${(cell.putDelta / 1e3).toFixed(1)}K`}>
+                                  {isPos ? "" : "−"}{label}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center gap-4 px-3 py-2 border-t border-border text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm" style={{ background: "#38bdf8" }} /> DEX+ (bullish delta)</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm" style={{ background: "#fb923c" }} /> DEX− (bearish delta)</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-primary" /> Spot anchor</span>
+                </div>
+              </Panel>
+            </div>
           ),
         },
       ]}
     />
+  );
+}
+
+// ─────── Vega heatmap floating tooltip ───────
+function VegaHeatmapTooltip({
+  cell, spot, maxAbsVega, maxAbsTheta,
+}: {
+  cell: {
+    strike: number; exp: number;
+    vega: number; theta: number; iv: number;
+    callVega: number; putVega: number;
+    callTheta: number; putTheta: number;
+    callOi: number; putOi: number;
+    callVol: number; putVol: number;
+    x: number; y: number; yBottom: number;
+  };
+  spot: number;
+  maxAbsVega: number;
+  maxAbsTheta: number;
+}) {
+  const TW = 252;
+  const MARGIN = 10;
+  const GAP = 8;
+
+  const showBelow = cell.y < 220;
+  const rawLeft = cell.x - TW / 2;
+  const left = Math.max(MARGIN, Math.min((typeof window !== "undefined" ? window.innerWidth : 1400) - TW - MARGIN, rawLeft));
+  const top = showBelow ? cell.yBottom + GAP : cell.y - GAP;
+
+  const moneyness = ((cell.strike / spot) - 1) * 100;
+  const moneynessLabel = Math.abs(moneyness) < 0.25 ? "ATM" : moneyness > 0 ? `+${moneyness.toFixed(2)}% OTM` : `${moneyness.toFixed(2)}% ITM`;
+  const expLabel = cell.exp === 0 ? "0DTE" : `${cell.exp}D`;
+  const totalOi = cell.callOi + cell.putOi;
+  const totalVol = cell.callVol + cell.putVol;
+  const pcRatio = cell.callOi > 0 ? (cell.putOi / cell.callOi).toFixed(2) : "—";
+  const vegaIntensity = Math.min(1, Math.abs(cell.vega) / Math.max(1, maxAbsVega));
+  const thetaIntensity = Math.min(1, Math.abs(cell.theta) / Math.max(1, maxAbsTheta));
+  const vegaDom = Math.abs(cell.vega) / Math.max(1, maxAbsVega) >= Math.abs(cell.theta) / Math.max(1, maxAbsTheta);
+
+  const fmt = (n: number) => {
+    const abs = Math.abs(n);
+    const sign = n < 0 ? "−" : "+";
+    if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(2)}M`;
+    if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(1)}K`;
+    return `${sign}${abs.toFixed(0)}`;
+  };
+  const fmtOi = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
+
+  const CYAN = "#00e5ff";
+  const RED = "#ff3d00";
+  const GREEN = "#00e5a0";
+  const MUTED = "#6b7280";
+  const BORDER = "#1e2245";
+  const BG = "#070b1a";
+
+  const MiniBar = ({ pct, color }: { pct: number; color: string }) => (
+    <div style={{ width: 72, height: 5, background: "#1a1f3a", borderRadius: 3, overflow: "hidden", display: "inline-block", verticalAlign: "middle" }}>
+      <div style={{ width: `${pct * 100}%`, height: "100%", background: color, borderRadius: 3 }} />
+    </div>
+  );
+
+  const Row = ({ label, value, color, bar, barColor }: { label: string; value: string; color: string; bar?: number; barColor?: string }) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "3px 0" }}>
+      <span style={{ color: MUTED, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0, width: 76 }}>{label}</span>
+      {bar !== undefined && barColor ? <MiniBar pct={bar} color={barColor} /> : <div style={{ width: 72 }} />}
+      <span style={{ color, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textAlign: "right", minWidth: 52 }}>{value}</span>
+    </div>
+  );
+
+  const Divider = () => <div style={{ borderTop: `1px solid ${BORDER}`, margin: "4px 0" }} />;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        left,
+        top,
+        transform: showBelow ? "none" : "translateY(-100%)",
+        width: TW,
+        zIndex: 9999,
+        pointerEvents: "none",
+        background: BG,
+        border: `1px solid ${BORDER}`,
+        borderRadius: 8,
+        padding: "9px 11px",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
+        fontFamily: "JetBrains Mono, ui-monospace, monospace",
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 5 }}>
+        <span style={{ color: "#e4e4e7", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em" }}>
+          ${cell.strike.toLocaleString()}
+        </span>
+        <span style={{ color: vegaDom ? CYAN : RED, fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" }}>
+          {expLabel}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 7 }}>
+        <span style={{ color: Math.abs(moneyness) < 0.25 ? GREEN : moneyness > 0 ? MUTED : "#facc15", fontSize: 9, letterSpacing: "0.1em" }}>
+          {moneynessLabel}
+        </span>
+        <span style={{ color: MUTED, fontSize: 9 }}>· spot ${spot.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+      </div>
+
+      <Divider />
+
+      {/* Greeks */}
+      <Row label="Net Vega" value={fmt(cell.vega)} color={cell.vega >= 0 ? CYAN : "#ff8c69"} bar={vegaIntensity} barColor={CYAN} />
+      <Row label="Net Theta" value={fmt(cell.theta)} color={cell.theta >= 0 ? GREEN : RED} bar={thetaIntensity} barColor={RED} />
+      <Row label="Implied IV" value={`${(cell.iv * 100).toFixed(2)}%`} color="#a78bfa" />
+
+      <Divider />
+
+      {/* OI & Volume */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 6px" }}>
+        {[
+          { label: "Call OI", value: fmtOi(cell.callOi), color: CYAN },
+          { label: "Put OI", value: fmtOi(cell.putOi), color: RED },
+          { label: "Call Vol", value: fmtOi(cell.callVol), color: `${CYAN}aa` },
+          { label: "Put Vol", value: fmtOi(cell.putVol), color: `${RED}aa` },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{ padding: "2px 0" }}>
+            <div style={{ color: MUTED, fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase" }}>{label}</div>
+            <div style={{ color, fontSize: 10, fontWeight: 700 }}>{value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+        <span style={{ color: MUTED, fontSize: 9, letterSpacing: "0.1em" }}>TOTAL OI</span>
+        <span style={{ color: "#e4e4e7", fontSize: 9, fontWeight: 600 }}>{fmtOi(totalOi)}</span>
+        <span style={{ color: MUTED, fontSize: 9, letterSpacing: "0.1em" }}>P/C</span>
+        <span style={{ color: Number(pcRatio) > 1 ? RED : CYAN, fontSize: 9, fontWeight: 700 }}>{pcRatio}</span>
+        <span style={{ color: MUTED, fontSize: 9, letterSpacing: "0.1em" }}>VOL</span>
+        <span style={{ color: "#e4e4e7", fontSize: 9, fontWeight: 600 }}>{fmtOi(totalVol)}</span>
+      </div>
+
+      <Divider />
+
+      {/* Call vs Put Vega split */}
+      <div style={{ marginBottom: 2 }}>
+        <div style={{ color: MUTED, fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>Vega Split · Calls vs Puts</div>
+        {(() => {
+          const total = cell.callVega + cell.putVega;
+          const callPct = total > 0 ? cell.callVega / total : 0.5;
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ color: CYAN, fontSize: 9, width: 36, textAlign: "right" }}>{(callPct * 100).toFixed(0)}%</span>
+              <div style={{ flex: 1, height: 6, background: RED, borderRadius: 3, overflow: "hidden", position: "relative" }}>
+                <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${callPct * 100}%`, background: CYAN, borderRadius: 3 }} />
+              </div>
+              <span style={{ color: RED, fontSize: 9, width: 36 }}>{((1 - callPct) * 100).toFixed(0)}%</span>
+            </div>
+          );
+        })()}
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+          <span style={{ color: CYAN, fontSize: 9 }}>{fmt(cell.callVega)}</span>
+          <span style={{ color: RED, fontSize: 9 }}>−{fmt(cell.putVega).replace(/^[+−]/, "")}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1623,11 +2377,6 @@ export function RiskView({ ticker, exposures, levels, contracts }: Ctx) {
   );
 }
 
-// ─────── FÍSICA γ ───────
-export function PhysicsViewWrapper({ ticker, exposures, levels }: Ctx) {
-  return <PhysicsView ticker={ticker} exposures={exposures} levels={levels} />;
-}
-
 // ─────── ANOMALY DETECTION ───────
 // ─────── ANOMALY DETECTION (Bloomberg-style) ───────
 interface AlertItem {
@@ -1994,4 +2743,20 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
       </Panel>
     </div>
   );
+}
+
+// ─────── VOLATILITY REGIME INDICATOR ───────
+export function VolatilityRegimeIndicatorView({ ticker, exposures, levels, contracts }: Ctx) {
+  return <VolatilityRegimeIndicator ticker={ticker} exposures={exposures} levels={levels} contracts={contracts} />;
+}
+
+// ─────── EXPECTED MOVE CALCULATOR ───────
+export function ExpectedMoveCalculatorView({ ticker, exposures, levels, contracts }: Ctx) {
+  return <ExpectedMoveCalculator ticker={ticker} exposures={exposures} levels={levels} contracts={contracts} />;
+}
+
+// ─────── SENTIMENT SCORE (full-page) ───────
+import { OptionsSentimentScore } from "./OptionsSentimentScore";
+export function SentimentView({ ticker, exposures, levels, contracts }: Ctx) {
+  return <OptionsSentimentScore ticker={ticker} exposures={exposures} levels={levels} contracts={contracts} />;
 }

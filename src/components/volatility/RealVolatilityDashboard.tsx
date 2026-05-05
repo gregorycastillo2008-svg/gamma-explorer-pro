@@ -273,7 +273,7 @@ export function RealVolatilityDashboard({ defaultTicker = "SPY", impliedVol }: P
   return (
     <div className="rounded-xl border border-[#1f1f1f] bg-[#070a10] overflow-hidden" style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace" }}>
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-[#1f1f1f] bg-[#0a0f1a]">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 border-b border-[#1f1f1f] bg-[#0a0f1a]">
         <div>
           <div className="text-[10px] uppercase tracking-widest text-zinc-500">Real Volatility Dashboard</div>
           <div className="flex items-center gap-2 mt-0.5">

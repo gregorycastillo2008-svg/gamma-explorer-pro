@@ -20,4 +20,24 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
+  build: {
+    minify: "terser",
+    sourcemap: false, // Deshabilita source maps en producción
+    terserOptions: {
+      compress: {
+        drop_console: mode === "production", // Remueve console.log en producción
+        dead_code: true,
+        unused: true,
+      },
+      mangle: true, // Ofusca nombres de variables
+      format: {
+        comments: false, // Remueve comentarios
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
 }));

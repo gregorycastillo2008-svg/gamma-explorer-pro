@@ -32,7 +32,30 @@ interface CachedResp {
 
 // 15-minute cache — matches CBOE delayed data TTL
 const CACHE = new Map<string, { at: number; resp: CachedResp }>();
-const TTL_MS = 900_000; // 15 minutes
+const TTL_MS = 900_000;
+
+/** Pre-warm the cache for a symbol without rendering anything. Call on hover. */
+export function prefetchSymbol(symbol: string): void {
+  const upper = symbol.toUpperCase();
+  const cached = CACHE.get(upper);
+  if (cached && Date.now() - cached.at < TTL_MS) return;
+  fetchCboeChain(upper)
+    .then((cboe) => {
+      const resp: CachedResp = {
+        symbol: cboe.symbol,
+        spot: cboe.spot,
+        priceChangePct: cboe.priceChangePct,
+        iv30: cboe.iv30,
+        expiries: cboe.expiries,
+        strikes: cboe.strikes,
+        contracts: cboe.contracts,
+        source: cboe.source,
+        fetchedAt: cboe.fetchedAt,
+      };
+      CACHE.set(upper, { at: Date.now(), resp });
+    })
+    .catch(() => {});
+}
 
 export function useOptionsData(symbol: string): OptionsData {
   const fallback = getDemoTicker(symbol) ?? getDemoTicker("SPX")!;
@@ -48,76 +71,9 @@ export function useOptionsData(symbol: string): OptionsData {
 
   useEffect(() => {
     aborted.current = false;
-    setStatus("loading");
-
     const upper = symbol.toUpperCase();
 
-    const fetchNow = async (force = false) => {
-      const cached = CACHE.get(upper);
-      if (!force && cached && Date.now() - cached.at < TTL_MS) {
-        apply(cached.resp);
-        return;
-      }
-
-      // ── 1. CBOE Delayed (15-min, free, no key) ──────────────────────────
-      try {
-        const cboe = await fetchCboeChain(upper);
-        if (aborted.current) return;
-        const base = getDemoTicker(cboe.symbol) ?? fallback;
-        const step = cboe.strikes.length > 1
-          ? Math.max(0.5, Math.round((cboe.strikes[1] - cboe.strikes[0]) * 10) / 10)
-          : (base.strikeStep ?? 5);
-
-        const resp: CachedResp = {
-          symbol: cboe.symbol,
-          spot: cboe.spot,
-          priceChangePct: cboe.priceChangePct,
-          iv30: cboe.iv30,
-          expiries: cboe.expiries,
-          strikes: cboe.strikes,
-          contracts: cboe.contracts,
-          source: cboe.source,
-          fetchedAt: cboe.fetchedAt,
-        };
-        CACHE.set(upper, { at: Date.now(), resp });
-        apply(resp, base, step);
-        return;
-      } catch (_cboeErr) {
-        // fall through to Supabase
-      }
-
-      // ── 2. Supabase edge function (secondary) ───────────────────────────
-      try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cboe-options?symbol=${encodeURIComponent(upper)}`;
-        const r = await fetch(url, {
-          headers: {
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const json = await r.json();
-        if (!json?.contracts?.length) throw new Error("empty chain");
-        if (aborted.current) return;
-        CACHE.set(upper, { at: Date.now(), resp: json });
-        apply(json);
-        return;
-      } catch (_supaErr) {
-        // fall through to demo
-      }
-
-      // ── 3. Demo fallback ─────────────────────────────────────────────────
-      if (aborted.current) return;
-      const t = getDemoTicker(upper) ?? fallback;
-      setTicker(t);
-      setContracts(generateDemoChain(t));
-      setStatus("demo");
-      setSource("DEMO (offline)");
-      setFetchedAt(null);
-      setIv30(null);
-      setPriceChangePct(0);
-    };
-
+    // ── apply: push CachedResp into component state ────────────────────────
     function apply(resp: CachedResp, base?: DemoTicker, stepOverride?: number) {
       if (aborted.current) return;
       const baseT = base ?? getDemoTicker(resp.symbol) ?? fallback;
@@ -156,6 +112,90 @@ export function useOptionsData(symbol: string): OptionsData {
       setIv30(resp.iv30 || null);
       setPriceChangePct(resp.priceChangePct || 0);
     }
+
+    // ── Instant preview before any async work ─────────────────────────────
+    // Cache hit  → show live data right away, zero loading flash.
+    // Cache miss → show correct-symbol demo immediately, then replace when real data arrives.
+    const snap = CACHE.get(upper);
+    if (snap && Date.now() - snap.at < TTL_MS) {
+      apply(snap.resp);
+    } else {
+      const t = getDemoTicker(upper) ?? fallback;
+      setTicker(t);
+      setContracts(generateDemoChain(t));
+      setStatus("loading");
+      setSource("DEMO");
+      setFetchedAt(null);
+      setIv30(null);
+      setPriceChangePct(0);
+    }
+
+    // ── Async fetch (skipped when cache is still fresh) ────────────────────
+    const fetchNow = async (force = false) => {
+      const cached = CACHE.get(upper);
+      if (!force && cached && Date.now() - cached.at < TTL_MS) {
+        apply(cached.resp);
+        return;
+      }
+
+      // ── 1. CBOE Delayed (15-min, free, no key) — parallel direct+proxy ──
+      try {
+        const cboe = await fetchCboeChain(upper);
+        if (aborted.current) return;
+        const base = getDemoTicker(cboe.symbol) ?? fallback;
+        const step = cboe.strikes.length > 1
+          ? Math.max(0.5, Math.round((cboe.strikes[1] - cboe.strikes[0]) * 10) / 10)
+          : (base.strikeStep ?? 5);
+
+        const resp: CachedResp = {
+          symbol: cboe.symbol,
+          spot: cboe.spot,
+          priceChangePct: cboe.priceChangePct,
+          iv30: cboe.iv30,
+          expiries: cboe.expiries,
+          strikes: cboe.strikes,
+          contracts: cboe.contracts,
+          source: cboe.source,
+          fetchedAt: cboe.fetchedAt,
+        };
+        CACHE.set(upper, { at: Date.now(), resp });
+        apply(resp, base, step);
+        return;
+      } catch (_cboeErr) {
+        // fall through to Supabase
+      }
+
+      // ── 2. Supabase edge function (secondary) ────────────────────────────
+      try {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cboe-options?symbol=${encodeURIComponent(upper)}`;
+        const r = await fetch(url, {
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const json = await r.json();
+        if (!json?.contracts?.length) throw new Error("empty chain");
+        if (aborted.current) return;
+        CACHE.set(upper, { at: Date.now(), resp: json });
+        apply(json);
+        return;
+      } catch (_supaErr) {
+        // fall through to demo
+      }
+
+      // ── 3. Demo fallback ─────────────────────────────────────────────────
+      if (aborted.current) return;
+      const t = getDemoTicker(upper) ?? fallback;
+      setTicker(t);
+      setContracts(generateDemoChain(t));
+      setStatus("demo");
+      setSource("DEMO (offline)");
+      setFetchedAt(null);
+      setIv30(null);
+      setPriceChangePct(0);
+    };
 
     fetchNow(false);
 

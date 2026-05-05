@@ -9,7 +9,6 @@ import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
 import { VolatilityTable } from "./VolatilityTable";
 import { RealVolatilityDashboard } from "./RealVolatilityDashboard";
 import { VolatilityImbalanceDetector } from "./VolatilityImbalanceDetector";
-import { GexDivergingBars } from "./GexDivergingBars";
 
 interface Props {
   ticker: DemoTicker;
@@ -44,10 +43,6 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
       {/* Volatility Imbalance Detector — Skew · Term Structure · OI Bias · Wing · VEX · GEX Pin */}
       <VolatilityImbalanceDetector ticker={ticker} contracts={contracts} exposures={exposures} />
 
-      {/* GEX Diverging Bars */}
-      <div className="pt-1">
-        <GexDivergingBars ticker={ticker} exposures={exposures} />
-      </div>
     </div>
   );
 }

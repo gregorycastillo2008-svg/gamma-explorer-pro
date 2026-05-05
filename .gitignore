@@ -12,6 +12,22 @@ dist
 dist-ssr
 *.local
 
+# Environment variables - NUNCA subir información sensible
+.env
+.env.local
+.env.*.local
+.env.production
+.env.production.local
+.env.development.local
+.env.test.local
+
+# API Keys y Secretos
+*.key
+*.pem
+*.secret
+secrets.json
+credentials.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +38,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Sistema operativo
+Thumbs.db
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+
+# IDE
+*.sublime-project
+*.sublime-workspace
+

@@ -14,6 +14,66 @@
         }
       })();
     </script>
+    
+    <!-- PROTECCIÓN DE CÓDIGO FUENTE -->
+    <script>
+      // Deshabilitar DevTools (F12, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+I)
+      document.addEventListener('keydown', function(e) {
+        if (
+          e.key === 'F12' ||
+          (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+          (e.ctrlKey && e.shiftKey && e.key === 'C') ||
+          (e.ctrlKey && e.key === 'I') ||
+          (e.ctrlKey && e.shiftKey && e.key === 'J')
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }, true);
+
+      // Deshabilitar click derecho
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        return false;
+      }, true);
+
+      // Detectar si DevTools está abierto y redirigir
+      let devToolsOpen = false;
+      setInterval(function() {
+        const threshold = 160;
+        if (
+          window.outerHeight - window.innerHeight > threshold ||
+          window.outerWidth - window.innerWidth > threshold
+        ) {
+          if (!devToolsOpen) {
+            devToolsOpen = true;
+            console.clear();
+            alert('⚠️ Las herramientas de desarrollo están deshabilitadas.\n\nAcceso no autorizado.');
+            window.location.href = 'about:blank';
+          }
+        }
+      }, 500);
+
+      // Deshabilitar console
+      window.console = {
+        log: function() {},
+        debug: function() {},
+        info: function() {},
+        warn: function() {},
+        error: function() {},
+        clear: function() {},
+        assert: function() {},
+        count: function() {}
+      };
+
+      // Proteger contra debugger statements
+      Object.defineProperty(window, 'debugger', {
+        value: undefined,
+        writable: false,
+        configurable: false
+      });
+    </script>
     <link rel="alternate icon" href="/favicon.ico" />
     <!-- TODO: Set the document title to the name of your application -->
     <title>GEXSATELIT · Análisis Gamma Exposure profesional en tiempo real</title>
@@ -32,7 +92,11 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    
+    <!-- Plotly.js for 3D IV Surface -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    
     <meta property="og:title" content="GEXSATELIT · Análisis Gamma Exposure profesional en tiempo real">
   <meta name="twitter:title" content="GEXSATELIT · Análisis Gamma Exposure profesional en tiempo real">
   <meta property="og:description" content="Gamma Explorer Pro is a financial dashboard for analyzing options Greeks and volatility.">

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DemoTicker, KeyLevels, formatNumber } from "@/lib/gex";
 import type { DataStatus } from "@/hooks/useOptionsData";
+import { prefetchSymbol } from "@/hooks/useOptionsData";
 import { useEffect, useState } from "react";
 
 interface Props {
@@ -98,7 +99,9 @@ export function Topbar({
           <Select value={active} onValueChange={onActive}>
             <SelectTrigger className="h-7 w-20 text-xs font-mono font-bold bg-card/60"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {watchlist.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {watchlist.map((s) => (
+                <SelectItem key={s} value={s} onPointerEnter={() => prefetchSymbol(s)}>{s}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button size="icon" variant="outline" className="h-7 w-7" onClick={onAdd}><Plus className="h-3 w-3" /></Button>

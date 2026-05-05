@@ -110,28 +110,30 @@ function parseRawJson(json: any, requestedSymbol: string): CboeChain {
 export async function fetchCboeChain(symbol: string): Promise<CboeChain> {
   const urlSym = toUrlSymbol(symbol);
   const directUrl = `https://cdn.cboe.com/api/global/delayed_quotes/options/${urlSym}.json`;
+  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
 
-  // 1. Try direct (CBOE CDN sends CORS headers for public access)
-  try {
-    const r = await fetch(directUrl, { mode: "cors" });
-    if (!r.ok) throw new Error(`CBOE HTTP ${r.status}`);
-    const json = await r.json();
-    if (!json?.data?.options?.length && !json?.options?.length) throw new Error("empty response");
-    return parseRawJson(json, symbol);
-  } catch (directErr) {
-    // 2. CORS proxy fallback (allorigins.win)
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
-    try {
-      const pr = await fetch(proxyUrl);
-      if (!pr.ok) throw new Error(`proxy HTTP ${pr.status}`);
-      const wrapper = await pr.json();
-      const json = JSON.parse(wrapper.contents);
-      if (!json?.data?.options?.length && !json?.options?.length) throw new Error("empty proxy response");
-      const chain = parseRawJson(json, symbol);
+  // Race direct + proxy simultaneously — resolves with whichever succeeds first.
+  // Direct is capped at 5 s; proxy at 10 s. If both fail, Promise.any throws AggregateError.
+  const tryDirect = fetch(directUrl, { mode: "cors", signal: AbortSignal.timeout(5000) })
+    .then((r) => { if (!r.ok) throw new Error(`CBOE HTTP ${r.status}`); return r.json(); })
+    .then((j) => {
+      if (!j?.data?.options?.length && !j?.options?.length) throw new Error("empty");
+      return parseRawJson(j, symbol);
+    });
+
+  const tryProxy = fetch(proxyUrl, { signal: AbortSignal.timeout(10_000) })
+    .then((r) => { if (!r.ok) throw new Error(`proxy HTTP ${r.status}`); return r.json(); })
+    .then((w) => {
+      const j = JSON.parse(w.contents);
+      if (!j?.data?.options?.length && !j?.options?.length) throw new Error("empty proxy");
+      const chain = parseRawJson(j, symbol);
       chain.source = "CBOE Delayed (15m, proxy)";
       return chain;
-    } catch (proxyErr) {
-      throw new Error(`CBOE direct: ${(directErr as Error).message} | proxy: ${(proxyErr as Error).message}`);
-    }
+    });
+
+  try {
+    return await Promise.any([tryDirect, tryProxy]);
+  } catch {
+    throw new Error(`All CBOE sources failed for ${symbol}`);
   }
 }

@@ -18,7 +18,8 @@ import { Topbar } from "@/components/terminal/Topbar";
 import {
   OverviewView, ChartView, GreeksView, DepthView, LevelsView,
   HedgeView, VannaCharmView, VegaThetaView, VolatilityView, RegimeView,
-  OiAnalyticsView, HeatmapView, RiskView, AnomalyView, PhysicsViewWrapper,
+  OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
+  VolatilityRegimeIndicatorView, ExpectedMoveCalculatorView, SentimentView,
 } from "@/components/terminal/views";
 import { GexDexExposure } from "@/components/terminal/GexDexExposure";
 import { HorizontalGEXChart } from "@/components/terminal/HorizontalGEXChart";
@@ -29,6 +30,8 @@ import { VannaCharmWorkspace } from "@/components/terminal/VannaCharmWorkspace";
 import { OiAnalyticsWorkspace } from "@/components/terminal/OiAnalyticsWorkspace";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { EconomyView } from "@/components/terminal/EconomyView";
+import { OptionsSentimentScore } from "@/components/terminal/OptionsSentimentScore";
+import { useMemo } from "react";
 import { SectionTransition } from "@/components/terminal/SectionTransition";
 import { Paywall } from "@/components/Paywall";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -119,6 +122,23 @@ export default function Dashboard() {
   const levels = computeKeyLevels(exposures);
   const ctx = { ticker, exposures, levels, contracts: filtered };
 
+  // Calculate Sentiment Score metrics
+  const sentimentMetrics = useMemo(() => {
+    const netGex = levels.totalGex / 1e9;
+    const pcCallVol = liveContracts.filter(c => c.type === "call").reduce((s, c) => s + ((c as any).volume ?? 0), 0);
+    const pcPutVol = liveContracts.filter(c => c.type === "put").reduce((s, c) => s + ((c as any).volume ?? 0), 0);
+    const pcRatio = pcCallVol + pcPutVol > 0 ? pcPutVol / Math.max(pcCallVol, 1) : 0;
+    const atmContacts = filtered.filter(c => Math.abs(c.strike - ticker.spot) <= ticker.strikeStep * 1.5);
+    const atmIv = atmContacts.length ? atmContacts.reduce((s, c) => s + c.iv, 0) / atmContacts.length : ticker.baseIV;
+    const ivRank = 34;
+    const volSkew = -0.12;
+    const vanna = exposures.reduce((s, p) => s + Math.abs(p.vanna), 0) / 1e6;
+    const charm = exposures.reduce((s, p) => s + Math.abs(p.charm), 0) / 1e6;
+    const score = Math.round(Math.max(0, Math.min(100, 50 + (netGex * 10) - (pcRatio * 20) + (50 - ivRank * 0.5))));
+    const regime = score >= 70 ? "COMPRESSED" : score >= 40 ? "TRANSITIONING" : "EXPLOSIVE";
+    return { netGex, pcRatio, ivRank, volSkew, vanna, charm, score, regime };
+  }, [levels, liveContracts, filtered, ticker.spot, ticker.strikeStep, ticker.baseIV, exposures]);
+
   // Persistent global stats (shown across every section).
   // These are MARKET-WIDE indicators → always computed from the FULL chain
   // (all expiries), regardless of the UI expiry filter, to match industry
@@ -204,13 +224,15 @@ export default function Dashboard() {
       case "vanna-charm": return <VannaCharmWorkspace ticker={ticker} contracts={filtered} />;
       case "vega-theta": return <VegaThetaView {...ctx} />;
       case "volatility": return <VolatilityView {...ctx} />;
+      case "volatility-regime": return <VolatilityRegimeIndicatorView {...ctx} />;
+      case "expected-move": return <ExpectedMoveCalculatorView {...ctx} />;
+      case "sentiment": return <SentimentView {...ctx} />;
       case "heatmap": return <HeatmapView {...ctx} />;
       case "regime": return <RegimeView {...ctx} />;
       case "risk": return <RiskView {...ctx} />;
       case "anomaly": return <AnomalyView {...ctx} />;
       case "economy": return <EconomyView />;
       case "ai-bias": return <AiBiasView {...ctx} />;
-      case "physics": return <PhysicsViewWrapper {...ctx} />;
       default: return null;
     }
   };

@@ -1,9 +1,6 @@
-import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
-import { OrbitControls, Text, Line } from "@react-three/drei";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { IvCell } from "@/lib/gex";
-import { ZoomIn, ZoomOut, Maximize2, Lock, Unlock, Box, Square } from "lucide-react";
 
 interface Props {
   cells: IvCell[];
@@ -11,311 +8,477 @@ interface Props {
 }
 
 interface HoverInfo {
+  x: number; y: number;
   strike: number;
-  expiry: number;
+  expiryDays: number;
   iv: number;
-  x: number;
-  y: number;
+  delta: number;
+  gamma: number;
 }
 
-const SIZE_X = 10;
-const SIZE_Y = 6;
-const SIZE_Z = 4.5;
-
-// Smooth jet-style ramp: deep blue → cyan → green → yellow → orange → red
-function ivColor(t: number): THREE.Color {
-  t = Math.max(0, Math.min(1, t));
-  // Hue 240° (blue) → 0° (red), keep saturation high, brighten in mids
-  const hue = (1 - t) * 240;
-  const sat = 0.95;
-  const light = 0.45 + 0.15 * Math.sin(t * Math.PI);
-  const c = new THREE.Color();
-  c.setHSL(hue / 360, sat, light);
-  return c;
+// Approximation of the standard normal CDF (Abramowitz & Stegun)
+function normCdf(x: number): number {
+  const a1 =  0.254829592, a2 = -0.284496736, a3 =  1.421413741;
+  const a4 = -1.453152027, a5 =  1.061405429, p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const ax = Math.abs(x) / Math.SQRT2;
+  const t = 1.0 / (1.0 + p * ax);
+  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
+  return 0.5 * (1.0 + sign * y);
+}
+function normPdf(x: number): number {
+  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+}
+function bsGreeks(S: number, K: number, T: number, sigma: number) {
+  if (S <= 0 || K <= 0 || T <= 0 || sigma <= 0) return { delta: 0, gamma: 0 };
+  const sqrtT = Math.sqrt(T);
+  const d1 = (Math.log(S / K) + 0.5 * sigma * sigma * T) / (sigma * sqrtT);
+  const delta = normCdf(d1);
+  const gamma = normPdf(d1) / (S * sigma * sqrtT);
+  return { delta, gamma };
 }
 
-function Surface({
-  cells,
-  onHover,
-  view2D,
-}: {
-  cells: IvCell[];
-  onHover: (info: HoverInfo | null) => void;
-  view2D: boolean;
-}) {
-  const { surfaceGeo, wireGeo, ivMin, ivMax, strikes, expiries, w, h } = useMemo(() => {
-    const strikes = Array.from(new Set(cells.map((c) => c.strike))).sort((a, b) => a - b);
-    const expiries = Array.from(new Set(cells.map((c) => c.expiry))).sort((a, b) => a - b);
-    const grid = new Map<string, number>();
-    for (const c of cells) grid.set(`${c.strike}|${c.expiry}`, c.iv);
+const rainbow = (t: number) => {
+  const tt = Math.max(0, Math.min(1, t));
+  const stops: [number, [number, number, number]][] = [
+    [0.00, [0.00, 0.00, 1.00]],
+    [0.15, [0.00, 0.50, 1.00]],
+    [0.30, [0.00, 1.00, 1.00]],
+    [0.45, [0.00, 1.00, 0.40]],
+    [0.58, [0.70, 1.00, 0.00]],
+    [0.70, [1.00, 1.00, 0.00]],
+    [0.82, [1.00, 0.50, 0.00]],
+    [0.92, [1.00, 0.00, 0.00]],
+    [1.00, [1.00, 0.00, 1.00]],
+  ];
+  for (let k = 0; k < stops.length - 1; k++) {
+    const [t0, c0] = stops[k];
+    const [t1, c1] = stops[k + 1];
+    if (tt >= t0 && tt <= t1) {
+      const f = (tt - t0) / (t1 - t0);
+      return new THREE.Color(c0[0] + f * (c1[0] - c0[0]), c0[1] + f * (c1[1] - c0[1]), c0[2] + f * (c1[2] - c0[2]));
+    }
+  }
+  return new THREE.Color(1, 0, 1);
+};
+
+export function IvSurface3D({ cells, spot }: Props) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const elevRef = useRef<HTMLInputElement>(null);
+  const azimRef = useRef<HTMLInputElement>(null);
+  const elevLblRef = useRef<HTMLSpanElement>(null);
+  const azimLblRef = useRef<HTMLSpanElement>(null);
+
+  const [showDataPts, setShowDataPts] = useState(true);
+  const [showRefPlane, setShowRefPlane] = useState(true);
+  const [hover, setHover] = useState<HoverInfo | null>(null);
+
+  const { sortedStrikes, sortedExpiries, cellMap, ivMin, ivMax } = useMemo(() => {
+    const strikesSet = new Set(cells.map((c) => c.strike));
+    const expiriesSet = new Set(cells.map((c) => c.expiry));
+    const sortedStrikes = Array.from(strikesSet).sort((a, b) => a - b);
+    const sortedExpiries = Array.from(expiriesSet).sort((a, b) => a - b);
+    const cellMap = new Map<string, number>();
+    for (const c of cells) cellMap.set(`${c.strike}|${c.expiry}`, c.iv);
     const ivs = cells.map((c) => c.iv);
-    const ivMin = Math.min(...ivs);
-    const ivMax = Math.max(...ivs);
-    const w = strikes.length;
-    const h = expiries.length;
+    const ivMin = ivs.length ? Math.min(...ivs) : 0.05;
+    const ivMax = ivs.length ? Math.max(...ivs) : 0.8;
+    return { sortedStrikes, sortedExpiries, cellMap, ivMin, ivMax };
+  }, [cells]);
 
-    const surfaceGeo = new THREE.PlaneGeometry(SIZE_X, SIZE_Y, w - 1, h - 1);
-    const colors: number[] = [];
-    for (let j = 0; j < h; j++) {
-      for (let i = 0; i < w; i++) {
-        const idx = j * w + i;
-        const iv = grid.get(`${strikes[i]}|${expiries[j]}`) ?? ivMin;
-        const norm = (iv - ivMin) / Math.max(1e-6, ivMax - ivMin);
-        surfaceGeo.attributes.position.setZ(idx, view2D ? 0.001 : norm * SIZE_Z);
-        const c = ivColor(norm);
-        colors.push(c.r, c.g, c.b);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!canvas || !wrap) return;
+
+    const W = wrap.clientWidth - 24;
+    const H = 420;
+    canvas.width = W;
+    canvas.height = H;
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x060a10, 1);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x060a10, 0.048);
+
+    const camera = new THREE.PerspectiveCamera(44, W / H, 0.1, 1000);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+    const dir1 = new THREE.DirectionalLight(0xffffff, 1.1);
+    dir1.position.set(6, 14, 6);
+    scene.add(dir1);
+    const dir2 = new THREE.DirectionalLight(0x4488ff, 0.45);
+    dir2.position.set(-6, 4, -4);
+    scene.add(dir2);
+    const dir3 = new THREE.DirectionalLight(0xff6600, 0.25);
+    dir3.position.set(8, 2, 0);
+    scene.add(dir3);
+
+    const NX = sortedExpiries.length;
+    const NZ = sortedStrikes.length;
+    const SX = 4.4, SZ = 4.0, SY = 2.4;
+    const range = ivMax - ivMin || 1;
+
+    // Build normalised IV matrix with neighbour fill for gaps
+    const norm: number[][] = [];
+    for (let i = 0; i < NX; i++) {
+      const row: number[] = [];
+      for (let j = 0; j < NZ; j++) {
+        const iv = cellMap.get(`${sortedStrikes[j]}|${sortedExpiries[i]}`);
+        row.push(iv != null ? (iv - ivMin) / range : -1);
+      }
+      norm.push(row);
+    }
+    for (let i = 0; i < NX; i++) {
+      for (let j = 0; j < NZ; j++) {
+        if (norm[i][j] < 0) {
+          let s = 0, c = 0;
+          for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+            const ni = i + di, nj = j + dj;
+            if (ni >= 0 && ni < NX && nj >= 0 && nj < NZ && norm[ni][nj] >= 0) { s += norm[ni][nj]; c++; }
+          }
+          norm[i][j] = c > 0 ? s / c : 0.3;
+        }
       }
     }
-    surfaceGeo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-    surfaceGeo.computeVertexNormals();
-    surfaceGeo.rotateX(-Math.PI / 2);
-    const wireGeo = new THREE.WireframeGeometry(surfaceGeo);
-    return { surfaceGeo, wireGeo, ivMin, ivMax, strikes, expiries, w, h };
-  }, [cells, view2D]);
 
-  const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    // Recover grid coords from world position
-    const wx = e.point.x;
-    const wz = e.point.z;
-    const u = (wx + SIZE_X / 2) / SIZE_X; // 0..1 across strikes
-    const v = (wz + SIZE_Y / 2) / SIZE_Y; // 0..1 across expiries
-    const i = Math.round(u * (w - 1));
-    const j = Math.round(v * (h - 1));
-    if (i < 0 || j < 0 || i >= w || j >= h) return;
-    const strike = strikes[i];
-    const expiry = expiries[j];
-    const cell = cells.find((c) => c.strike === strike && c.expiry === expiry);
-    if (!cell) return;
-    onHover({
-      strike, expiry, iv: cell.iv,
-      x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY,
+    // Surface geometry
+    const geo = new THREE.BufferGeometry();
+    const verts: number[] = [];
+    const cols: number[] = [];
+    const idxs: number[] = [];
+    const Nu = Math.max(2, NX);
+    const Nv = Math.max(2, NZ);
+
+    for (let i = 0; i < Nu; i++) {
+      for (let j = 0; j < Nv; j++) {
+        const x = (i / (Nu - 1) - 0.5) * SX;
+        const z = (j / (Nv - 1) - 0.5) * SZ;
+        const n = norm[i][j];
+        const y = n * SY - 0.6;
+        verts.push(x, y, z);
+        const c = rainbow(n);
+        cols.push(c.r, c.g, c.b);
+      }
+    }
+    for (let i = 0; i < Nu - 1; i++) {
+      for (let j = 0; j < Nv - 1; j++) {
+        const a = i * Nv + j, b = i * Nv + j + 1;
+        const c = (i + 1) * Nv + j, d = (i + 1) * Nv + j + 1;
+        idxs.push(a, c, b, b, c, d);
+      }
+    }
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
+    geo.setIndex(idxs);
+    geo.computeVertexNormals();
+
+    const mat = new THREE.MeshPhongMaterial({
+      vertexColors: true, side: THREE.DoubleSide, shininess: 80,
+      specular: new THREE.Color(0.5, 0.5, 0.5),
     });
-  };
+    const mesh = new THREE.Mesh(geo, mat);
+    scene.add(mesh);
 
-  const xTicks = useMemo(() => {
-    const out: { pos: [number, number, number]; text: string }[] = [];
-    const n = Math.min(6, strikes.length - 1);
-    for (let i = 0; i <= n; i++) {
-      const t = i / n;
-      const x = -SIZE_X / 2 + t * SIZE_X;
-      const strike = strikes[Math.round(t * (strikes.length - 1))];
-      out.push({ pos: [x, -0.05, SIZE_Y / 2 + 0.5], text: String(strike) });
+    // Wireframe lines
+    const lmat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.2, transparent: true });
+    const wireStep = Math.max(1, Math.floor(Math.max(Nu, Nv) / 14));
+    for (let j = 0; j < Nv; j += wireStep) {
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i < Nu; i++) {
+        const idx = (i * Nv + j) * 3;
+        pts.push(new THREE.Vector3(verts[idx], verts[idx + 1], verts[idx + 2]));
+      }
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lmat));
     }
-    return out;
-  }, [strikes]);
-
-  const yTicks = useMemo(() => {
-    const out: { pos: [number, number, number]; text: string }[] = [];
-    const n = Math.min(5, expiries.length - 1);
-    for (let i = 0; i <= n; i++) {
-      const t = i / n;
-      const z = -SIZE_Y / 2 + t * SIZE_Y;
-      const exp = expiries[Math.round(t * (expiries.length - 1))];
-      out.push({ pos: [-SIZE_X / 2 - 0.5, -0.05, z], text: `${exp}D` });
+    for (let i = 0; i < Nu; i += wireStep) {
+      const pts: THREE.Vector3[] = [];
+      for (let j = 0; j < Nv; j++) {
+        const idx = (i * Nv + j) * 3;
+        pts.push(new THREE.Vector3(verts[idx], verts[idx + 1], verts[idx + 2]));
+      }
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lmat));
     }
-    return out;
-  }, [expiries]);
 
-  const zTicks = useMemo(() => {
-    if (view2D) return [];
-    const out: { pos: [number, number, number]; text: string }[] = [];
-    const n = 5;
-    for (let i = 0; i <= n; i++) {
-      const t = i / n;
-      const y = t * SIZE_Z;
-      const iv = (ivMin + t * (ivMax - ivMin)) * 100;
-      out.push({ pos: [-SIZE_X / 2 - 0.5, y, SIZE_Y / 2], text: `${iv.toFixed(0)}%` });
+    // Reference plane at mid IV
+    let refPlane: THREE.Mesh | null = null;
+    if (showRefPlane) {
+      const planeGeo = new THREE.PlaneGeometry(SX * 1.05, SZ * 1.05);
+      const planeMat = new THREE.MeshBasicMaterial({
+        color: 0x6688ff, transparent: true, opacity: 0.15, side: THREE.DoubleSide,
+      });
+      refPlane = new THREE.Mesh(planeGeo, planeMat);
+      refPlane.rotation.x = -Math.PI / 2;
+      refPlane.position.y = 0.5 * SY - 0.6;
+      scene.add(refPlane);
     }
-    return out;
-  }, [ivMin, ivMax, view2D]);
 
-  return (
-    <group>
-      <mesh
-        geometry={surfaceGeo}
-        onPointerMove={handlePointerMove}
-        onPointerLeave={() => onHover(null)}
-      >
-        <meshPhongMaterial vertexColors side={THREE.DoubleSide} shininess={45} specular="#222" />
-      </mesh>
-      <lineSegments geometry={wireGeo}>
-        <lineBasicMaterial color="#ffffff" transparent opacity={0.18} />
-      </lineSegments>
-
-      {/* Floor grid */}
-      {Array.from({ length: 7 }).map((_, i) => {
-        const t = i / 6;
-        const x = -SIZE_X / 2 + t * SIZE_X;
-        return (
-          <Line key={`gx${i}`} points={[[x, 0, -SIZE_Y / 2], [x, 0, SIZE_Y / 2]]} color="#1f2937" lineWidth={0.5} transparent opacity={0.6} />
-        );
-      })}
-      {Array.from({ length: 7 }).map((_, i) => {
-        const t = i / 6;
-        const z = -SIZE_Y / 2 + t * SIZE_Y;
-        return (
-          <Line key={`gy${i}`} points={[[-SIZE_X / 2, 0, z], [SIZE_X / 2, 0, z]]} color="#1f2937" lineWidth={0.5} transparent opacity={0.6} />
-        );
-      })}
-
-      {/* Axis labels */}
-      <Text position={[0, -0.85, SIZE_Y / 2 + 1.6]} fontSize={0.34} color="#9ca3af" font={undefined}>
-        STRIKE
-      </Text>
-      <Text position={[-SIZE_X / 2 - 1.8, -0.85, 0]} fontSize={0.34} color="#9ca3af" rotation={[0, Math.PI / 2, 0]}>
-        DTE
-      </Text>
-      {!view2D && (
-        <Text position={[-SIZE_X / 2 - 1.6, SIZE_Z / 2 + 0.2, SIZE_Y / 2 + 0.3]} fontSize={0.32} color="#9ca3af" rotation={[0, 0, Math.PI / 2]}>
-          IV %
-        </Text>
-      )}
-
-      {xTicks.map((t, i) => (
-        <Text key={`x${i}`} position={t.pos} fontSize={0.24} color="#d1d5db">{t.text}</Text>
-      ))}
-      {yTicks.map((t, i) => (
-        <Text key={`y${i}`} position={t.pos} fontSize={0.24} color="#d1d5db" anchorX="right">{t.text}</Text>
-      ))}
-      {zTicks.map((t, i) => (
-        <Text key={`z${i}`} position={t.pos} fontSize={0.22} color="#d1d5db" anchorX="right">{t.text}</Text>
-      ))}
-    </group>
-  );
-}
-
-function CameraController({
-  zoomTrigger, fitTrigger, view2D,
-}: { zoomTrigger: number; fitTrigger: number; view2D: boolean }) {
-  const { camera } = useThree();
-  useEffect(() => {
-    if (zoomTrigger === 0) return;
-    const dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
-    camera.position.addScaledVector(dir, zoomTrigger > 0 ? 1.2 : -1.2);
-    camera.position.clampLength(8, 28);
-  }, [zoomTrigger, camera]);
-  useEffect(() => {
-    if (view2D) {
-      camera.position.set(0, 18, 0.001);
-    } else {
-      camera.position.set(11, 8, 12);
+    // Data point spheres
+    if (showDataPts) {
+      const sphereGeo = new THREE.SphereGeometry(0.05, 10, 10);
+      const sphereMat = new THREE.MeshPhongMaterial({ color: 0xff2222, emissive: 0x550000 });
+      const step = Math.max(1, Math.floor(Math.max(Nu, Nv) / 8));
+      for (let i = 0; i < Nu; i += step) {
+        for (let j = 0; j < Nv; j += step) {
+          const idx = (i * Nv + j) * 3;
+          const m = new THREE.Mesh(sphereGeo, sphereMat);
+          m.position.set(verts[idx], verts[idx + 1] + 0.04, verts[idx + 2]);
+          scene.add(m);
+        }
+      }
     }
-    camera.lookAt(0, SIZE_Z / 2, 0);
-  }, [fitTrigger, view2D, camera]);
-  return null;
-}
 
-export function IvSurface3D({ cells }: Props) {
-  const [hover, setHover] = useState<HoverInfo | null>(null);
-  const [zoomTrigger, setZoomTrigger] = useState(0);
-  const [fitTrigger, setFitTrigger] = useState(0);
-  const [locked, setLocked] = useState(false);
-  const [view2D, setView2D] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+    // Floor grid
+    const grid = new THREE.GridHelper(5, 12, 0x1a2a3a, 0x111f2a);
+    grid.position.y = -0.65;
+    scene.add(grid);
+
+    // Axis lines
+    const axLine = (a: [number, number, number], b: [number, number, number], col: number) => {
+      const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]);
+      scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: col, opacity: 0.55, transparent: true })));
+    };
+    axLine([-2.2, -0.65, -2.0], [2.4, -0.65, -2.0], 0x334455);
+    axLine([-2.2, -0.65, -2.0], [-2.2, 2.0, -2.0], 0x334455);
+    axLine([-2.2, -0.65, -2.0], [-2.2, -0.65, 2.2], 0x334455);
+
+    // Orbital camera state
+    let elev = 32, azim = 220, dist = 7.5;
+    let drag = false, lx = 0, ly = 0;
+
+    const updateCam = () => {
+      const el = (elev * Math.PI) / 180;
+      const az = (azim * Math.PI) / 180;
+      camera.position.set(
+        dist * Math.cos(el) * Math.sin(az),
+        dist * Math.sin(el),
+        dist * Math.cos(el) * Math.cos(az),
+      );
+      camera.lookAt(0, 0.3, 0);
+    };
+    updateCam();
+
+    const sync = () => {
+      const e = Math.round(elev);
+      const a = ((Math.round(azim) % 360) + 360) % 360;
+      if (elevRef.current) elevRef.current.value = String(e);
+      if (azimRef.current) azimRef.current.value = String(a);
+      if (elevLblRef.current) elevLblRef.current.textContent = e + "°";
+      if (azimLblRef.current) azimLblRef.current.textContent = a + "°";
+    };
+    sync();
+
+    const onMouseDown = (e: MouseEvent) => { drag = true; lx = e.clientX; ly = e.clientY; };
+    const onMouseUp = () => { drag = false; };
+    const onMouseMove = (e: MouseEvent) => {
+      if (drag) {
+        azim -= (e.clientX - lx) * 0.45;
+        elev = Math.max(5, Math.min(80, elev + (e.clientY - ly) * 0.35));
+        lx = e.clientX; ly = e.clientY;
+        sync(); updateCam();
+      }
+    };
+    const onWheel = (e: WheelEvent) => {
+      dist = Math.max(3.5, Math.min(16, dist + e.deltaY * 0.012));
+      e.preventDefault();
+      updateCam();
+    };
+    let lt: Touch | null = null;
+    const onTouchStart = (e: TouchEvent) => { lt = e.touches[0]; e.preventDefault(); };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!lt) return;
+      const t = e.touches[0];
+      azim -= (t.clientX - lt.clientX) * 0.45;
+      elev = Math.max(5, Math.min(80, elev + (t.clientY - lt.clientY) * 0.35));
+      lt = t; sync(); updateCam();
+      e.preventDefault();
+    };
+
+    // Raycaster hover — shows IV, Delta, Gamma
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const onCanvasMove = (e: MouseEvent) => {
+      if (drag) { setHover(null); return; }
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      ndc.x = (px / rect.width) * 2 - 1;
+      ndc.y = -(py / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(mesh, false);
+      if (!hits.length) { setHover(null); return; }
+      const p = hits[0].point;
+      const i = Math.round(((p.x / SX) + 0.5) * (Nu - 1));
+      const j = Math.round(((p.z / SZ) + 0.5) * (Nv - 1));
+      const ii = Math.max(0, Math.min(Nu - 1, i));
+      const jj = Math.max(0, Math.min(Nv - 1, j));
+      const strike = sortedStrikes[jj];
+      const expiryDays = sortedExpiries[ii];
+      const ivRaw = cellMap.get(`${strike}|${expiryDays}`);
+      const iv = ivRaw != null ? ivRaw : norm[ii][jj] * range + ivMin;
+      const T = Math.max(1 / 365, expiryDays / 365);
+      const S = spot ?? strike;
+      const { delta, gamma } = bsGreeks(S, strike, T, iv);
+      setHover({ x: px, y: py, strike, expiryDays, iv, delta, gamma });
+    };
+    const onCanvasLeave = () => setHover(null);
+
+    canvas.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mousemove", onCanvasMove);
+    canvas.addEventListener("mouseleave", onCanvasLeave);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    const onElevInput = () => {
+      elev = +(elevRef.current?.value ?? "32");
+      if (elevLblRef.current) elevLblRef.current.textContent = Math.round(elev) + "°";
+      updateCam();
+    };
+    const onAzimInput = () => {
+      azim = +(azimRef.current?.value ?? "220");
+      if (azimLblRef.current) azimLblRef.current.textContent = Math.round(azim) + "°";
+      updateCam();
+    };
+    elevRef.current?.addEventListener("input", onElevInput);
+    azimRef.current?.addEventListener("input", onAzimInput);
+
+    const onResize = () => {
+      const w = wrap.clientWidth - 24;
+      renderer.setSize(w, H);
+      camera.aspect = w / H;
+      camera.updateProjectionMatrix();
+    };
+    const ro = new ResizeObserver(onResize);
+    ro.observe(wrap);
+
+    let raf = 0;
+    const animate = () => { raf = requestAnimationFrame(animate); renderer.render(scene, camera); };
+    animate();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      canvas.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("wheel", onWheel as EventListener);
+      canvas.removeEventListener("touchstart", onTouchStart as EventListener);
+      canvas.removeEventListener("touchmove", onTouchMove as EventListener);
+      canvas.removeEventListener("mousemove", onCanvasMove);
+      canvas.removeEventListener("mouseleave", onCanvasLeave);
+      elevRef.current?.removeEventListener("input", onElevInput);
+      azimRef.current?.removeEventListener("input", onAzimInput);
+      geo.dispose();
+      mat.dispose();
+      renderer.dispose();
+      scene.traverse((o) => {
+        if ((o as THREE.Mesh).geometry) (o as THREE.Mesh).geometry?.dispose?.();
+        const mm = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(mm)) mm.forEach((x) => x.dispose());
+        else mm?.dispose?.();
+      });
+    };
+  }, [sortedStrikes, sortedExpiries, cellMap, ivMin, ivMax, showDataPts, showRefPlane, spot]);
 
   if (cells.length < 4) {
     return (
-      <div className="h-[400px] flex items-center justify-center text-muted-foreground text-sm bg-[#0a0a0c] rounded-md">
-        Datos insuficientes
+      <div
+        style={{ height: 420, background: "#060a10", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}
+        className="text-slate-500 text-sm font-mono"
+      >
+        Insufficient data — waiting for options chain
       </div>
     );
   }
 
-  const ivs = cells.map((c) => c.iv);
-  const ivMin = Math.min(...ivs);
-  const ivMax = Math.max(...ivs);
-
-  // Build legend gradient (12 stops)
-  const stops = Array.from({ length: 12 }).map((_, i) => {
-    const t = 1 - i / 11; // top = high
-    const c = ivColor(t);
-    return `rgb(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)})`;
-  });
-  const gradient = `linear-gradient(to bottom, ${stops.join(",")})`;
-
-  const Btn = ({ onClick, title, children }: any) => (
-    <button
-      onClick={onClick}
-      title={title}
-      className="h-7 w-7 flex items-center justify-center rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white transition-colors"
-    >
-      {children}
-    </button>
-  );
-
   return (
-    <div ref={containerRef} className="relative h-[400px] w-full rounded-md overflow-hidden bg-[#0a0a0c] border border-white/5">
-      <Canvas
-        camera={{ position: [11, 8, 12], fov: 38 }}
-        dpr={[1, 2]}
-        gl={{ antialias: true }}
-      >
-        <color attach="background" args={["#0a0a0c"]} />
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[10, 15, 10]} intensity={0.9} />
-        <directionalLight position={[-8, 6, -10]} intensity={0.35} color="#7dd3fc" />
-        <Surface cells={cells} onHover={setHover} view2D={view2D} />
-        <OrbitControls
-          enablePan={false}
-          enableRotate={!locked && !view2D}
-          minDistance={8}
-          maxDistance={28}
-          maxPolarAngle={view2D ? 0.001 : Math.PI / 2.05}
-          target={[0, view2D ? 0 : SIZE_Z / 2, 0]}
-        />
-        <CameraController zoomTrigger={zoomTrigger} fitTrigger={fitTrigger} view2D={view2D} />
-      </Canvas>
+    <div
+      ref={wrapRef}
+      style={{ width: "100%", background: "#0a0e18", borderRadius: 12, padding: 12, boxSizing: "border-box", position: "relative" }}
+    >
+      <canvas
+        ref={canvasRef}
+        style={{ width: "100%", height: 420, display: "block", borderRadius: 8, cursor: "grab" }}
+      />
 
-      {/* Tooltip */}
       {hover && (
         <div
-          className="pointer-events-none absolute z-10 rounded border border-white/15 bg-black/85 backdrop-blur px-3 py-2 text-[11px] font-mono text-white shadow-xl"
-          style={{ left: Math.min(hover.x + 14, (containerRef.current?.clientWidth ?? 600) - 180), top: Math.max(8, hover.y - 70) }}
+          style={{
+            position: "absolute",
+            left: Math.min(hover.x + 24, (wrapRef.current?.clientWidth ?? 600) - 210),
+            top: Math.max(hover.y + 12, 12),
+            background: "rgba(6,10,16,0.94)",
+            border: "1px solid #1a2a3a",
+            borderRadius: 8,
+            padding: "8px 10px",
+            fontFamily: "JetBrains Mono, ui-monospace, monospace",
+            fontSize: 11,
+            color: "#e5e7eb",
+            pointerEvents: "none",
+            boxShadow: "0 6px 24px rgba(0,0,0,0.7)",
+            zIndex: 20,
+            minWidth: 175,
+          }}
         >
-          <div className="text-[9px] uppercase tracking-wider text-white/50 mb-1">IV Surface Point</div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-            <span className="text-white/60">Strike</span><span className="text-right">${hover.strike}</span>
-            <span className="text-white/60">DTE</span><span className="text-right">{hover.expiry}d</span>
-            <span className="text-white/60">IV</span><span className="text-right text-[#facc15]">{(hover.iv * 100).toFixed(2)}%</span>
-            <span className="text-white/60">σ Price</span><span className="text-right">{(hover.iv * Math.sqrt(hover.expiry / 365) * 100).toFixed(2)}%</span>
+          <div style={{ color: "#9ca3af", fontSize: 10, marginBottom: 4 }}>
+            Strike <span style={{ color: "#fff", fontWeight: 700 }}>${hover.strike.toLocaleString()}</span>
+            <span style={{ marginLeft: 8, color: "#9ca3af" }}>· {hover.expiryDays}d</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 10, rowGap: 2 }}>
+            <span style={{ color: "#fbbf24" }}>IV</span>
+            <span style={{ textAlign: "right", color: "#fff", fontWeight: 700 }}>{(hover.iv * 100).toFixed(2)}%</span>
+            <span style={{ color: "#22d3ee" }}>Δ Delta</span>
+            <span style={{ textAlign: "right", color: "#fff", fontWeight: 700 }}>{hover.delta.toFixed(4)}</span>
+            <span style={{ color: "#a78bfa" }}>Γ Gamma</span>
+            <span style={{ textAlign: "right", color: "#fff", fontWeight: 700 }}>{hover.gamma.toFixed(6)}</span>
           </div>
         </div>
       )}
 
-      {/* Top-right control cluster */}
-      <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
-        <Btn onClick={() => setZoomTrigger((n) => n + 1)} title="Zoom in"><ZoomIn className="h-3.5 w-3.5" /></Btn>
-        <Btn onClick={() => setZoomTrigger((n) => -n - 1)} title="Zoom out"><ZoomOut className="h-3.5 w-3.5" /></Btn>
-        <Btn onClick={() => setFitTrigger((n) => n + 1)} title="Reset view"><Maximize2 className="h-3.5 w-3.5" /></Btn>
-        <Btn onClick={() => setLocked((l) => !l)} title={locked ? "Unlock rotation" : "Lock rotation"}>
-          {locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-        </Btn>
-        <Btn onClick={() => setView2D((v) => !v)} title={view2D ? "Switch to 3D" : "Switch to 2D"}>
-          {view2D ? <Box className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
-        </Btn>
+      {/* Controls */}
+      <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ color: "#6ecfdb", fontSize: 11, fontFamily: "monospace" }}>
+          🖱 drag: rotar &nbsp;|&nbsp; scroll: zoom
+        </span>
+        <label style={{ color: "#6ecfdb", fontSize: 11, fontFamily: "monospace", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          Elev
+          <input ref={elevRef} type="range" min={5} max={80} defaultValue={32} style={{ width: 80, verticalAlign: "middle", accentColor: "#22d3ee" }} />
+          <span ref={elevLblRef} style={{ color: "#a0d8e8", minWidth: 28 }}>32°</span>
+        </label>
+        <label style={{ color: "#6ecfdb", fontSize: 11, fontFamily: "monospace", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          Az
+          <input ref={azimRef} type="range" min={0} max={360} defaultValue={220} style={{ width: 80, verticalAlign: "middle", accentColor: "#22d3ee" }} />
+          <span ref={azimLblRef} style={{ color: "#a0d8e8", minWidth: 28 }}>220°</span>
+        </label>
+        <label style={{ color: "#a0d8e8", fontSize: 11, fontFamily: "monospace", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <input type="checkbox" checked={showDataPts} onChange={(e) => setShowDataPts(e.target.checked)} style={{ accentColor: "#22d3ee" }} />
+          Data pts
+        </label>
+        <label style={{ color: "#a0d8e8", fontSize: 11, fontFamily: "monospace", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <input type="checkbox" checked={showRefPlane} onChange={(e) => setShowRefPlane(e.target.checked)} style={{ accentColor: "#22d3ee" }} />
+          Ref plane
+        </label>
       </div>
 
-      {/* Legend bar */}
-      <div className="absolute top-2 left-2 z-10 flex items-stretch gap-1.5">
-        <div
-          className="w-3 h-44 rounded-sm border border-white/15"
-          style={{ background: gradient }}
-        />
-        <div className="flex flex-col justify-between text-[9px] font-mono text-white/70 py-0.5">
-          <span>{(ivMax * 100).toFixed(0)}%</span>
-          <span>{((ivMin + (ivMax - ivMin) * 0.75) * 100).toFixed(0)}%</span>
-          <span>{((ivMin + (ivMax - ivMin) * 0.5) * 100).toFixed(0)}%</span>
-          <span>{((ivMin + (ivMax - ivMin) * 0.25) * 100).toFixed(0)}%</span>
-          <span>{(ivMin * 100).toFixed(0)}%</span>
-        </div>
-        <div className="flex items-center text-[9px] font-mono text-white/50 -rotate-90 origin-center ml-1">IV %</div>
+      {/* Color bar */}
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 6, gap: 0, alignItems: "center" }}>
+        <div style={{
+          width: 240, height: 12,
+          background: "linear-gradient(to right,#0000ff,#0088ff,#00ffff,#00ff88,#aaff00,#ffff00,#ff8800,#ff0000,#ff00ff)",
+          borderRadius: 4, border: "1px solid #1a2a3a",
+        }} />
       </div>
-
-      {/* Bottom-left mode badge */}
-      <div className="absolute bottom-2 left-2 z-10 text-[10px] font-mono text-white/40 uppercase tracking-widest">
-        {view2D ? "2D PROJECTION" : "3D SURFACE"} · {locked ? "ROTATION LOCKED" : "INTERACTIVE"}
+      <div style={{ display: "flex", justifyContent: "space-between", width: 240, margin: "2px auto 0", fontSize: 10, color: "#4a7a8a", fontFamily: "monospace" }}>
+        <span>Low IV</span>
+        <span>Mid</span>
+        <span>High IV</span>
       </div>
     </div>
   );
