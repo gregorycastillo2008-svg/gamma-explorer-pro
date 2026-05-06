@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     minify: "terser",
     sourcemap: false, // Deshabilita source maps en producción
+    chunkSizeWarningLimit: 1000, // Aumentar límite de tamaño de chunk a 1MB
     terserOptions: {
       compress: {
         drop_console: mode === "production", // Remueve console.log en producción
@@ -36,7 +37,21 @@ export default defineConfig(({ mode }) => ({
     },
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: (id) => {
+          // Dividir vendor code
+          if (id.includes("node_modules")) {
+            if (id.includes("react")) {
+              return "react-vendor";
+            }
+            if (id.includes("three")) {
+              return "three-vendor";
+            }
+            if (id.includes("chart")) {
+              return "chart-vendor";
+            }
+            return "vendor";
+          }
+        },
       },
     },
   },
