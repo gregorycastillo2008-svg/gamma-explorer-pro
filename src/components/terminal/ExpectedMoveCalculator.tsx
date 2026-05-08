@@ -161,12 +161,12 @@ export function ExpectedMoveCalculator({ ticker, exposures, levels, contracts }:
 
     // ── All expiries table ────────────────────────────────────────────────────
     const rows = [
-      { label: "0DTE", dte: 0.25, tag: "Intraday" },
-      { label: "1DTE", dte: 1, tag: "Overnight" },
-      { label: "3DTE", dte: 3, tag: "Short term" },
-      { label: "Weekly", dte: 7, tag: "7 days" },
-      { label: "2-Week", dte: 14, tag: "14 days" },
-      { label: "Monthly", dte: 30, tag: "30 days" },
+      { label: "0D",      dte: 0.25, tag: "HOY · Intraday"         },
+      { label: "1D",      dte: 1,    tag: "MAÑANA · Overnight"     },
+      { label: "2D",      dte: 2,    tag: "PASADO MAÑANA"          },
+      { label: "Weekly",  dte: 7,    tag: "7 días"                 },
+      { label: "2-Week",  dte: 14,   tag: "14 días"                },
+      { label: "Monthly", dte: 30,   tag: "30 días"                },
     ].map(({ label, dte, tag }) => {
       const ivForDte = contracts.filter(c => Math.abs(c.expiry - dte) <= Math.max(1, dte * 0.3));
       const atmForDte = ivForDte.filter(c => Math.abs(c.strike - spot) <= ticker.strikeStep * 2);
@@ -207,22 +207,27 @@ export function ExpectedMoveCalculator({ ticker, exposures, levels, contracts }:
     <div className="h-full overflow-y-auto terminal-scrollbar space-y-3 p-4" style={{ background: "#07090f" }}>
 
       {/* ── DTE SELECTOR ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mr-1">Horizon</span>
         {[
-          { v: "0", l: "0DTE" }, { v: "1", l: "1DTE" }, { v: "3", l: "3DTE" },
-          { v: "7", l: "Weekly" }, { v: "14", l: "2-Week" }, { v: "30", l: "Monthly" },
-        ].map(({ v, l }) => (
+          { v: "0",  l: "0D",      sub: "HOY"            },
+          { v: "1",  l: "1D",      sub: "MAÑANA"         },
+          { v: "2",  l: "2D",      sub: "PASADO MAÑANA"  },
+          { v: "7",  l: "WEEKLY",  sub: "7 días"         },
+          { v: "14", l: "2-WEEK",  sub: "14 días"        },
+          { v: "30", l: "MONTHLY", sub: "30 días"        },
+        ].map(({ v, l, sub }) => (
           <button
             key={v}
             onClick={() => setSelectedDTE(v)}
-            className={`px-3 py-1.5 text-[10px] font-mono rounded-lg transition-all ${
+            className={`flex flex-col items-center px-3 py-1.5 text-[10px] font-mono rounded-lg transition-all ${
               selectedDTE === v
                 ? "bg-blue-500/20 text-blue-300 border border-blue-500/40 font-bold"
                 : "bg-white/4 text-slate-500 border border-white/8 hover:text-slate-300"
             }`}
           >
-            {l}
+            <span>{l}</span>
+            <span className="text-[7px] tracking-wide opacity-70">{sub}</span>
           </button>
         ))}
       </div>
