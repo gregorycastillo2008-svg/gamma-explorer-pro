@@ -31,18 +31,22 @@ const FONT = `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace`;
 
 export function GexDexExposure({ ticker, contracts }: Props) {
   const [hoverStrike, setHoverStrike] = useState<number | null>(null);
+  const [rangeMode, setRangeMode] = useState<"8" | "15" | "all">("all");
 
   // ─── 1. Process exposure dataset ───
   const { rows, netDexB, netGexB, gammaFlip, topHighGex } = useMemo(() => {
     const exposures = computeExposures(ticker.spot, contracts);
     const levels = computeKeyLevels(exposures);
 
-    // Focus on strikes near spot (±8%) for institutional readability
-    const lo = ticker.spot * 0.92;
-    const hi = ticker.spot * 1.08;
-    const filtered = exposures
-      .filter((e) => e.strike >= lo && e.strike <= hi)
-      .sort((a, b) => a.strike - b.strike);
+    // Range filter — user-selectable
+    const filtered = rangeMode === "all"
+      ? [...exposures].sort((a, b) => a.strike - b.strike)
+      : (() => {
+          const pct = rangeMode === "8" ? 0.08 : 0.15;
+          const lo = ticker.spot * (1 - pct);
+          const hi = ticker.spot * (1 + pct);
+          return exposures.filter(e => e.strike >= lo && e.strike <= hi).sort((a, b) => a.strike - b.strike);
+        })();
 
     const rows = filtered.map((e) => ({
       strike: e.strike,
@@ -82,7 +86,7 @@ export function GexDexExposure({ ticker, contracts }: Props) {
       gammaFlip: levels.gammaFlip,
       topHighGex,
     };
-  }, [ticker, contracts]);
+  }, [ticker, contracts, rangeMode]);
 
   // Closest strike to spot (for purple SPOT reference line)
   const spotStrike = useMemo(() => {
@@ -168,17 +172,38 @@ export function GexDexExposure({ ticker, contracts }: Props) {
           className="relative p-4"
           style={{ borderRight: `1px solid ${C.border}` }}
         >
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <span
               style={{ color: C.muted, fontSize: 10, letterSpacing: "0.2em" }}
               className="uppercase font-bold"
             >
-              ↳ Net DEX Histogram · per Strike
+              ↳ Net DEX Histogram · per Strike · {rows.length} strikes
             </span>
-            <div className="flex gap-3 text-[10px] uppercase tracking-wider">
-              <Legend color={C.cyan} label="Bullish DEX" />
-              <Legend color={C.red}  label="Bearish DEX" />
-              <Legend color={C.purple} label="Spot" dashed />
+            <div className="flex items-center gap-4">
+              {/* Range selector */}
+              <div className="flex gap-1">
+                {(["8", "15", "all"] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setRangeMode(m)}
+                    style={{
+                      fontSize: 9, padding: "2px 7px", borderRadius: 3,
+                      fontFamily: FONT, letterSpacing: "0.1em",
+                      background: rangeMode === m ? C.cyan : "transparent",
+                      color: rangeMode === m ? "#000" : C.muted,
+                      border: `1px solid ${rangeMode === m ? C.cyan : C.border}`,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {m === "all" ? "ALL" : `±${m}%`}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-3 text-[10px] uppercase tracking-wider">
+                <Legend color={C.cyan} label="Bullish DEX" />
+                <Legend color={C.red}  label="Bearish DEX" />
+                <Legend color={C.purple} label="Spot" dashed />
+              </div>
             </div>
           </div>
 
