@@ -165,7 +165,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
     if (!active || !payload?.length) return null;
     const r = payload[0].payload;
     const isMax = r.strike === maxPosStrike || r.strike === maxNegStrike;
-    const isPos = r.aboveSpot;
+    const isPos = r.shares >= 0;
     const borderColor = r.strike === maxPosStrike ? C.greenMax : r.strike === maxNegStrike ? C.redMax : isPos ? C.green : C.red;
     return (
       <div style={{
@@ -484,13 +484,13 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
                       strokeColor = "#ff0000";
                       strokeW = 1.5;
                     } else if (isSel) {
-                      fill = r.aboveSpot ? C.green : C.red;
+                      fill = r.shares >= 0 ? C.green : C.red;
                       opacity = 1.0;
                       strokeColor = C.yellow;
                       strokeW = 1.5;
                       filterVal = `drop-shadow(0 0 5px ${C.yellow})`;
                     } else {
-                      fill = r.aboveSpot ? C.green : C.red;
+                      fill = r.shares >= 0 ? C.green : C.red;
                       opacity = isHover ? 0.95 : 0.35 + intensity * 0.6;
                     }
 
@@ -530,7 +530,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
 
             {detail && (
               <div className="rounded p-3 flex flex-col gap-2"
-                style={{ background: "#000", border: `1px solid ${detail.r.aboveSpot ? C.green : C.red}` }}>
+                style={{ background: "#000", border: `1px solid ${detail.r.shares >= 0 ? C.green : C.red}` }}>
                 <div className="flex items-center justify-between">
                   <span style={{ color: C.text, fontSize: 18, fontWeight: 700 }}>${detail.r.strike}</span>
                   <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
