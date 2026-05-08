@@ -38,7 +38,7 @@ type Metric = "GEX" | "DEX" | "VEX";
 
 export function HorizontalGEXChart({ ticker, contracts }: Props) {
   const [metric, setMetric] = useState<Metric>("GEX");
-  const [zoom, setZoom] = useState<number>(40);
+  const [zoom, setZoom] = useState<number>(0); // 0 = ALL
   const [expiryFilter, setExpiryFilter] = useState<string>("all");
   const [selected, setSelected] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -67,12 +67,16 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
       sideMap.set(c.strike, cur);
     }
 
-    const half = Math.max(8, Math.floor(zoom / 2));
     const sorted = [...exposures].sort((a, b) => a.strike - b.strike);
-    const spotIdx = sorted.findIndex((e) => e.strike >= ticker.spot);
-    const start = Math.max(0, spotIdx - half);
-    const end = Math.min(sorted.length, spotIdx + half);
-    const sliced = sorted.slice(start, end);
+
+    // zoom=0 means ALL; otherwise show ±half strikes from spot
+    const sliced = zoom === 0 ? sorted : (() => {
+      const half = Math.max(8, Math.floor(zoom / 2));
+      const spotIdx = sorted.findIndex((e) => e.strike >= ticker.spot);
+      const start = Math.max(0, spotIdx - half);
+      const end = Math.min(sorted.length, spotIdx + half);
+      return sorted.slice(start, end);
+    })();
 
     const rows = sliced.map((e) => {
       const sides = sideMap.get(e.strike) ?? { callOI: 0, putOI: 0, callVol: 0, putVol: 0 };
@@ -243,15 +247,30 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
-          <span style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider">Strikes</span>
+          <span style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider">Vista</span>
+          <button
+            onClick={() => setZoom(0)}
+            style={{
+              fontSize: 9, padding: "2px 8px", borderRadius: 3,
+              fontFamily: FONT, letterSpacing: "0.1em",
+              background: zoom === 0 ? C.green : "transparent",
+              color: zoom === 0 ? "#000" : C.muted,
+              border: `1px solid ${zoom === 0 ? C.green : C.border}`,
+              cursor: "pointer",
+            }}
+          >
+            ALL
+          </button>
           <input
             type="range" min={10} max={80} step={2}
-            value={zoom}
+            value={zoom === 0 ? 10 : zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
             style={{ accentColor: C.green }}
-            className="w-28"
+            className="w-24"
           />
-          <span style={{ color: C.text, fontSize: 10 }} className="font-bold w-6 text-right">{rows.length}</span>
+          <span style={{ color: C.text, fontSize: 10 }} className="font-bold w-12 text-right">
+            {zoom === 0 ? `ALL (${rows.length})` : rows.length}
+          </span>
         </div>
 
         <div className="flex items-center gap-1.5 px-2 py-1 rounded" style={{ background: `${C.yellow}15`, border: `1px solid ${C.yellow}40` }}>
