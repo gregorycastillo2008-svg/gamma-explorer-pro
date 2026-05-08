@@ -3,7 +3,7 @@
  * Full intraday greek-exposure dashboard.
  * All values computed from real gamma / options chain.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ComposedChart, BarChart, LineChart,
   Bar, Area, Line, XAxis, YAxis, Tooltip as RTooltip,
@@ -143,6 +143,45 @@ function buildSessionHistory(
   }
 
   return ticks;
+}
+
+/* ── Z-Score tooltip ────────────────────────────────────────────────── */
+function ZScoreTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload;
+  if (!d) return null;
+  const items = [
+    { key: "GEX",   color: C.gex   },
+    { key: "DEX",   color: C.dex   },
+    { key: "Vanna", color: C.vanna },
+    { key: "Charm", color: C.charm },
+    { key: "VEX",   color: C.vex   },
+    { key: "TEX",   color: C.tex   },
+  ] as const;
+  const val = (k: string) => typeof d[k] === "number" ? d[k].toFixed(3) : "—";
+  const sign = (k: string) => typeof d[k] === "number" && d[k] >= 0 ? "▲" : "▼";
+  return (
+    <div style={{
+      background: "rgba(5,6,15,0.97)", border: `1px solid ${C.border}`,
+      borderRadius: 5, padding: "10px 14px", fontFamily: FONT, fontSize: 9,
+      minWidth: 200, boxShadow: "0 4px 20px rgba(0,0,0,0.7)",
+    }}>
+      <div style={{ color: "#7a82b0", fontSize: 9, marginBottom: 6, letterSpacing: "0.1em" }}>
+        {label} &nbsp;·&nbsp; Z-score
+      </div>
+      {items.map(({ key, color }) => (
+        <div key={key} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+          <span style={{ color: C.label }}>{key}</span>
+          <span style={{ color, fontWeight: 600 }}>
+            {sign(key)} {val(key)}σ
+          </span>
+        </div>
+      ))}
+      <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 5, paddingTop: 4, color: C.label, fontSize: 8 }}>
+        {d.gexBgPos > 0 ? "▲ Positive Gamma Regime" : "▼ Negative Gamma Regime"}
+      </div>
+    </div>
+  );
 }
 
 /* ── Custom tooltip for FLOW chart ─────────────────────────────────── */
@@ -408,24 +447,213 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
 
   const normHistory = useMemo(() => {
     if (!history.length) return [];
-    const safeMax = (arr: number[]) => Math.max(...arr.filter(Number.isFinite).map(Math.abs), 1);
-    const mG  = safeMax(history.map(h => h.gex));
-    const mD  = safeMax(history.map(h => h.dex));
-    const mVa = safeMax(history.map(h => h.vanna));
-    const mCh = safeMax(history.map(h => h.charm));
-    const mV  = safeMax(history.map(h => h.vex));
-    const mT  = safeMax(history.map(h => h.tex));
-    const s   = (v: number, m: number) => Number.isFinite(v) ? (v / m) * 100 : 0;
-    return history.map(h => ({
-      time:  h.time,
-      GEX:   s(h.gex,   mG),
-      DEX:   s(h.dex,   mD),
-      Vanna: s(h.vanna, mVa),
-      Charm: s(h.charm, mCh),
-      VEX:   s(h.vex,   mV),
-      TEX:   s(h.tex,   mT),
+    const zScore = (arr: number[]) => {
+      const valid = arr.filter(Number.isFinite);
+      const mean = valid.reduce((a, b) => a + b, 0) / (valid.length || 1);
+      const variance = valid.reduce((a, b) => a + (b - mean) ** 2, 0) / (valid.length || 1);
+      const std = Math.sqrt(variance) || 1;
+      return arr.map(v => Number.isFinite(v) ? +((v - mean) / std).toFixed(3) : 0);
+    };
+    const gZ  = zScore(history.map(h => h.gex));
+    const dZ  = zScore(history.map(h => h.dex));
+    const vaZ = zScore(history.map(h => h.vanna));
+    const chZ = zScore(history.map(h => h.charm));
+    const vZ  = zScore(history.map(h => h.vex));
+    const tZ  = zScore(history.map(h => h.tex));
+    return history.map((h, i) => ({
+      time:     h.time,
+      GEX:      gZ[i],
+      DEX:      dZ[i],
+      Vanna:    vaZ[i],
+      Charm:    chZ[i],
+      VEX:      vZ[i],
+      TEX:      tZ[i],
+      gexBgPos: gZ[i] >= 0 ? gZ[i] : 0,
+      gexBgNeg: gZ[i] <  0 ? gZ[i] : 0,
     }));
   }, [history]);
+
+  /* ── Flow chart data with GEX deviation (oscillates ±0) ─────────── */
+  const flowData = useMemo(() => {
+    if (!history.length) return [];
+    const gexMean = history.reduce((s, h) => s + h.gex, 0) / history.length || 0;
+    return history.map(h => ({ ...h, gexDev: h.gex - gexMean }));
+  }, [history]);
+
+  /* ── Context-aware tooltip for FLOW chart ───────────────────────── */
+  const [hoveredLineKey, setHoveredLineKey] = useState<string | null>(null);
+
+  // Custom activeDot factory — captures setHoveredLineKey
+  const makeActiveDot = useCallback(
+    (key: string, color: string) => (props: any) => {
+      const { cx, cy } = props;
+      if (cx == null || cy == null) return null;
+      return (
+        <circle
+          cx={cx} cy={cy} r={5}
+          fill={color} stroke="rgba(0,0,0,0.5)" strokeWidth={1.5}
+          style={{ cursor: "crosshair" }}
+          onMouseEnter={() => setHoveredLineKey(key)}
+          onMouseLeave={() => setHoveredLineKey(null)}
+        />
+      );
+    },
+    [],
+  );
+
+  const flowTooltipContent = useCallback((props: any) => {
+    if (!props.active || !props.payload?.length) return null;
+    type FlowPoint = SessionTick & { gexDev: number };
+    const d = props.payload[0]?.payload as FlowPoint;
+    if (!d) return null;
+    const label = props.label as string;
+
+    const row = (color: string, lbl: string, val: number | string) => (
+      <div key={lbl} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+        <span style={{ color: C.label }}>{lbl}</span>
+        <span style={{ color, fontWeight: 600 }}>
+          {typeof val === "number" ? formatNumber(val, 1) : val}
+        </span>
+      </div>
+    );
+
+    const divider = () => (
+      <div style={{ height: 1, background: C.border, margin: "5px 0" }} />
+    );
+
+    const header = (title: string, accent: string, extra?: string) => (
+      <div style={{ color: accent, fontSize: 9, marginBottom: 6, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+        {title} &nbsp;·&nbsp; {label}
+        {extra && <span style={{ color: C.label }}> &nbsp;·&nbsp; {extra}</span>}
+      </div>
+    );
+
+    const base = { background: "rgba(5,6,15,0.97)", borderRadius: 5, padding: "10px 14px", fontFamily: FONT, fontSize: 9, minWidth: 210, boxShadow: "0 4px 20px rgba(0,0,0,0.7)" };
+
+    // ── Line-specific tooltips ──────────────────────────────────────
+    if (hoveredLineKey === "price") {
+      return (
+        <div style={{ ...base, border: `1px solid ${C.price}` }}>
+          {header("PRICE LINE", C.price, `$${d.price?.toFixed(2)}`)}
+          {row(C.price, "Price", `$${d.price?.toFixed(2)}`)}
+          {row(C.iv,    "ATM IV", `${d.iv?.toFixed(2)}%`)}
+          {row(C.rv,    "Real Vol (RV)", `${d.rv?.toFixed(2)}%`)}
+          {row((d.iv - d.rv) > 0 ? C.vex : C.neg, "IV−RV Spread", `${(d.iv - d.rv).toFixed(2)}%`)}
+        </div>
+      );
+    }
+
+    if (hoveredLineKey === "cumTotal") {
+      return (
+        <div style={{ ...base, border: `1px solid ${C.total}` }}>
+          {header("TOTAL FLOW", C.total)}
+          {row(C.total, "Cum Total", d.cumTotal)}
+          {divider()}
+          {row(C.gex,   "Cum GEX",    d.cumGex)}
+          {row(C.vanna, "Cum Vanna",  d.cumVanna)}
+          {row(C.charm, "Cum Charm",  d.cumCharm)}
+          {divider()}
+          {row(d.gexDev >= 0 ? C.gex : C.neg, "GEX Dev (interval)", d.gexDev)}
+        </div>
+      );
+    }
+
+    if (hoveredLineKey === "cumGex") {
+      return (
+        <div style={{ ...base, border: `1px solid ${C.gex}` }}>
+          {header("CUMULATIVE GEX", C.gex)}
+          {row(C.gex, "Cum Gamma Exposure", d.cumGex)}
+          {divider()}
+          {row(d.gex >= 0 ? C.gex : C.neg, "Interval GEX", d.gex)}
+          {row(d.gexDev >= 0 ? C.gex : C.neg, "GEX vs Avg (Dev)", d.gexDev)}
+          {divider()}
+          {row(C.iv,  "IV at tick", `${d.iv?.toFixed(2)}%`)}
+          {row(C.gex, "Regime", d.gexDev >= 0 ? "▲ Above Average" : "▼ Below Average")}
+        </div>
+      );
+    }
+
+    if (hoveredLineKey === "cumDex") {
+      return (
+        <div style={{ ...base, border: `1px solid ${C.dex}` }}>
+          {header("CUMULATIVE DEX", C.dex)}
+          {row(C.dex, "Cum Delta Exposure", d.cumDex)}
+          {divider()}
+          {row(C.dex, "Interval DEX", d.dex)}
+          {row(C.price, "Price at tick", `$${d.price?.toFixed(2)}`)}
+          {divider()}
+          {row(d.cumDex >= 0 ? C.gex : C.neg, "Net Bias", d.cumDex >= 0 ? "▲ Bullish DEX" : "▼ Bearish DEX")}
+        </div>
+      );
+    }
+
+    if (hoveredLineKey === "cumVanna") {
+      return (
+        <div style={{ ...base, border: `1px solid ${C.vanna}` }}>
+          {header("CUMULATIVE VANNA", C.vanna)}
+          {row(C.vanna, "Cum Vanna Exposure", d.cumVanna)}
+          {divider()}
+          {row(C.vanna, "Interval Vanna", d.vanna)}
+          {row(C.charm, "Interval Charm", d.charm)}
+          {divider()}
+          {row(C.iv, "IV", `${d.iv?.toFixed(2)}%`)}
+          <div style={{ color: C.label, fontSize: 7, marginTop: 4 }}>
+            Vanna ↑ when IV drops · drives spot-vol feedback
+          </div>
+        </div>
+      );
+    }
+
+    if (hoveredLineKey === "cumCharm") {
+      return (
+        <div style={{ ...base, border: `1px solid ${C.charm}` }}>
+          {header("CUMULATIVE CHARM", C.charm)}
+          {row(C.charm, "Cum Charm Exposure", d.cumCharm)}
+          {divider()}
+          {row(C.charm, "Interval Charm", d.charm)}
+          {row(C.vanna, "Interval Vanna", d.vanna)}
+          {row(C.gex,   "Interval GEX", d.gex)}
+          <div style={{ color: C.label, fontSize: 7, marginTop: 4 }}>
+            Charm = delta decay rate · increases near expiry
+          </div>
+        </div>
+      );
+    }
+
+    // ── Default: Gamma bar tooltip ──────────────────────────────────
+    const isAbove = d.gexDev >= 0;
+    const barColor = isAbove ? C.gex : C.neg;
+    return (
+      <div style={{ ...base, border: `1px solid ${barColor}` }}>
+        <div style={{ color: "#7a82b0", fontSize: 9, marginBottom: 6, letterSpacing: "0.1em" }}>
+          {label} &nbsp;·&nbsp;
+          <span style={{ color: C.price }}>${d.price?.toFixed(2)}</span>
+          &nbsp;·&nbsp;
+          <span style={{ color: C.iv }}>IV {d.iv?.toFixed(1)}%</span>
+          &nbsp;·&nbsp;
+          <span style={{ color: barColor }}>{isAbove ? "▲ GAMMA +" : "▼ GAMMA −"}</span>
+        </div>
+        <div style={{ color: C.label, fontSize: 7, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
+          Gamma Interval
+        </div>
+        {row(d.gex >= 0 ? C.gex : C.neg, "Gamma (GEX)", d.gex)}
+        {row(C.vanna, "Vanna", d.vanna)}
+        {row(C.vex,   "Vega (VEX)", d.vex)}
+        {row(C.charm, "Charm", d.charm)}
+        {row(C.tex,   "Theta (TEX)", d.tex)}
+        {divider()}
+        {row(C.total, "Total", d.gex + d.vanna + d.charm)}
+        {divider()}
+        <div style={{ color: C.label, fontSize: 7, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
+          Cumulative Flow
+        </div>
+        {row(C.gex,   "Cum GEX",   d.cumGex)}
+        {row(C.dex,   "Cum DEX",   d.cumDex)}
+        {row(C.vanna, "Cum Vanna", d.cumVanna)}
+        {row(C.total, "Cum Total", d.cumTotal)}
+      </div>
+    );
+  }, [hoveredLineKey]);
 
   /* ── Helpers ───────────────────────────────────────────────────── */
   const LiveBadge = () => (
@@ -523,7 +751,7 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
         {/* Chart */}
         <div style={{ height: 460, padding: "6px 8px 8px" }}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={history} margin={{ top: 10, right: 56, bottom: 0, left: 56 }}>
+            <ComposedChart data={flowData} margin={{ top: 10, right: 56, bottom: 0, left: 56 }}>
               <defs>
                 <linearGradient id="totalFlowGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%"   stopColor={C.total} stopOpacity={0.08} />
@@ -570,28 +798,35 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
               {/* Hidden axis for gamma bars — keeps them visually small */}
               <YAxis yAxisId="gamma" hide />
 
-              {/* Tooltip */}
+              {/* Tooltip — context-aware: bar vs line */}
               <RTooltip
-                content={<FlowTooltip />}
-                cursor={{ stroke: "rgba(255,255,255,0.08)", strokeWidth: 1 }}
+                content={flowTooltipContent}
+                cursor={{ stroke: "rgba(255,255,255,0.07)", strokeWidth: 1 }}
               />
 
-              {/* Zero line on flow axis */}
-              <ReferenceLine yAxisId="flow" y={0} stroke="rgba(255,255,255,0.08)" strokeDasharray="4 6" />
+              {/* Zero line — labeled */}
+              <ReferenceLine
+                yAxisId="flow" y={0}
+                stroke="rgba(255,255,255,0.12)"
+                strokeDasharray="4 6"
+                label={{ value: "◈ ZERO FLOW", position: "insideLeft", fill: "rgba(255,255,255,0.28)", fontSize: 7, fontFamily: FONT }}
+              />
 
               {/* ── Background: per-interval gamma bars ── */}
               <Bar
                 yAxisId="gamma"
-                dataKey="gex"
+                dataKey="gexDev"
                 isAnimationActive={false}
                 maxBarSize={5}
                 radius={[1, 1, 0, 0]}
+                onMouseEnter={() => setHoveredLineKey("gamma")}
+                onMouseLeave={() => setHoveredLineKey(null)}
               >
-                {history.map((p, i) => (
+                {flowData.map((p, i) => (
                   <Cell
                     key={i}
-                    fill={p.gex >= 0 ? C.gex : C.neg}
-                    fillOpacity={0.14}
+                    fill={p.gexDev >= 0 ? C.gex : C.neg}
+                    fillOpacity={0.22}
                   />
                 ))}
               </Bar>
@@ -606,6 +841,7 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
                 dot={false}
                 isAnimationActive={false}
                 name="Price"
+                activeDot={makeActiveDot("price", C.price)}
               />
 
               {/* ── Cumulative flow lines (right axis) ── */}
@@ -619,6 +855,7 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
                 dot={false}
                 isAnimationActive={false}
                 name="Total"
+                activeDot={makeActiveDot("cumTotal", C.total)}
               />
               <Line
                 yAxisId="flow"
@@ -629,6 +866,7 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
                 dot={false}
                 isAnimationActive={false}
                 name="GEX"
+                activeDot={makeActiveDot("cumGex", C.gex)}
               />
               <Line
                 yAxisId="flow"
@@ -639,6 +877,7 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
                 dot={false}
                 isAnimationActive={false}
                 name="DEX"
+                activeDot={makeActiveDot("cumDex", C.dex)}
               />
               <Line
                 yAxisId="flow"
@@ -649,6 +888,7 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
                 dot={false}
                 isAnimationActive={false}
                 name="Vanna"
+                activeDot={makeActiveDot("cumVanna", C.vanna)}
               />
               <Line
                 yAxisId="flow"
@@ -660,6 +900,7 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
                 dot={false}
                 isAnimationActive={false}
                 name="Charm"
+                activeDot={makeActiveDot("cumCharm", C.charm)}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -851,18 +1092,32 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
 
         <Panel
           title="All Greeks Normalized"
-          subtitle="GEX · DEX · VannaEx · CharmEx · VEX · TEX — scaled −100 / +100"
+          subtitle="Z-score overlay · compare relative momentum"
           height={340}
         >
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={normHistory} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke="#0c0e1e" strokeDasharray="2 5" />
+            <ComposedChart data={normHistory} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="normGexPosG" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={C.gex} stopOpacity={0.14} />
+                  <stop offset="100%" stopColor={C.gex} stopOpacity={0.01} />
+                </linearGradient>
+                <linearGradient id="normGexNegG" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor={C.neg} stopOpacity={0.14} />
+                  <stop offset="100%" stopColor={C.neg} stopOpacity={0.01} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="#0c0e1e" strokeDasharray="2 5" vertical={false} />
               <XAxis dataKey="time" tick={xTick} tickLine={false} interval={7} />
-              <YAxis tick={yTick} axisLine={false} tickLine={false} width={36} domain={[-100, 100]} tickFormatter={(v) => `${v}`} />
-              <RTooltip contentStyle={{ background: "rgba(5,6,15,0.97)", border: `1px solid ${C.border}`, borderRadius: 4, fontSize: 9, fontFamily: FONT }} formatter={(v: any) => `${(v as number).toFixed(1)}`} />
-              <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
-              <ReferenceLine y={75}  stroke="rgba(255,255,255,0.04)" strokeDasharray="2 5" />
-              <ReferenceLine y={-75} stroke="rgba(255,255,255,0.04)" strokeDasharray="2 5" />
+              <YAxis tick={yTick} axisLine={false} tickLine={false} width={36} domain={[-2.8, 2.8]} tickFormatter={(v) => v.toFixed(1)} />
+              <RTooltip content={<ZScoreTooltip />} cursor={{ stroke: "rgba(255,255,255,0.08)", strokeWidth: 1 }} />
+              <ReferenceLine y={0}   stroke="rgba(255,255,255,0.15)" />
+              <ReferenceLine y={1}   stroke="rgba(255,255,255,0.06)" strokeDasharray="3 5" />
+              <ReferenceLine y={-1}  stroke="rgba(255,255,255,0.06)" strokeDasharray="3 5" />
+              <ReferenceLine y={2}   stroke="rgba(255,255,255,0.04)" strokeDasharray="2 7" />
+              <ReferenceLine y={-2}  stroke="rgba(255,255,255,0.04)" strokeDasharray="2 7" />
+              <Area type="monotone" dataKey="gexBgPos" fill="url(#normGexPosG)" stroke="none" isAnimationActive={false} />
+              <Area type="monotone" dataKey="gexBgNeg" fill="url(#normGexNegG)" stroke="none" isAnimationActive={false} />
               <Line type="monotone" dataKey="GEX"   stroke={C.gex}   strokeWidth={1.8} dot={false} isAnimationActive={false} />
               <Line type="monotone" dataKey="DEX"   stroke={C.dex}   strokeWidth={1.5} dot={false} isAnimationActive={false} />
               <Line type="monotone" dataKey="Vanna" stroke={C.vanna} strokeWidth={1.5} dot={false} isAnimationActive={false} />
@@ -870,9 +1125,192 @@ export function HedgePressurePanel({ ticker, exposures, levels, contracts }: Pro
               <Line type="monotone" dataKey="VEX"   stroke={C.vex}   strokeWidth={1.2} dot={false} isAnimationActive={false} strokeDasharray="4 2" />
               <Line type="monotone" dataKey="TEX"   stroke={C.tex}   strokeWidth={1.2} dot={false} isAnimationActive={false} strokeDasharray="2 3" />
               <Legend wrapperStyle={{ fontSize: 8, fontFamily: FONT }} />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </Panel>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          ALL GREEKS NORMALIZED — Full-width Z-score momentum chart
+      ════════════════════════════════════════════════════════════════════ */}
+      <SectionLabel>All Greeks Normalized · Full Z-Score Momentum Overlay</SectionLabel>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
+
+        {/* Header */}
+        <div style={{
+          padding: "8px 14px 6px", borderBottom: `1px solid ${C.border}`,
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <div>
+            <div style={{ color: "#7a82b0", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.16em", fontFamily: FONT, fontWeight: 700 }}>
+              ALL GREEKS NORMALIZED
+            </div>
+            <div style={{ color: C.label, fontSize: 8, fontFamily: FONT }}>
+              Z-score overlay · compare relative momentum — green bg = +gamma regime · red bg = −gamma regime
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+            <Dot color={C.gex}   label="GEX" />
+            <Dot color={C.dex}   label="DEX" />
+            <Dot color={C.vanna} label="Vanna" />
+            <Dot color={C.charm} label="Charm" />
+            <Dot color={C.vex}   label="VEX" />
+            <Dot color={C.tex}   label="TEX" />
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div style={{ height: 380, padding: "6px 10px 8px" }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={normHistory} margin={{ top: 12, right: 20, bottom: 20, left: 14 }}>
+              <defs>
+                <linearGradient id="zAllPosGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#00e676" stopOpacity={0.16} />
+                  <stop offset="100%" stopColor="#00e676" stopOpacity={0.01} />
+                </linearGradient>
+                <linearGradient id="zAllNegGrad" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%"   stopColor="#ff3355" stopOpacity={0.16} />
+                  <stop offset="100%" stopColor="#ff3355" stopOpacity={0.01} />
+                </linearGradient>
+              </defs>
+
+              {/* Grid — horizontal only, TradingView style */}
+              <CartesianGrid stroke="#080a18" strokeDasharray="1 8" vertical={false} />
+
+              <XAxis
+                dataKey="time"
+                tick={xTick}
+                axisLine={{ stroke: C.border }}
+                tickLine={false}
+                interval={5}
+                label={{
+                  value: ticker.symbol,
+                  position: "insideBottomRight",
+                  offset: -4,
+                  fill: C.label, fontSize: 8, fontFamily: FONT,
+                }}
+              />
+              <YAxis
+                tick={{ ...yTick, fontSize: 9 }}
+                axisLine={false}
+                tickLine={false}
+                width={36}
+                domain={[-2.6, 2.6]}
+                tickCount={7}
+                tickFormatter={(v) => v.toFixed(1)}
+                label={{
+                  value: "z-score",
+                  angle: -90,
+                  position: "insideLeft",
+                  fill: C.label, fontSize: 8, fontFamily: FONT, dx: 4,
+                }}
+              />
+
+              <RTooltip
+                content={<ZScoreTooltip />}
+                cursor={{ stroke: "rgba(255,255,255,0.1)", strokeWidth: 1 }}
+              />
+
+              {/* ── Z-score reference lines ── */}
+              <ReferenceLine y={0}    stroke="rgba(255,255,255,0.18)" strokeWidth={1} />
+              <ReferenceLine y={1}    stroke="rgba(255,255,255,0.07)" strokeDasharray="3 6" />
+              <ReferenceLine y={-1}   stroke="rgba(255,255,255,0.07)" strokeDasharray="3 6" />
+              <ReferenceLine y={2}    stroke="rgba(255,255,255,0.04)" strokeDasharray="2 8" />
+              <ReferenceLine y={-2}   stroke="rgba(255,255,255,0.04)" strokeDasharray="2 8" />
+              <ReferenceLine y={1}    stroke="transparent"
+                label={{ value: "+1σ", position: "right", fill: "rgba(255,255,255,0.2)", fontSize: 7, fontFamily: FONT }}
+              />
+              <ReferenceLine y={-1}   stroke="transparent"
+                label={{ value: "-1σ", position: "right", fill: "rgba(255,255,255,0.2)", fontSize: 7, fontFamily: FONT }}
+              />
+              <ReferenceLine y={2}    stroke="transparent"
+                label={{ value: "+2σ", position: "right", fill: "rgba(255,255,255,0.14)", fontSize: 7, fontFamily: FONT }}
+              />
+              <ReferenceLine y={-2}   stroke="transparent"
+                label={{ value: "-2σ", position: "right", fill: "rgba(255,255,255,0.14)", fontSize: 7, fontFamily: FONT }}
+              />
+
+              {/* ── GEX regime background areas ── */}
+              <Area
+                type="monotone"
+                dataKey="gexBgPos"
+                fill="url(#zAllPosGrad)"
+                stroke="none"
+                isAnimationActive={false}
+                legendType="none"
+              />
+              <Area
+                type="monotone"
+                dataKey="gexBgNeg"
+                fill="url(#zAllNegGrad)"
+                stroke="none"
+                isAnimationActive={false}
+                legendType="none"
+              />
+
+              {/* ── Greek Z-score lines ── */}
+              <Line
+                type="monotone" dataKey="GEX"
+                stroke={C.gex} strokeWidth={2.0}
+                dot={false} isAnimationActive={false}
+                name="GEX"
+              />
+              <Line
+                type="monotone" dataKey="DEX"
+                stroke={C.dex} strokeWidth={1.6}
+                dot={false} isAnimationActive={false}
+                name="DEX"
+              />
+              <Line
+                type="monotone" dataKey="Vanna"
+                stroke={C.vanna} strokeWidth={1.6}
+                dot={false} isAnimationActive={false}
+                name="Vanna"
+              />
+              <Line
+                type="monotone" dataKey="Charm"
+                stroke={C.charm} strokeWidth={1.4}
+                strokeDasharray="5 2"
+                dot={false} isAnimationActive={false}
+                name="Charm"
+              />
+              <Line
+                type="monotone" dataKey="VEX"
+                stroke={C.vex} strokeWidth={1.4}
+                strokeDasharray="4 2"
+                dot={false} isAnimationActive={false}
+                name="VEX"
+              />
+              <Line
+                type="monotone" dataKey="TEX"
+                stroke={C.tex} strokeWidth={1.4}
+                strokeDasharray="2 3"
+                dot={false} isAnimationActive={false}
+                name="TEX"
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          display: "flex", gap: 16, padding: "6px 14px",
+          borderTop: `1px solid ${C.border}`, background: C.card2,
+          flexWrap: "wrap", alignItems: "center",
+        }}>
+          <span style={{ color: C.label, fontSize: 7, fontFamily: FONT, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+            Z-score · session-normalized · each greek standardized independently
+          </span>
+          <span style={{
+            marginLeft: "auto",
+            background: netGex >= 0 ? "rgba(0,230,118,0.12)" : "rgba(255,51,85,0.12)",
+            border: `1px solid ${netGex >= 0 ? C.gex : C.neg}`,
+            color: netGex >= 0 ? C.gex : C.neg,
+            fontSize: 8, fontFamily: FONT, padding: "2px 8px", borderRadius: 3, letterSpacing: "0.1em",
+          }}>
+            {netGex >= 0 ? "▲ POSITIVE GAMMA" : "▼ NEGATIVE GAMMA"}
+          </span>
+        </div>
       </div>
 
     </div>

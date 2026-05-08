@@ -13,61 +13,60 @@ interface Props {
   contracts: OptionContract[];
 }
 
-// ─── gexstream-inspired palette ───
 const C = {
-  bg:        "#1a1a1a",
-  panel:     "#0f0f0f",
-  border:    "#2a2a2a",
-  grid:      "#262626",
+  bg:        "#0a0a0a",
+  panel:     "#070707",
+  border:    "#1e1e1e",
+  grid:      "#141414",
   text:      "#e5e7eb",
-  muted:     "#888",
-  green:     "#00ff88",   // positive gamma (above spot, calls)
-  red:       "#ff3355",   // negative gamma (below spot, puts)
-  yellow:    "#ffd000",   // spot price line
+  muted:     "#555",
+  green:     "#00ff44",    // pure bright green
+  greenMax:  "#00ff00",    // max positive bar
+  red:       "#ff2233",    // pure bright red
+  redMax:    "#ff0000",    // max negative bar
+  yellow:    "#ffd000",    // spot
+  orange:    "#ff9900",    // major wall
+  purple:    "#c084fc",    // max pain
+  cyan:      "#00e5ff",    // vol trigger
+  white:     "#ffffff",    // delta zero
   blue:      "#3b82f6",
-  purple:    "#a78bfa",
 };
 const FONT = `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace`;
+const BAR_H = 18; // px per bar row
 
 type Metric = "GEX" | "DEX" | "VEX";
 
 export function HorizontalGEXChart({ ticker, contracts }: Props) {
   const [metric, setMetric] = useState<Metric>("GEX");
-  const [zoom, setZoom] = useState<number>(40); // # of strikes visible
+  const [zoom, setZoom] = useState<number>(40);
   const [expiryFilter, setExpiryFilter] = useState<string>("all");
   const [selected, setSelected] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
 
-  // Available expiries
   const expiries = useMemo(() => {
     const set = new Set<number>();
     contracts.forEach((c) => set.add(c.expiry));
     return Array.from(set).sort((a, b) => a - b);
   }, [contracts]);
 
-  // Filter by expiry
   const filteredContracts = useMemo(() => {
     if (expiryFilter === "all") return contracts;
     return contracts.filter((c) => String(c.expiry) === expiryFilter);
   }, [contracts, expiryFilter]);
 
-  // ─── compute exposures + per-strike volume / OI ───
-  const { rows, callWall, putWall } = useMemo(() => {
+  const { rows, callWall, putWall, majorWall, maxPain, volTrigger, gammaFlip, deltaZeroStrike } = useMemo(() => {
     const exposures = computeExposures(ticker.spot, filteredContracts);
     const levels = computeKeyLevels(exposures);
 
-    // Aggregate call/put volume + OI per strike
     const sideMap = new Map<number, { callOI: number; putOI: number; callVol: number; putVol: number }>();
     for (const c of filteredContracts) {
       const cur = sideMap.get(c.strike) ?? { callOI: 0, putOI: 0, callVol: 0, putVol: 0 };
-      // No real volume in demo data → estimate as 30% of OI
       const vol = Math.round(c.oi * 0.3);
       if (c.type === "call") { cur.callOI += c.oi; cur.callVol += vol; }
       else { cur.putOI += c.oi; cur.putVol += vol; }
       sideMap.set(c.strike, cur);
     }
 
-    // Center on spot, take ±zoom/2 strikes
     const half = Math.max(8, Math.floor(zoom / 2));
     const sorted = [...exposures].sort((a, b) => a.strike - b.strike);
     const spotIdx = sorted.findIndex((e) => e.strike >= ticker.spot);
@@ -84,7 +83,6 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
       return {
         strike: e.strike,
         value,
-        // shares per $ move (gamma exposure): netGex / spot since gex already $/$ here we keep raw
         shares: value / ticker.spot,
         callOI: sides.callOI,
         putOI: sides.putOI,
@@ -98,7 +96,34 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
       };
     });
 
-    return { rows, callWall: levels.callWall, putWall: levels.putWall };
+    // Delta zero: find strike where cumulative DEX crosses zero
+    let cumDex = 0;
+    let deltaZeroStrike: number | null = null;
+    const dexSorted = [...rows].sort((a, b) => a.strike - b.strike);
+    for (let i = 0; i < dexSorted.length; i++) {
+      const prev = cumDex;
+      cumDex += dexSorted[i].dex;
+      if (i > 0 && ((prev < 0 && cumDex >= 0) || (prev > 0 && cumDex <= 0))) {
+        deltaZeroStrike = dexSorted[i].strike;
+        break;
+      }
+    }
+    if (deltaZeroStrike === null && dexSorted.length > 0) {
+      deltaZeroStrike = dexSorted.reduce((best, r) =>
+        Math.abs(r.dex) < Math.abs(best.dex) ? r : best
+      ).strike;
+    }
+
+    return {
+      rows,
+      callWall:        levels.callWall,
+      putWall:         levels.putWall,
+      majorWall:       levels.majorWall,
+      maxPain:         levels.maxPain,
+      volTrigger:      levels.volTrigger,
+      gammaFlip:       levels.gammaFlip,
+      deltaZeroStrike,
+    };
   }, [ticker, filteredContracts, metric, zoom]);
 
   const maxAbs = useMemo(
@@ -106,14 +131,25 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
     [rows],
   );
 
-  // Selected strike detail
+  // Index of max positive and max negative bar
+  const { maxPosStrike, maxNegStrike } = useMemo(() => {
+    let maxPosStrike: number | null = null;
+    let maxNegStrike: number | null = null;
+    let maxPosVal = -Infinity;
+    let maxNegVal = Infinity;
+    for (const r of rows) {
+      if (r.shares > maxPosVal) { maxPosVal = r.shares; maxPosStrike = r.strike; }
+      if (r.shares < maxNegVal) { maxNegVal = r.shares; maxNegStrike = r.strike; }
+    }
+    return { maxPosStrike, maxNegStrike };
+  }, [rows]);
+
   const detail = useMemo(() => {
     if (selected == null) return null;
     const r = rows.find((x) => x.strike === selected);
     if (!r) return null;
     const distPct = ((r.strike - ticker.spot) / ticker.spot) * 100;
     const totalOI = r.callOI + r.putOI;
-    // Classification
     let cls: { label: string; color: string };
     if (r.strike === callWall || r.strike === putWall) {
       cls = { label: "GAMMA WALL", color: C.yellow };
@@ -125,35 +161,40 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
     return { r, distPct, totalOI, cls };
   }, [selected, rows, ticker.spot, callWall, putWall]);
 
-  // ─── tooltip ───
   const renderTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     const r = payload[0].payload;
-    const isCall = r.aboveSpot;
+    const isMax = r.strike === maxPosStrike || r.strike === maxNegStrike;
+    const isPos = r.aboveSpot;
+    const borderColor = r.strike === maxPosStrike ? C.greenMax : r.strike === maxNegStrike ? C.redMax : isPos ? C.green : C.red;
     return (
-      <div
-        style={{
-          background: "#000",
-          border: `1px solid ${isCall ? C.green : C.red}`,
-          color: C.text,
-          fontFamily: FONT,
-          padding: "10px 12px",
-          borderRadius: 4,
-          minWidth: 220,
-          boxShadow: `0 0 24px ${isCall ? C.green : C.red}33`,
-        }}
-      >
-        <div style={{ color: isCall ? C.green : C.red, fontSize: 11, letterSpacing: "0.15em" }}>
-          STRIKE ${r.strike} · {isCall ? "CALL SIDE" : "PUT SIDE"}
+      <div style={{
+        background: "#000",
+        border: `1px solid ${borderColor}`,
+        color: C.text, fontFamily: FONT,
+        padding: "10px 12px", borderRadius: 4, minWidth: 230,
+        boxShadow: `0 0 28px ${borderColor}44`,
+      }}>
+        <div style={{ color: borderColor, fontSize: 11, letterSpacing: "0.15em", marginBottom: 4 }}>
+          {isMax ? "★ " : ""}STRIKE ${r.strike} · {isPos ? "CALL SIDE" : "PUT SIDE"}
         </div>
         <div style={{ height: 1, background: C.border, margin: "6px 0" }} />
         <Row label={`${metric} (shares/$)`} value={formatNumber(r.shares)} color={r.shares >= 0 ? C.green : C.red} bold />
         <Row label="Call OI" value={formatNumber(r.callOI, 0)} color={C.green} />
         <Row label="Put OI"  value={formatNumber(r.putOI, 0)}  color={C.red} />
         <Row label="Net GEX" value={formatNumber(r.netGex)} color={r.netGex >= 0 ? C.green : C.red} />
+        <Row label="Net DEX" value={formatNumber(r.dex)}    color={r.dex >= 0 ? C.cyan : C.red} />
       </div>
     );
   };
+
+  // Chart height scales with number of rows
+  const chartH = Math.max(320, rows.length * BAR_H + 48);
+
+  const spotStrike = rows.reduce(
+    (best, r) => (Math.abs(r.strike - ticker.spot) < Math.abs(best - ticker.spot) ? r.strike : best),
+    rows[0]?.strike ?? ticker.spot,
+  );
 
   return (
     <div
@@ -162,10 +203,10 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
     >
       {/* ─── TOOLBAR ─── */}
       <div
-        className="flex items-center gap-3 px-4 py-2.5 shrink-0 flex-wrap"
+        className="flex items-center gap-3 px-4 py-2 shrink-0 flex-wrap"
         style={{ borderBottom: `1px solid ${C.border}`, background: C.panel }}
       >
-        <span style={{ color: C.muted, fontSize: 10, letterSpacing: "0.2em" }} className="uppercase font-bold">
+        <span style={{ color: "#4a5580", fontSize: 10, letterSpacing: "0.2em" }} className="uppercase font-bold">
           Horizontal GEX · {ticker.symbol}
         </span>
 
@@ -186,7 +227,6 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
           ))}
         </div>
 
-        {/* Expiry */}
         <div className="flex items-center gap-1.5">
           <span style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider">EXP</span>
           <select
@@ -202,7 +242,6 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
           </select>
         </div>
 
-        {/* Zoom */}
         <div className="flex items-center gap-2 ml-auto">
           <span style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider">Strikes</span>
           <input
@@ -215,7 +254,6 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
           <span style={{ color: C.text, fontSize: 10 }} className="font-bold w-6 text-right">{rows.length}</span>
         </div>
 
-        {/* Spot ref */}
         <div className="flex items-center gap-1.5 px-2 py-1 rounded" style={{ background: `${C.yellow}15`, border: `1px solid ${C.yellow}40` }}>
           <span style={{ background: C.yellow }} className="h-2 w-2 rounded-full" />
           <span style={{ color: C.yellow, fontSize: 10, fontWeight: 700 }}>SPOT ${ticker.spot.toFixed(2)}</span>
@@ -223,181 +261,377 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
       </div>
 
       {/* ─── BODY ─── */}
-      <div className="flex-1 min-h-0 grid grid-cols-[1fr_300px]">
-        {/* Chart */}
-        <div className="relative p-3" style={{ borderRight: `1px solid ${C.border}` }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={rows}
-              margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
-              barCategoryGap={1}
-              onMouseMove={(s: any) => setHover(s?.activeLabel ?? null)}
-              onMouseLeave={() => setHover(null)}
-            >
-              <CartesianGrid stroke={C.grid} strokeDasharray="3 3" horizontal={false} />
-              <XAxis
-                type="number"
-                domain={[-maxAbs, maxAbs]}
-                stroke={C.muted}
-                fontSize={10}
-                tickLine={false}
-                axisLine={{ stroke: C.border }}
-                tick={{ fontFamily: FONT }}
-                tickFormatter={(v) => formatNumber(v)}
-                label={{
-                  value: "shares per $ move",
-                  position: "insideBottom",
-                  offset: -2,
-                  fill: C.muted,
-                  fontSize: 9,
-                  fontFamily: FONT,
-                }}
-              />
-              <YAxis
-                type="category"
-                dataKey="strike"
-                stroke={C.muted}
-                fontSize={10}
-                tickLine={false}
-                axisLine={{ stroke: C.border }}
-                tick={{ fontFamily: FONT, fill: C.text }}
-                width={56}
-                interval={0}
-                reversed={false}
-              />
-              <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} content={renderTooltip} />
+      <div className="flex-1 min-h-0 grid grid-cols-[1fr_280px]">
 
-              {/* Center axis */}
-              <ReferenceLine x={0} stroke={C.border} strokeWidth={1} />
-
-              {/* Yellow dashed SPOT line — placed at the strike closest to spot */}
-              <ReferenceLine
-                y={rows.reduce(
-                  (best, r) => (Math.abs(r.strike - ticker.spot) < Math.abs(best - ticker.spot) ? r.strike : best),
-                  rows[0]?.strike ?? ticker.spot,
-                )}
-                stroke={C.yellow}
-                strokeDasharray="6 4"
-                strokeWidth={1.5}
-                label={{
-                  position: "right",
-                  value: `$${ticker.spot.toFixed(2)}`,
-                  fill: C.yellow,
-                  fontSize: 10,
-                  fontFamily: FONT,
-                  fontWeight: 700,
-                }}
-              />
-
-              <Bar
-                dataKey="shares"
-                radius={[0, 2, 2, 0]}
-                onClick={(d: any) => setSelected(d?.strike ?? null)}
-                cursor="pointer"
+        {/* Chart — scrollable so bars stay thick */}
+        <div
+          className="relative overflow-y-auto overflow-x-hidden"
+          style={{ borderRight: `1px solid ${C.border}` }}
+        >
+          <div style={{ height: chartH, padding: "6px 6px 8px 0" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={rows}
+                margin={{ top: 8, right: 160, left: 8, bottom: 24 }}
+                barCategoryGap={3}
+                onMouseMove={(s: any) => setHover(s?.activeLabel ?? null)}
+                onMouseLeave={() => setHover(null)}
               >
-                {rows.map((r, i) => {
-                  const isAbove = r.aboveSpot;
-                  const fill = isAbove ? C.green : C.red;
-                  const isWall = r.strike === callWall || r.strike === putWall;
-                  const isHover = hover === r.strike;
-                  const isSel = selected === r.strike;
-                  const intensity = Math.abs(r.shares) / maxAbs;
-                  return (
-                    <Cell
-                      key={i}
-                      fill={fill}
-                      fillOpacity={isHover || isSel ? 0.95 : isWall ? 0.85 : 0.55 + intensity * 0.3}
-                      stroke={isSel ? C.yellow : isWall ? fill : "transparent"}
-                      strokeWidth={isSel ? 1.5 : isWall ? 1 : 0}
-                      style={isWall || isSel ? { filter: `drop-shadow(0 0 6px ${isSel ? C.yellow : fill})` } : undefined}
-                    />
-                  );
-                })}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+                <defs>
+                  {/* Glow filters for max bars */}
+                  <filter id="glowGreen" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter id="glowRed" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+
+                <CartesianGrid stroke={C.grid} strokeDasharray="2 6" horizontal={false} />
+
+                <XAxis
+                  type="number"
+                  domain={[-maxAbs * 1.05, maxAbs * 1.05]}
+                  stroke={C.muted}
+                  fontSize={9}
+                  tickLine={false}
+                  axisLine={{ stroke: C.border }}
+                  tick={{ fontFamily: FONT }}
+                  tickFormatter={(v) => formatNumber(v)}
+                  label={{
+                    value: "shares per $ move",
+                    position: "insideBottom",
+                    offset: -4,
+                    fill: C.muted, fontSize: 9, fontFamily: FONT,
+                  }}
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="strike"
+                  stroke={C.muted}
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={{ stroke: C.border }}
+                  tick={(props: any) => {
+                    const { x, y, payload } = props;
+                    const isSpot = payload.value === spotStrike;
+                    const isMaxPos = payload.value === maxPosStrike;
+                    const isMaxNeg = payload.value === maxNegStrike;
+                    const color = isSpot ? C.yellow : isMaxPos ? C.greenMax : isMaxNeg ? C.redMax : C.text;
+                    return (
+                      <text x={x} y={y} dy={4} textAnchor="end"
+                        fill={color} fontSize={isMaxPos || isMaxNeg ? 11 : 10}
+                        fontWeight={isMaxPos || isMaxNeg || isSpot ? 700 : 400}
+                        fontFamily={FONT}
+                      >
+                        {payload.value}
+                      </text>
+                    );
+                  }}
+                  width={60}
+                  interval={0}
+                />
+
+                <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={renderTooltip} />
+
+                {/* Center zero line */}
+                <ReferenceLine x={0} stroke={C.border} strokeWidth={1.5} />
+
+                {/* ── SPOT ── */}
+                <ReferenceLine
+                  y={spotStrike}
+                  stroke={C.yellow}
+                  strokeDasharray="6 3"
+                  strokeWidth={1.5}
+                  label={{
+                    position: "right",
+                    value: `● SPOT  $${ticker.spot.toFixed(2)}`,
+                    fill: C.yellow, fontSize: 9, fontFamily: FONT, fontWeight: 700,
+                  }}
+                />
+
+                {/* ── MAJOR CALL WALL ── */}
+                {rows.some((r) => r.strike === majorWall) && (
+                  <ReferenceLine
+                    y={majorWall}
+                    stroke={C.orange}
+                    strokeDasharray="10 4"
+                    strokeWidth={2}
+                    label={{
+                      position: "right",
+                      value: `▲ Major Wall  $${majorWall}`,
+                      fill: C.orange, fontSize: 9, fontFamily: FONT, fontWeight: 700,
+                    }}
+                  />
+                )}
+
+                {/* ── CALL WALL ── */}
+                {rows.some((r) => r.strike === callWall) && callWall !== majorWall && (
+                  <ReferenceLine
+                    y={callWall}
+                    stroke={C.green}
+                    strokeDasharray="8 4"
+                    strokeWidth={1.5}
+                    label={{
+                      position: "right",
+                      value: `▲ Call Wall  $${callWall}`,
+                      fill: C.green, fontSize: 9, fontFamily: FONT, fontWeight: 700,
+                    }}
+                  />
+                )}
+
+                {/* ── PUT WALL ── */}
+                {rows.some((r) => r.strike === putWall) && (
+                  <ReferenceLine
+                    y={putWall}
+                    stroke={C.red}
+                    strokeDasharray="8 4"
+                    strokeWidth={1.5}
+                    label={{
+                      position: "right",
+                      value: `▼ Put Wall  $${putWall}`,
+                      fill: C.red, fontSize: 9, fontFamily: FONT, fontWeight: 700,
+                    }}
+                  />
+                )}
+
+                {/* ── MAX PAIN ── */}
+                {rows.some((r) => r.strike === maxPain) && (
+                  <ReferenceLine
+                    y={maxPain}
+                    stroke={C.purple}
+                    strokeDasharray="10 4"
+                    strokeWidth={1.5}
+                    label={{
+                      position: "right",
+                      value: `★ Max Pain  $${maxPain}`,
+                      fill: C.purple, fontSize: 9, fontFamily: FONT, fontWeight: 700,
+                    }}
+                  />
+                )}
+
+                {/* ── VOL TRIGGER ── */}
+                {volTrigger != null && rows.some((r) => r.strike === volTrigger) && (
+                  <ReferenceLine
+                    y={volTrigger}
+                    stroke={C.cyan}
+                    strokeDasharray="6 3"
+                    strokeWidth={1.5}
+                    label={{
+                      position: "right",
+                      value: `⚡ Vol Trigger  $${volTrigger}`,
+                      fill: C.cyan, fontSize: 9, fontFamily: FONT, fontWeight: 700,
+                    }}
+                  />
+                )}
+
+                {/* ── DELTA ZERO ── */}
+                {deltaZeroStrike != null && rows.some((r) => r.strike === deltaZeroStrike) && (
+                  <ReferenceLine
+                    y={deltaZeroStrike}
+                    stroke="rgba(255,255,255,0.7)"
+                    strokeDasharray="4 4"
+                    strokeWidth={1.5}
+                    label={{
+                      position: "right",
+                      value: `◈ Delta Zero  $${deltaZeroStrike}`,
+                      fill: "rgba(255,255,255,0.75)", fontSize: 9, fontFamily: FONT, fontWeight: 700,
+                    }}
+                  />
+                )}
+
+                <Bar
+                  dataKey="shares"
+                  barSize={BAR_H - 4}
+                  radius={[0, 3, 3, 0]}
+                  onClick={(d: any) => setSelected(d?.strike ?? null)}
+                  cursor="pointer"
+                  isAnimationActive={false}
+                >
+                  {rows.map((r, i) => {
+                    const isMaxPos = r.strike === maxPosStrike && r.shares > 0;
+                    const isMaxNeg = r.strike === maxNegStrike && r.shares < 0;
+                    const isSel    = selected === r.strike;
+                    const isHover  = hover === r.strike;
+                    const intensity = Math.abs(r.shares) / maxAbs;
+
+                    let fill: string;
+                    let opacity: number;
+                    let filterVal: string | undefined;
+                    let strokeColor: string = "transparent";
+                    let strokeW = 0;
+
+                    if (isMaxPos) {
+                      fill = C.greenMax;
+                      opacity = 1.0;
+                      filterVal = "drop-shadow(0 0 6px #00ff00) drop-shadow(0 0 12px #00ff0066)";
+                      strokeColor = "#00ff00";
+                      strokeW = 1.5;
+                    } else if (isMaxNeg) {
+                      fill = C.redMax;
+                      opacity = 1.0;
+                      filterVal = "drop-shadow(0 0 6px #ff0000) drop-shadow(0 0 12px #ff000066)";
+                      strokeColor = "#ff0000";
+                      strokeW = 1.5;
+                    } else if (isSel) {
+                      fill = r.aboveSpot ? C.green : C.red;
+                      opacity = 1.0;
+                      strokeColor = C.yellow;
+                      strokeW = 1.5;
+                      filterVal = `drop-shadow(0 0 5px ${C.yellow})`;
+                    } else {
+                      fill = r.aboveSpot ? C.green : C.red;
+                      opacity = isHover ? 0.95 : 0.35 + intensity * 0.6;
+                    }
+
+                    return (
+                      <Cell
+                        key={i}
+                        fill={fill}
+                        fillOpacity={opacity}
+                        stroke={strokeColor}
+                        strokeWidth={strokeW}
+                        style={filterVal ? { filter: filterVal } : undefined}
+                      />
+                    );
+                  })}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        {/* ─── STRIKE DETAIL PANEL ─── */}
-        <div className="p-4 overflow-y-auto flex flex-col gap-3" style={{ background: C.panel }}>
-          <div>
-            <div style={{ color: C.green, fontSize: 10, letterSpacing: "0.2em" }} className="font-bold uppercase">
-              Strike Detail
-            </div>
-            <div style={{ color: C.muted, fontSize: 10 }}>Click a bar to inspect</div>
-          </div>
-
-          {!detail && (
-            <div
-              className="rounded p-4 text-center text-[11px]"
-              style={{ background: "#000", border: `1px dashed ${C.border}`, color: C.muted }}
-            >
-              No strike selected
-            </div>
-          )}
-
-          {detail && (
-            <div className="rounded p-3 flex flex-col gap-2.5"
-              style={{ background: "#000", border: `1px solid ${detail.r.aboveSpot ? C.green : C.red}` }}
-            >
-              <div className="flex items-center justify-between">
-                <span style={{ color: C.text, fontSize: 18, fontWeight: 700 }}>${detail.r.strike}</span>
-                <span
-                  className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
-                  style={{ color: detail.cls.color, background: `${detail.cls.color}15`, border: `1px solid ${detail.cls.color}40` }}
-                >
-                  {detail.cls.label}
-                </span>
+        {/* ─── SIDEBAR PANEL ─── */}
+        <div className="flex flex-col overflow-y-auto" style={{ background: C.panel }}>
+          <div className="p-3 flex flex-col gap-2.5">
+            <div>
+              <div style={{ color: C.green, fontSize: 10, letterSpacing: "0.2em" }} className="font-bold uppercase">
+                Strike Detail
               </div>
-
-              <DetailRow label="Distance from Spot"
-                value={`${detail.distPct >= 0 ? "+" : ""}${detail.distPct.toFixed(2)}%`}
-                color={detail.distPct >= 0 ? C.green : C.red} />
-
-              <Divider />
-
-              <DetailRow label="Call OI" value={formatNumber(detail.r.callOI, 0)} color={C.green} />
-              <DetailRow label="Put OI"  value={formatNumber(detail.r.putOI, 0)}  color={C.red} />
-              <DetailRow label="Call Vol" value={formatNumber(detail.r.callVol, 0)} color={C.green} dim />
-              <DetailRow label="Put Vol"  value={formatNumber(detail.r.putVol, 0)}  color={C.red} dim />
-
-              <Divider />
-
-              <DetailRow label="Total Gamma" value={formatNumber(detail.r.netGex)}
-                color={detail.r.netGex >= 0 ? C.green : C.red} bold />
-              <DetailRow label="Total Delta" value={formatNumber(detail.r.dex)}
-                color={detail.r.dex >= 0 ? C.green : C.red} bold />
-              <DetailRow label="Call GEX" value={formatNumber(detail.r.callGex)} color={C.green} dim />
-              <DetailRow label="Put GEX"  value={formatNumber(detail.r.putGex)}  color={C.red} dim />
-
-              <button
-                onClick={() => setSelected(null)}
-                className="mt-1 text-[9px] uppercase tracking-wider py-1 rounded"
-                style={{ color: C.muted, border: `1px solid ${C.border}` }}
-              >
-                Clear selection
-              </button>
+              <div style={{ color: C.muted, fontSize: 9 }}>Click a bar to inspect</div>
             </div>
-          )}
 
-          {/* Walls quick ref */}
-          <div className="mt-1">
-            <div style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider mb-1.5">Key Walls</div>
-            <button
-              onClick={() => setSelected(callWall)}
-              className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
-              style={{ background: "#000", border: `1px solid ${C.green}40`, color: C.green }}
-            >
-              <span>Call Wall</span><span className="font-bold">${callWall}</span>
-            </button>
-            <button
-              onClick={() => setSelected(putWall)}
-              className="w-full flex justify-between items-center px-2.5 py-1.5 rounded text-[11px]"
-              style={{ background: "#000", border: `1px solid ${C.red}40`, color: C.red }}
-            >
-              <span>Put Wall</span><span className="font-bold">${putWall}</span>
-            </button>
+            {!detail && (
+              <div className="rounded p-4 text-center text-[11px]"
+                style={{ background: "#000", border: `1px dashed ${C.border}`, color: C.muted }}>
+                No strike selected
+              </div>
+            )}
+
+            {detail && (
+              <div className="rounded p-3 flex flex-col gap-2"
+                style={{ background: "#000", border: `1px solid ${detail.r.aboveSpot ? C.green : C.red}` }}>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: C.text, fontSize: 18, fontWeight: 700 }}>${detail.r.strike}</span>
+                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ color: detail.cls.color, background: `${detail.cls.color}15`, border: `1px solid ${detail.cls.color}40` }}>
+                    {detail.cls.label}
+                  </span>
+                </div>
+
+                <DetailRow label="Distance from Spot"
+                  value={`${detail.distPct >= 0 ? "+" : ""}${detail.distPct.toFixed(2)}%`}
+                  color={detail.distPct >= 0 ? C.green : C.red} />
+
+                <Divider />
+                <DetailRow label="Call OI" value={formatNumber(detail.r.callOI, 0)} color={C.green} />
+                <DetailRow label="Put OI"  value={formatNumber(detail.r.putOI, 0)}  color={C.red} />
+                <Divider />
+                <DetailRow label="Total Gamma" value={formatNumber(detail.r.netGex)}
+                  color={detail.r.netGex >= 0 ? C.green : C.red} bold />
+                <DetailRow label="Total Delta" value={formatNumber(detail.r.dex)}
+                  color={detail.r.dex >= 0 ? C.cyan : C.red} bold />
+                <DetailRow label="Call GEX" value={formatNumber(detail.r.callGex)} color={C.green} dim />
+                <DetailRow label="Put GEX"  value={formatNumber(detail.r.putGex)}  color={C.red} dim />
+
+                <button onClick={() => setSelected(null)}
+                  className="mt-1 text-[9px] uppercase tracking-wider py-1 rounded"
+                  style={{ color: C.muted, border: `1px solid ${C.border}` }}>
+                  Clear selection
+                </button>
+              </div>
+            )}
+
+            {/* Max bars */}
+            <div className="mt-1">
+              <div style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider mb-1.5">Top Gamma Nodes</div>
+              {maxPosStrike != null && (
+                <button onClick={() => setSelected(maxPosStrike!)}
+                  className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
+                  style={{ background: "#001a00", border: `1px solid ${C.greenMax}60`, color: C.greenMax }}>
+                  <span>★ Max Positive</span><span className="font-bold">${maxPosStrike}</span>
+                </button>
+              )}
+              {maxNegStrike != null && (
+                <button onClick={() => setSelected(maxNegStrike!)}
+                  className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-2 text-[11px]"
+                  style={{ background: "#1a0000", border: `1px solid ${C.redMax}60`, color: C.redMax }}>
+                  <span>★ Max Negative</span><span className="font-bold">${maxNegStrike}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Key Levels */}
+            <div>
+              <div style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider mb-1.5">Key Levels</div>
+
+              <button onClick={() => setSelected(majorWall)}
+                className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
+                style={{ background: "#000", border: `1px solid ${C.orange}40`, color: C.orange }}>
+                <span>▲ Major Wall</span><span className="font-bold">${majorWall}</span>
+              </button>
+
+              <button onClick={() => setSelected(callWall)}
+                className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
+                style={{ background: "#000", border: `1px solid ${C.green}40`, color: C.green }}>
+                <span>▲ Call Wall</span><span className="font-bold">${callWall}</span>
+              </button>
+
+              <button onClick={() => setSelected(putWall)}
+                className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
+                style={{ background: "#000", border: `1px solid ${C.red}40`, color: C.red }}>
+                <span>▼ Put Wall</span><span className="font-bold">${putWall}</span>
+              </button>
+
+              <button onClick={() => setSelected(maxPain)}
+                className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
+                style={{ background: "#000", border: `1px solid ${C.purple}40`, color: C.purple }}>
+                <span>★ Max Pain</span><span className="font-bold">${maxPain}</span>
+              </button>
+
+              {volTrigger != null && (
+                <button onClick={() => setSelected(volTrigger)}
+                  className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
+                  style={{ background: "#000", border: `1px solid ${C.cyan}40`, color: C.cyan }}>
+                  <span>⚡ Vol Trigger</span><span className="font-bold">${volTrigger}</span>
+                </button>
+              )}
+
+              {deltaZeroStrike != null && (
+                <button onClick={() => setSelected(deltaZeroStrike!)}
+                  className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
+                  style={{ background: "#000", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.75)" }}>
+                  <span>◈ Delta Zero</span><span className="font-bold">${deltaZeroStrike}</span>
+                </button>
+              )}
+
+              {gammaFlip != null && (
+                <div className="flex justify-between items-center px-2.5 py-1.5 rounded text-[11px]"
+                  style={{ background: "#000", border: `1px solid #ffffff18`, color: C.muted }}>
+                  <span>⊘ Gamma Flip</span><span className="font-bold">${gammaFlip}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -408,7 +642,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
 function Row({ label, value, color, bold }: { label: string; value: string; color: string; bold?: boolean }) {
   return (
     <div className="flex justify-between text-[11px] py-0.5">
-      <span style={{ color: C.muted }} className="uppercase tracking-wider">{label}</span>
+      <span style={{ color: "#444" }} className="uppercase tracking-wider">{label}</span>
       <span style={{ color, fontWeight: bold ? 700 : 500 }}>{value}</span>
     </div>
   );
@@ -417,12 +651,12 @@ function Row({ label, value, color, bold }: { label: string; value: string; colo
 function DetailRow({ label, value, color, bold, dim }: { label: string; value: string; color: string; bold?: boolean; dim?: boolean }) {
   return (
     <div className="flex justify-between items-center text-[11px]">
-      <span style={{ color: C.muted, opacity: dim ? 0.7 : 1 }} className="uppercase tracking-wider text-[10px]">{label}</span>
-      <span style={{ color, fontWeight: bold ? 700 : 500, opacity: dim ? 0.85 : 1 }}>{value}</span>
+      <span style={{ color: "#444", opacity: dim ? 0.7 : 1 }} className="uppercase tracking-wider text-[10px]">{label}</span>
+      <span style={{ color, fontWeight: bold ? 700 : 500, opacity: dim ? 0.8 : 1 }}>{value}</span>
     </div>
   );
 }
 
 function Divider() {
-  return <div style={{ height: 1, background: C.border }} />;
+  return <div style={{ height: 1, background: "#1e1e1e" }} />;
 }

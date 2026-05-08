@@ -28,6 +28,7 @@ import { DepthAltaris } from "@/components/terminal/DepthAltaris";
 import { DepthMultiPanel } from "@/components/terminal/DepthMultiPanel";
 import { VannaCharmWorkspace } from "@/components/terminal/VannaCharmWorkspace";
 import { OiAnalyticsWorkspace } from "@/components/terminal/OiAnalyticsWorkspace";
+import { ProbabilityWorkspace } from "@/components/terminal/ProbabilityWorkspace";
 import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { EconomyView } from "@/components/terminal/EconomyView";
 import { OptionsSentimentScore } from "@/components/terminal/OptionsSentimentScore";
@@ -232,7 +233,8 @@ export default function Dashboard() {
       case "risk": return <RiskView {...ctx} />;
       case "anomaly": return <AnomalyView {...ctx} />;
       case "economy": return <EconomyView />;
-      case "ai-bias": return <AiBiasView {...ctx} />;
+      case "ai-bias":     return <AiBiasView {...ctx} />;
+      case "probability": return <ProbabilityWorkspace ticker={ticker} contracts={filtered} />;
       default: return null;
     }
   };
