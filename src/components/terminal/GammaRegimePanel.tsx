@@ -4,13 +4,102 @@ import {
   CartesianGrid, Tooltip as RTooltip, ReferenceLine, Cell, AreaChart, Area,
 } from "recharts";
 import type { ExposurePoint, KeyLevels, DemoTicker, OptionContract } from "@/lib/gex";
-import { formatNumber } from "@/lib/gex";
-import {
-  TrendingUp, TrendingDown, AlertTriangle, Magnet,
-  Target, Activity, ArrowDown, ArrowUp, Minus, Zap, Info,
-} from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatNumber, bsGreeks } from "@/lib/gex";
+import { Activity, ArrowDown, ArrowUp, Minus, TrendingUp, TrendingDown, Zap, Target, Info } from "lucide-react";
 
+/* ── Design tokens ──────────────────────────────────────────────── */
+const C = {
+  bg0:    "#020c18",
+  bg1:    "#040f1c",
+  bg2:    "#071525",
+  bg3:    "#0a1c2e",
+  border: "#0f1e30",
+  border2:"#1a3040",
+  muted:  "#2a4060",
+  dim:    "#3a5878",
+  text:   "#6a8aa8",
+  label:  "#8a9ab0",
+  bright: "#c8d8e8",
+  white:  "#e5edf5",
+  call:   "#00e676",
+  put:    "#ff3355",
+  warn:   "#ff9500",
+  gold:   "#ffcc00",
+  cyan:   "#00b8d4",
+  font:   "JetBrains Mono, 'Courier New', monospace",
+};
+
+const REGIME_CFG = {
+  LONG:       { hex: "#00e676", label: "LONG GAMMA",       glow: "rgba(0,230,118,0.15)",   border: "rgba(0,230,118,0.25)"  },
+  SOFT_LONG:  { hex: "#69f0ae", label: "SOFT LONG GAMMA",  glow: "rgba(105,240,174,0.12)", border: "rgba(105,240,174,0.2)" },
+  SHORT:      { hex: "#ff3355", label: "SHORT GAMMA",       glow: "rgba(255,51,85,0.15)",   border: "rgba(255,51,85,0.25)"  },
+  FLIP:       { hex: "#ffcc00", label: "FLIP ZONE",         glow: "rgba(255,204,0,0.18)",   border: "rgba(255,204,0,0.3)"   },
+  TRANSITION: { hex: "#ff9500", label: "TRANSITION",        glow: "rgba(255,149,0,0.15)",   border: "rgba(255,149,0,0.25)"  },
+};
+
+type Regime = keyof typeof REGIME_CFG;
+
+/* ── Regime classification ──────────────────────────────────────── */
+interface RegimeInfo {
+  key: Regime;
+  subtitle: string;
+  desc: string;
+  playbook: { do: string[]; avoid: string[] };
+}
+
+function classifyRegime(netGex: number, spot: number, flip: number | null): RegimeInfo {
+  const flipDist = flip != null ? spot - flip : Infinity;
+  const absDist  = Math.abs(flipDist);
+  const thresh   = Math.max(Math.abs(netGex) * 0.05, 1e6);
+
+  if (flip != null && absDist < 1) return {
+    key: "FLIP",
+    subtitle: "Critical inflection · max alert",
+    desc: "Spot is at the Gamma Flip Point. A move of ±$1 can switch the regime from mean-reverting to trending. Reduce size and await confirmation.",
+    playbook: {
+      do: ["Reduce position size immediately", "Wait for directional confirmation", "Watch volume on first break above/below"],
+      avoid: ["Aggressive directional trades", "Selling premium naked", "Assuming regime continuation"],
+    },
+  };
+  if (Math.abs(netGex) < thresh) return {
+    key: "TRANSITION",
+    subtitle: "Net GEX near zero · regime forming",
+    desc: "Net gamma exposure is near zero. The regime is shifting — expect wider realized ranges and reduced pinning behavior around key strikes.",
+    playbook: {
+      do: ["Trade wider ranges", "Buy vol if IV is depressed", "Wait for clear direction before committing"],
+      avoid: ["Selling ATM straddles", "Assuming pin at specific strikes"],
+    },
+  };
+  if (netGex < 0) return {
+    key: "SHORT",
+    subtitle: "Dealers amplify moves · trending regime",
+    desc: "Dealers are net short gamma. Every dip generates more selling, every rally more buying. Expect elevated realized volatility and momentum-driven moves.",
+    playbook: {
+      do: ["Trade momentum / breakouts", "Buy options (long gamma)", "Use wider stops"],
+      avoid: ["Selling uncovered premium", "Fading extreme moves", "Intraday mean-reversion"],
+    },
+  };
+  if (flip != null && flipDist > 0 && flipDist < 5) return {
+    key: "SOFT_LONG",
+    subtitle: "Dealers net long gamma · fragile",
+    desc: `Gamma positive but fragile — flip is very close at $${flip?.toFixed(2)}. Monitor carefully if spot breaks below the flip level.`,
+    playbook: {
+      do: ["Mean-reversion with tight stops", "Sell premium carefully", "Monitor flip level"],
+      avoid: ["Assuming strong pin", "Excess leverage"],
+    },
+  };
+  return {
+    key: "LONG",
+    subtitle: "Dealers buy dips · sell rips · low vol",
+    desc: "Dealers are net long gamma. They buy dips and sell rallies automatically, keeping price pinned. Expect low realized vol — ideal for selling premium.",
+    playbook: {
+      do: ["Sell premium (iron condors, strangles)", "Intraday mean-reversion", "Trade ranges defined by walls"],
+      avoid: ["Buying expensive vol", "Trading breakouts (false breaks likely)"],
+    },
+  };
+}
+
+/* ── Props ──────────────────────────────────────────────────────── */
 interface Props {
   ticker: DemoTicker;
   exposures: ExposurePoint[];
@@ -18,722 +107,602 @@ interface Props {
   contracts: OptionContract[];
 }
 
-type Regime = "LONG" | "SOFT_LONG" | "SHORT" | "FLIP" | "TRANSITION";
-
-interface RegimeInfo {
-  key: Regime;
-  title: string;
-  subtitle: string;
-  desc: string;
-  color: string;
-  hex: string;
-  playbook: { do: string[]; avoid: string[] };
-}
-
-function classifyRegime(netGex: number, spot: number, flip: number | null): RegimeInfo {
-  const flipDist = flip != null ? spot - flip : Number.POSITIVE_INFINITY;
-  const absDist = Math.abs(flipDist);
-  const transitionThresh = Math.max(Math.abs(netGex) * 0.05, 1e6);
-
-  if (flip != null && absDist < 1) {
-    return {
-      key: "FLIP",
-      title: "FLIP ZONE",
-      subtitle: "Critical inflection point · max alert",
-      desc: "Punto de inflexión crítico. Un movimiento de ±$1 puede cambiar el comportamiento del mercado de mean-revert a trending.",
-      color: "text-warning",
-      hex: "#ffcc00",
-      playbook: {
-        do: ["Reducir tamaño de posición", "Esperar confirmación del cruce", "Vigilar volumen del primer break"],
-        avoid: ["Estrategias direccionales agresivas", "Vender premium sin hedge", "Asumir continuación del régimen previo"],
-      },
-    };
-  }
-  if (Math.abs(netGex) < transitionThresh) {
-    return {
-      key: "TRANSITION",
-      title: "TRANSITION",
-      subtitle: "Net GEX near zero · regime forming",
-      desc: "Gamma neta cercana a cero. El régimen está cambiando — espera mayor volatilidad realizada y rangos más amplios.",
-      color: "text-warning",
-      hex: "#ff9933",
-      playbook: {
-        do: ["Operar rangos amplios", "Comprar vol barata si IV está deprimida", "Esperar dirección clara"],
-        avoid: ["Vender straddles ATM", "Asumir pin a strikes específicos"],
-      },
-    };
-  }
-  if (netGex < 0) {
-    return {
-      key: "SHORT",
-      title: "SHORT GAMMA",
-      subtitle: "Dealers amplify moves · trending regime",
-      desc: "Dealers amplifican los movimientos. Cada caída genera más ventas, cada subida más compras. Volatilidad realizada elevada esperada.",
-      color: "text-put",
-      hex: "#ff4466",
-      playbook: {
-        do: ["Operar momentum / breakouts", "Comprar opciones (long gamma)", "Stops más amplios"],
-        avoid: ["Vender premium descubierto", "Fade de movimientos extremos", "Mean-reversion intraday"],
-      },
-    };
-  }
-  if (flip != null && flipDist > 0 && flipDist < 5) {
-    return {
-      key: "SOFT_LONG",
-      title: "SOFT LONG GAMMA",
-      subtitle: "Dealers net long gamma · price tends to mean-revert",
-      desc: `Gamma positivo pero frágil — el flip está muy cerca. Monitorea si spot rompe $${flip?.toFixed(2)} a la baja.`,
-      color: "text-call",
-      hex: "#7fff9d",
-      playbook: {
-        do: ["Mean-reversion con stops ajustados", "Vender premium con cuidado", "Vigilar cruce del flip"],
-        avoid: ["Asumir pin fuerte", "Apalancar excesivamente"],
-      },
-    };
-  }
-  return {
-    key: "LONG",
-    title: "LONG GAMMA",
-    subtitle: "Dealers buy dips · sell rips · low realized vol",
-    desc: "Dealers compran bajos y venden altos. El precio tiende a mantenerse en rango. Baja volatilidad realizada esperada — ideal para vender premium.",
-    color: "text-call",
-    hex: "#00ff88",
-    playbook: {
-      do: ["Vender premium (iron condors, strangles)", "Mean-reversion intraday", "Operar rangos definidos por walls"],
-      avoid: ["Comprar vol cara", "Operar breakouts (false breaks frecuentes)"],
-    },
-  };
-}
-
-function GpiGauge({ value, hex }: { value: number; hex: string }) {
-  const v = Math.max(0, Math.min(100, value));
-  const angle = (v / 100) * 180 - 90;
-  const r = 70;
-  const cx = 90, cy = 90;
-  const rad = (angle * Math.PI) / 180;
-  const nx = cx + r * Math.sin(rad);
-  const ny = cy - r * Math.cos(rad);
-  const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="flex flex-col items-center cursor-help group">
-          <svg width="180" height="110" viewBox="0 0 180 110" className="transition-transform group-hover:scale-105">
-            <defs>
-              <linearGradient id="gpi-grad" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stopColor="#ff4466" />
-                <stop offset="50%" stopColor="#ff9933" />
-                <stop offset="100%" stopColor="#00ff88" />
-              </linearGradient>
-            </defs>
-            <path d={arcPath} fill="none" stroke="url(#gpi-grad)" strokeWidth="10" strokeLinecap="round" />
-            <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={hex} strokeWidth="3" strokeLinecap="round" />
-            <circle cx={cx} cy={cy} r="6" fill={hex} />
-          </svg>
-          <div className="text-3xl font-bold font-mono flex items-center gap-1.5" style={{ color: hex }}>
-            {v.toFixed(0)}
-            <Info className="h-3 w-3 opacity-60" />
-          </div>
-          <div className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-0.5">
-            Gamma Pressure Index
-          </div>
-        </div>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-[320px] text-xs leading-relaxed bg-popover border-border">
-        <div className="font-bold text-sm mb-1.5 text-primary">Gamma Pressure Index (GPI)</div>
-        <p className="mb-2">Indicador <strong>0–100</strong> que mide la presión gamma neta de los dealers normalizada a una escala universal.</p>
-        <div className="font-mono bg-secondary/50 px-2 py-1 rounded text-[10px] mb-2">
-          GPI = 50 + tanh(NetGEX / GEX_max) × 50
-        </div>
-        <ul className="space-y-1">
-          <li><span className="text-put font-bold">0–40</span> · Régimen <strong>SHORT GAMMA</strong> — dealers amplifican movimientos, vol alta.</li>
-          <li><span className="text-warning font-bold">40–60</span> · Zona <strong>NEUTRAL</strong> — régimen frágil o en transición.</li>
-          <li><span className="text-call font-bold">60–100</span> · Régimen <strong>LONG GAMMA</strong> — dealers mean-revert, vol baja.</li>
-        </ul>
-        <p className="mt-2 text-muted-foreground italic">Cuanto más alejado de 50, más estable y predecible el régimen actual.</p>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
+/* ══════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════════════════ */
 export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props) {
-  const spot = ticker.spot;
-  const flip = levels.gammaFlip;
+  const spot   = ticker.spot;
+  const flip   = levels.gammaFlip;
   const netGex = levels.totalGex;
-  const regime = classifyRegime(netGex, spot, flip);
+  const info   = classifyRegime(netGex, spot, flip);
+  const rc     = REGIME_CFG[info.key];
 
-  const maxAbsStrike = useMemo(
-    () => exposures.reduce((m, p) => Math.max(m, Math.abs(p.netGex)), 1),
-    [exposures],
-  );
+  /* ── Derived metrics ─────────────────────────────────────────── */
+  const maxAbsStrike = useMemo(() => exposures.reduce((m, p) => Math.max(m, Math.abs(p.netGex)), 1), [exposures]);
+
   const gpi = useMemo(() => {
     const norm = netGex / (maxAbsStrike * 5);
-    return 50 + Math.tanh(norm) * 50;
+    return Math.max(0, Math.min(100, 50 + Math.tanh(norm) * 50));
   }, [netGex, maxAbsStrike]);
 
   const flipDistance = flip != null ? spot - flip : null;
 
-  // ── Section 2: GEX profile by strike ──
-  const lo = spot * 0.94;
-  const hi = spot * 1.06;
-  const profile = useMemo(
-    () => exposures.filter((p) => p.strike >= lo && p.strike <= hi).sort((a, b) => a.strike - b.strike),
-    [exposures, lo, hi],
-  );
+  const { atmIv, netDex, totalCallOI, totalPutOI, callBias, netVanna, netCharm } = useMemo(() => {
+    const atm = contracts.filter(c => Math.abs(c.strike - spot) < ticker.strikeStep * 1.5);
+    const iv  = atm.length ? (atm.reduce((s, c) => s + c.iv, 0) / atm.length) * 100 : ticker.baseIV * 100;
+    const dex = exposures.reduce((s, p) => s + p.dex, 0);
+    const cOI = contracts.filter(c => c.type === "call").reduce((s, c) => s + c.oi, 0);
+    const pOI = contracts.filter(c => c.type === "put").reduce((s, c) => s + c.oi, 0);
+    const bias = (cOI - pOI) / Math.max(cOI + pOI, 1);
+    let vanna = 0, charm = 0;
+    for (const c of contracts) {
+      if (!c.iv || c.iv <= 0 || !c.oi) continue;
+      const T = Math.max((c as any).expiry ?? 30, 1) / 365;
+      const g = bsGreeks(spot, c.strike, T, 0.05, c.iv, c.type);
+      const N = c.oi * 100;
+      const sign = c.type === "call" ? 1 : -1;
+      vanna += g.vanna * N * sign;
+      charm += (g as any).charm * N * sign;
+    }
+    return { atmIv: iv, netDex: dex, totalCallOI: cOI, totalPutOI: pOI, callBias: bias, netVanna: vanna, netCharm: charm };
+  }, [contracts, exposures, spot, ticker]);
+
+  const pcRatio = totalPutOI / Math.max(totalCallOI, 1);
+
+  const regimeStrength = Math.round(Math.abs(gpi - 50) * 2);
+
+  /* ── GEX profile ±6% ─────────────────────────────────────────── */
+  const lo = spot * 0.94, hi = spot * 1.06;
   const profileCum = useMemo(() => {
     let acc = 0;
-    return profile.map((p) => {
-      acc += p.netGex;
-      return { strike: p.strike, netGex: p.netGex, cum: acc };
-    });
-  }, [profile]);
+    return exposures
+      .filter(p => p.strike >= lo && p.strike <= hi)
+      .sort((a, b) => a.strike - b.strike)
+      .map(p => { acc += p.netGex; return { strike: p.strike, netGex: p.netGex, cum: acc }; });
+  }, [exposures, lo, hi]);
 
-  // ── Section 3: GPI history (in-memory time series) ──
-  const [gpiHistory, setGpiHistory] = useState<{ t: string; gpi: number; gex: number }[]>([]);
-  const lastTickRef = useRef(0);
+  /* ── GPI history ─────────────────────────────────────────────── */
+  const [gpiHist, setGpiHist] = useState<{ t: string; gpi: number }[]>([]);
+  const lastTick = useRef(0);
   useEffect(() => {
     const now = Date.now();
-    if (now - lastTickRef.current < 4000) return; // throttle
-    lastTickRef.current = now;
+    if (now - lastTick.current < 4000) return;
+    lastTick.current = now;
     const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    setGpiHistory((h) => [...h.slice(-29), { t, gpi: Math.round(gpi * 10) / 10, gex: netGex }]);
-  }, [gpi, netGex]);
+    setGpiHist(h => [...h.slice(-39), { t, gpi: Math.round(gpi * 10) / 10 }]);
+  }, [gpi]);
 
-  // ── Section 4: Strike Magnetism (top 5 strikes by |gex|) ──
+  /* ── Strike magnetism ────────────────────────────────────────── */
   const magnets = useMemo(() => {
+    const profile = exposures.filter(p => p.strike >= lo && p.strike <= hi);
     return [...profile]
-      .map((p) => ({
+      .map(p => ({
         strike: p.strike,
         gex: p.netGex,
         dist: Math.abs(p.strike - spot),
-        magnetism: Math.abs(p.netGex) / Math.max(Math.abs(p.strike - spot), 0.5),
+        mag: Math.abs(p.netGex) / Math.max(Math.abs(p.strike - spot), 0.5),
       }))
-      .sort((a, b) => b.magnetism - a.magnetism)
-      .slice(0, 6);
-  }, [profile, spot]);
-  const maxMag = magnets[0]?.magnetism ?? 1;
+      .sort((a, b) => b.mag - a.mag)
+      .slice(0, 7);
+  }, [exposures, lo, hi, spot]);
+  const maxMag = magnets[0]?.mag ?? 1;
 
-  // ── Section 5: Regime Stability ──
-  // Score = consistencia de signo del netGex en strikes cercanos al spot
+  /* ── Stability ───────────────────────────────────────────────── */
   const stability = useMemo(() => {
-    const near = exposures.filter((p) => Math.abs(p.strike - spot) <= spot * 0.02);
-    if (near.length < 2) return { score: 50, label: "INSUFFICIENT DATA" };
-    const pos = near.filter((p) => p.netGex > 0).length;
-    const neg = near.filter((p) => p.netGex < 0).length;
-    const dominance = Math.abs(pos - neg) / near.length;
-    const score = Math.round(dominance * 100);
-    const label = score > 70 ? "ROCK SOLID" : score > 40 ? "MODERATE" : "FRAGILE";
-    return { score, label };
+    const near = exposures.filter(p => Math.abs(p.strike - spot) <= spot * 0.02);
+    if (near.length < 2) return { score: 50, label: "NO DATA" };
+    const pos = near.filter(p => p.netGex > 0).length;
+    const neg = near.filter(p => p.netGex < 0).length;
+    const dom = Math.abs(pos - neg) / near.length;
+    const score = Math.round(dom * 100);
+    return { score, label: score > 70 ? "ROCK SOLID" : score > 40 ? "MODERATE" : "FRAGILE" };
   }, [exposures, spot]);
 
-  // ── Section 6: Hedging behavior matrix ──
-  const callBias = useMemo(() => {
-    const callOI = contracts.filter((c) => c.type === "call").reduce((s, c) => s + c.oi, 0);
-    const putOI = contracts.filter((c) => c.type === "put").reduce((s, c) => s + c.oi, 0);
-    return (callOI - putOI) / Math.max(callOI + putOI, 1);
-  }, [contracts]);
-
+  /* ── Render ──────────────────────────────────────────────────── */
   return (
-    <TooltipProvider delayDuration={150}>
-    <div className="space-y-3 p-2">
-      {/* Hover-info banner */}
-      <div className="text-[10px] text-muted-foreground/70 flex items-center gap-1.5 px-1">
-        <Info className="h-3 w-3" /> Pasa el mouse sobre cualquier elemento (<span className="text-primary">ⓘ</span>) para ver una explicación detallada.
-      </div>
-      {/* ─────────── SECTION 1 — REGIME STATUS BAR ─────────── */}
-      <div
-        className="relative rounded-lg border bg-card p-5 overflow-hidden"
-        style={{ boxShadow: `inset 0 0 60px ${regime.hex}15, 0 0 0 1px ${regime.hex}30` }}
-      >
-        <div
-          className="absolute top-0 left-0 h-full w-1"
-          style={{ background: regime.hex, boxShadow: `0 0 20px ${regime.hex}` }}
-        />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-          <div className="lg:col-span-6">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-1">
-              Gamma Regime · {ticker.symbol}
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <h2
-                  className={`text-3xl md:text-4xl font-black tracking-tight ${regime.color} cursor-help inline-flex items-center gap-2`}
-                  style={{ textShadow: `0 0 24px ${regime.hex}80` }}
-                >
-                  {regime.title}
-                  <Info className="h-4 w-4 opacity-50" />
-                </h2>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[340px] text-xs leading-relaxed bg-popover border-border">
-                <div className="font-bold text-sm mb-1.5" style={{ color: regime.hex }}>{regime.title}</div>
-                <p className="mb-2">{regime.desc}</p>
-                <div className="text-[10px] text-muted-foreground border-t border-border pt-1.5 mt-1.5">
-                  <strong>Clasificación:</strong> Net GEX = {netGex >= 0 ? "+" : ""}${formatNumber(netGex, 1)} · Spot {flipDistance != null ? (flipDistance >= 0 ? "por encima" : "por debajo") : "sin"} del flip {flip ? `($${flip.toFixed(2)})` : ""}.
+    <div
+      className="h-full overflow-y-auto"
+      style={{ background: C.bg0, fontFamily: C.font }}
+    >
+      <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
+
+        {/* ══ SECTION 1 — REGIME HERO ══════════════════════════════ */}
+        <div style={{
+          background: C.bg1,
+          border: `1px solid ${rc.border}`,
+          borderRadius: 6,
+          overflow: "hidden",
+          boxShadow: `inset 0 0 80px ${rc.glow}, 0 0 0 1px ${rc.border}`,
+        }}>
+          {/* colored left accent bar */}
+          <div style={{ height: 2, background: rc.hex, boxShadow: `0 0 16px ${rc.hex}` }} />
+
+          <div style={{ padding: "16px 20px" }}>
+            {/* top row */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 9, letterSpacing: "0.3em", color: C.text, marginBottom: 6, textTransform: "uppercase" }}>
+                  ◈ GAMMA REGIME · {ticker.symbol}
                 </div>
-              </TooltipContent>
-            </Tooltip>
-            <div className="text-xs text-muted-foreground mt-1 italic">{regime.subtitle}</div>
-            <p className="text-sm text-foreground/80 mt-3 max-w-xl leading-relaxed">{regime.desc}</p>
-          </div>
-          <div className="lg:col-span-3 flex flex-col gap-2">
-            <Pill
-              label="Flip Distance"
-              value={flipDistance == null ? "—" : `${flipDistance >= 0 ? "+" : ""}$${flipDistance.toFixed(2)}`}
-              tone={flipDistance == null ? "default" : flipDistance >= 0 ? "call" : "put"}
-              info={
-                <>
-                  <div className="font-bold text-primary mb-1">Flip Distance</div>
-                  Distancia del <strong>spot</strong> al <strong>Gamma Flip Point</strong> ({flip ? `$${flip.toFixed(2)}` : "—"}), el strike donde el GEX acumulado cruza cero.
-                  <div className="mt-1.5 text-muted-foreground">Por <span className="text-call">encima</span> = régimen positivo. Por <span className="text-put">debajo</span> = régimen negativo. Cerca de cero = zona crítica.</div>
-                </>
-              }
-            />
-            <Pill
-              label="Net GEX"
-              value={`${netGex >= 0 ? "+" : ""}$${formatNumber(netGex, 1)}`}
-              tone={netGex >= 0 ? "call" : "put"}
-              info={
-                <>
-                  <div className="font-bold text-primary mb-1">Net Gamma Exposure</div>
-                  Suma total del GEX de todos los strikes en dólares. Mide cuánta exposición gamma agregada cargan los dealers.
-                  <div className="mt-1.5"><span className="text-call">Positivo</span> = dealers <em>long gamma</em> (estabilizan el precio). <span className="text-put">Negativo</span> = dealers <em>short gamma</em> (amplifican movimientos).</div>
-                </>
-              }
-            />
-            <Pill
-              label="Regime Strength"
-              value={`${Math.round(Math.abs(gpi - 50) * 2)}/100`}
-              tone="primary"
-              info={
-                <>
-                  <div className="font-bold text-primary mb-1">Regime Strength</div>
-                  Mide qué tan <strong>convencido</strong> está el régimen actual. Valor = |GPI − 50| × 2.
-                  <div className="mt-1.5 text-muted-foreground">Cerca de 100 = régimen muy estable y consistente. Cerca de 0 = régimen frágil, posible flip inminente.</div>
-                </>
-              }
-            />
-          </div>
-          <div className="lg:col-span-3 flex justify-center">
-            <GpiGauge value={gpi} hex={regime.hex} />
+                <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-0.02em", color: rc.hex, textShadow: `0 0 32px ${rc.hex}60`, lineHeight: 1 }}>
+                  {rc.label}
+                </div>
+                <div style={{ fontSize: 10, color: C.label, marginTop: 5, letterSpacing: "0.08em" }}>
+                  {info.subtitle}
+                </div>
+                <div style={{ fontSize: 11, color: C.bright, marginTop: 10, lineHeight: 1.6, maxWidth: 520, opacity: 0.85 }}>
+                  {info.desc}
+                </div>
+              </div>
+              <GpiArc value={gpi} hex={rc.hex} />
+            </div>
+
+            {/* metric strip */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px,1fr))", gap: 8, marginTop: 16 }}>
+              <MetricPill label="GPI Score"        value={gpi.toFixed(1)}                      sub="/100"        color={rc.hex} />
+              <MetricPill label="Net GEX"          value={`${netGex >= 0 ? "+" : ""}${(netGex / 1e9).toFixed(2)}B`} sub="dollars" color={netGex >= 0 ? C.call : C.put} />
+              <MetricPill label="Flip Distance"    value={flipDistance == null ? "N/A" : `${flipDistance >= 0 ? "+" : ""}$${flipDistance.toFixed(2)}`} sub={flip ? `flip $${flip.toFixed(0)}` : "no flip"} color={flipDistance == null ? C.dim : flipDistance >= 0 ? C.call : C.put} />
+              <MetricPill label="ATM IV"           value={`${atmIv.toFixed(1)}%`}              sub="implied vol"  color={C.cyan} />
+              <MetricPill label="Net DEX"          value={`${(netDex / 1e9).toFixed(2)}B`}     sub="delta expos." color={netDex >= 0 ? C.call : C.put} />
+              <MetricPill label="P/C Ratio"        value={pcRatio.toFixed(2)}                  sub={pcRatio > 1.2 ? "bearish skew" : pcRatio < 0.8 ? "bullish skew" : "neutral"} color={pcRatio > 1.2 ? C.put : pcRatio < 0.8 ? C.call : C.gold} />
+              <MetricPill label="Regime Strength"  value={`${regimeStrength}/100`}             sub={regimeStrength > 70 ? "stable" : regimeStrength > 40 ? "moderate" : "fragile"} color={regimeStrength > 70 ? C.call : regimeStrength > 40 ? C.gold : C.put} />
+              <MetricPill label="Stability"        value={stability.label}                      sub={`score ${stability.score}`} color={stability.score > 70 ? C.call : stability.score > 40 ? C.gold : C.put} />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ─────────── SECTION 2 — GEX PROFILE CURVE ─────────── */}
-      <div className="rounded-lg border bg-card p-4">
-        <SectionHeader
-          title="GEX Profile Curve"
-          subtitle="Net gamma por strike · curva acumulada · ±6% del spot"
-          info={
-            <>
-              <div className="font-bold text-primary mb-1">GEX Profile Curve</div>
-              Muestra el <strong>Net GEX</strong> agregado por strike (barras) y su <strong>curva acumulada</strong> (línea amarilla). El cruce de la curva por cero marca el <strong>Gamma Flip</strong>.
-              <div className="mt-1.5 text-muted-foreground">Strikes <span className="text-call">verdes</span> son soporte/resistencia que <em>frena</em> el precio. Strikes <span className="text-put">rojos</span> lo <em>aceleran</em>.</div>
-            </>
-          }
+        {/* ══ SECTION 2 — GEX PROFILE CURVE ═══════════════════════ */}
+        <SectionCard title="GEX PROFILE CURVE" subtitle={`Net gamma by strike · cumulative line · ±6% of $${spot.toFixed(0)}`}
           legend={[
-            { swatch: "hsl(var(--call))", label: "GEX +" },
-            { swatch: "hsl(var(--put))", label: "GEX −" },
-            { swatch: "#ffcc00", label: "Cumulative", dashed: true },
-            { swatch: "hsl(var(--primary))", label: `Spot $${spot.toFixed(2)}` },
+            { color: C.call, label: "GEX +" },
+            { color: C.put,  label: "GEX −" },
+            { color: C.gold, label: "Cumulative", dashed: true },
           ]}
-        />
-        <div className="h-[340px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={profileCum} margin={{ top: 16, right: 50, left: 10, bottom: 4 }}>
-              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="strike" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={20} />
-              <YAxis yAxisId="bars" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={60} />
-              <YAxis yAxisId="cum" orientation="right" tick={{ fontSize: 11, fill: "#ffcc00" }} tickFormatter={(v) => formatNumber(Number(v), 1)} width={60} />
-              <RTooltip
-                contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number, name: string) => [formatNumber(v), name]}
-                labelFormatter={(l) => `Strike $${l}`}
-              />
-              <ReferenceLine yAxisId="bars" y={0} stroke="hsl(var(--border))" />
-              <ReferenceLine yAxisId="bars" x={spot} stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="4 3" label={{ value: `▼ SPOT ${spot.toFixed(2)}`, fill: "hsl(var(--primary))", fontSize: 11, position: "top" }} />
-              {flip != null && <ReferenceLine yAxisId="bars" x={flip} stroke="#ffcc00" strokeWidth={1.5} strokeDasharray="5 3" label={{ value: `Flip ${flip}`, fill: "#ffcc00", fontSize: 10, position: "insideTopLeft" }} />}
-              <ReferenceLine yAxisId="bars" x={levels.callWall} stroke="hsl(var(--call))" strokeDasharray="2 2" label={{ value: `Call Wall ${levels.callWall}`, fill: "hsl(var(--call))", fontSize: 10, position: "insideTopRight" }} />
-              <ReferenceLine yAxisId="bars" x={levels.putWall} stroke="hsl(var(--put))" strokeDasharray="2 2" label={{ value: `Put Wall ${levels.putWall}`, fill: "hsl(var(--put))", fontSize: 10, position: "insideBottomLeft" }} />
-              <Bar yAxisId="bars" dataKey="netGex" name="Net GEX" radius={[3, 3, 0, 0]}>
-                {profileCum.map((d, i) => (
-                  <Cell key={i} fill={d.netGex >= 0 ? "hsl(var(--call))" : "hsl(var(--put))"} fillOpacity={0.85} />
-                ))}
-              </Bar>
-              <Line yAxisId="cum" type="monotone" dataKey="cum" stroke="#ffcc00" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Cumulative" />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ─────────── SECTION 3 + 4 grid ─────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* GPI History */}
-        <div className="rounded-lg border bg-card p-4">
-          <SectionHeader
-            title="GPI Evolution"
-            subtitle="Gamma Pressure Index · live timeline"
-            icon={<Activity className="h-3.5 w-3.5" />}
-            info={
-              <>
-                <div className="font-bold text-primary mb-1">GPI Evolution</div>
-                Histórico en vivo del <strong>Gamma Pressure Index</strong>. Cada punto se registra cada 4 segundos.
-                <div className="mt-1.5 text-muted-foreground">Si la línea cruza la banda 40↔60 indica un <em>cambio de régimen</em> inminente. Movimientos verticales bruscos = flujos institucionales grandes.</div>
-              </>
-            }
-          />
-          <div className="h-[200px] w-full">
-            {gpiHistory.length < 2 ? (
-              <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                Recolectando datos…
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={gpiHistory} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gpi-area" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor={regime.hex} stopOpacity={0.5} />
-                      <stop offset="100%" stopColor={regime.hex} stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="t" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} minTickGap={24} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} width={30} />
-                  <RTooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
-                  <ReferenceLine y={50} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-                  <ReferenceLine y={60} stroke="#00ff88" strokeOpacity={0.3} strokeDasharray="2 2" />
-                  <ReferenceLine y={40} stroke="#ff4466" strokeOpacity={0.3} strokeDasharray="2 2" />
-                  <Area dataKey="gpi" stroke={regime.hex} strokeWidth={2} fill="url(#gpi-area)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
-            <span><span className="text-put">●</span> 0–40 Short</span>
-            <span><span className="text-warning">●</span> 40–60 Neutral</span>
-            <span><span className="text-call">●</span> 60–100 Long</span>
-          </div>
-        </div>
-
-        {/* Strike Magnetism */}
-        <div className="rounded-lg border bg-card p-4">
-          <SectionHeader
-            title="Strike Magnetism"
-            subtitle="Imanes / repulsores cercanos al spot"
-            icon={<Magnet className="h-3.5 w-3.5" />}
-            info={
-              <>
-                <div className="font-bold text-primary mb-1">Strike Magnetism</div>
-                Mide qué tan fuerte cada strike <em>atrae</em> o <em>repele</em> el precio.
-                <div className="font-mono bg-secondary/50 px-2 py-1 rounded text-[10px] my-1.5">
-                  Magnetism = |GEX| / max(distancia, 0.5)
-                </div>
-                <span className="text-call">MAGNET</span> (verde) = strike pin / soporte / resistencia.<br />
-                <span className="text-put">REPULSE</span> (rojo) = strike que acelera el alejamiento.
-              </>
-            }
-          />
-          <div className="space-y-1.5">
-            {magnets.map((m) => {
-              const pct = (m.magnetism / maxMag) * 100;
-              const isPos = m.gex >= 0;
-              const dir = m.strike > spot ? "↑" : m.strike < spot ? "↓" : "•";
-              return (
-                <div key={m.strike} className="flex items-center gap-2 text-xs font-mono">
-                  <span className="w-14 text-muted-foreground">{dir} ${m.strike}</span>
-                  <div className="flex-1 h-5 rounded-sm bg-secondary/40 overflow-hidden relative">
-                    <div
-                      className={`h-full ${isPos ? "bg-call" : "bg-put"} opacity-70`}
-                      style={{ width: `${pct}%` }}
-                    />
-                    <span className="absolute inset-0 flex items-center px-2 text-[10px] font-semibold text-foreground">
-                      {isPos ? "MAGNET" : "REPULSE"} · {formatNumber(m.gex, 1)}
-                    </span>
-                  </div>
-                  <span className="w-12 text-right text-muted-foreground">{m.dist.toFixed(1)}$</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* ─────────── SECTION 5 — STABILITY + HEDGING BEHAVIOR ─────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* Stability score */}
-        <div className="rounded-lg border bg-card p-4">
-          <SectionHeader
-            title="Regime Stability"
-            subtitle="Consistencia del signo gamma cerca del spot"
-            icon={<Target className="h-3.5 w-3.5" />}
-            info={
-              <>
-                <div className="font-bold text-primary mb-1">Regime Stability</div>
-                Score 0–100 basado en cuántos strikes en ±2% del spot comparten el mismo signo de GEX.
-                <div className="mt-1.5">
-                  <span className="text-call">ROCK SOLID (&gt;70)</span> · régimen muy consistente.<br />
-                  <span className="text-warning">MODERATE (40–70)</span> · monitorear.<br />
-                  <span className="text-put">FRAGILE (&lt;40)</span> · cualquier flujo puede romperlo.
-                </div>
-              </>
-            }
-          />
-          <div className="flex items-center gap-4 mt-2">
-            <div className="relative w-24 h-24">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
-                <circle
-                  cx="50" cy="50" r="40" fill="none"
-                  stroke={stability.score > 70 ? "#00ff88" : stability.score > 40 ? "#ffcc00" : "#ff4466"}
-                  strokeWidth="8" strokeLinecap="round"
-                  strokeDasharray={`${(stability.score / 100) * 251.3} 251.3`}
+        >
+          <div style={{ height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={profileCum} margin={{ top: 12, right: 52, left: 8, bottom: 4 }}>
+                <CartesianGrid stroke={C.border} strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="strike"
+                  tick={{ fontSize: 10, fill: C.label, fontFamily: C.font }}
+                  interval="preserveStartEnd" minTickGap={24}
+                  axisLine={{ stroke: C.border }} tickLine={false}
                 />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold font-mono">{stability.score}</span>
-                <span className="text-[9px] text-muted-foreground uppercase">score</span>
-              </div>
-            </div>
-            <div>
-              <div className={`text-sm font-bold ${stability.score > 70 ? "text-call" : stability.score > 40 ? "text-warning" : "text-put"}`}>
-                {stability.label}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1 leading-snug max-w-[180px]">
-                {stability.score > 70
-                  ? "Régimen sólido. Probabilidad alta de continuación."
-                  : stability.score > 40
-                  ? "Régimen moderado. Vigilar cambios."
-                  : "Régimen frágil. Cualquier flujo grande puede romperlo."}
-              </p>
-            </div>
+                <YAxis
+                  yAxisId="bars"
+                  tick={{ fontSize: 10, fill: C.label, fontFamily: C.font }}
+                  tickFormatter={v => `${(v / 1e9).toFixed(1)}B`}
+                  width={52} axisLine={false} tickLine={false}
+                />
+                <YAxis
+                  yAxisId="cum" orientation="right"
+                  tick={{ fontSize: 10, fill: C.gold, fontFamily: C.font }}
+                  tickFormatter={v => `${(v / 1e9).toFixed(1)}B`}
+                  width={52} axisLine={false} tickLine={false}
+                />
+                <RTooltip
+                  contentStyle={{ background: C.bg2, border: `1px solid ${C.border2}`, borderRadius: 4, fontFamily: C.font, fontSize: 11, color: C.white }}
+                  formatter={(v: number, name: string) => [`${(v / 1e9).toFixed(3)}B`, name]}
+                  labelFormatter={l => `Strike $${l}`}
+                  cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                />
+                <ReferenceLine yAxisId="bars" y={0} stroke={C.border2} />
+                <ReferenceLine yAxisId="bars" x={spot} stroke={C.cyan} strokeWidth={1.5} strokeDasharray="5 3"
+                  label={{ value: `▼ SPOT`, position: "top", fill: C.cyan, fontSize: 9, fontFamily: C.font }} />
+                {flip != null && (
+                  <ReferenceLine yAxisId="bars" x={flip} stroke={C.gold} strokeWidth={1} strokeDasharray="4 3"
+                    label={{ value: `FLIP`, position: "insideTopLeft", fill: C.gold, fontSize: 9, fontFamily: C.font }} />
+                )}
+                <ReferenceLine yAxisId="bars" x={levels.callWall} stroke={C.call} strokeWidth={1} strokeDasharray="2 3" opacity={0.6}
+                  label={{ value: "CALL", position: "insideTopRight", fill: C.call, fontSize: 8, fontFamily: C.font }} />
+                <ReferenceLine yAxisId="bars" x={levels.putWall} stroke={C.put} strokeWidth={1} strokeDasharray="2 3" opacity={0.6}
+                  label={{ value: "PUT", position: "insideBottomLeft", fill: C.put, fontSize: 8, fontFamily: C.font }} />
+                <Bar yAxisId="bars" dataKey="netGex" name="Net GEX" radius={[2, 2, 0, 0]} maxBarSize={22}>
+                  {profileCum.map((d, i) => (
+                    <Cell key={i}
+                      fill={d.netGex >= 0 ? C.call : C.put}
+                      fillOpacity={0.75}
+                    />
+                  ))}
+                </Bar>
+                <Line yAxisId="cum" type="monotone" dataKey="cum" stroke={C.gold} strokeWidth={1.8} strokeDasharray="5 3" dot={false} name="Cumulative" />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
+        </SectionCard>
+
+        {/* ══ SECTION 3 — 2-col: GPI timeline + Strike Magnetism ═══ */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
+          {/* GPI Evolution */}
+          <SectionCard title="GPI EVOLUTION" subtitle="Gamma Pressure Index · live · every 4s">
+            <div style={{ height: 200 }}>
+              {gpiHist.length < 2 ? (
+                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: C.dim, fontSize: 11 }}>
+                  Collecting data…
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={gpiHist} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gpi-fill" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor={rc.hex} stopOpacity={0.4} />
+                        <stop offset="100%" stopColor={rc.hex} stopOpacity={0.01} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke={C.border} strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="t" tick={{ fontSize: 9, fill: C.dim, fontFamily: C.font }} minTickGap={30} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: C.dim, fontFamily: C.font }} width={28} axisLine={false} tickLine={false} />
+                    <RTooltip contentStyle={{ background: C.bg2, border: `1px solid ${C.border2}`, borderRadius: 4, fontFamily: C.font, fontSize: 11, color: C.white }} />
+                    <ReferenceLine y={50} stroke={C.border2} strokeDasharray="4 3" />
+                    <ReferenceLine y={60} stroke={C.call} strokeOpacity={0.25} strokeDasharray="2 2" />
+                    <ReferenceLine y={40} stroke={C.put}  strokeOpacity={0.25} strokeDasharray="2 2" />
+                    <Area dataKey="gpi" stroke={rc.hex} strokeWidth={1.8} fill="url(#gpi-fill)" dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>
+              <span style={{ color: C.put }}>● 0–40 SHORT</span>
+              <span style={{ color: C.gold }}>● 40–60 NEUTRAL</span>
+              <span style={{ color: C.call }}>● 60–100 LONG</span>
+            </div>
+          </SectionCard>
+
+          {/* Strike Magnetism */}
+          <SectionCard title="STRIKE MAGNETISM" subtitle="Attract / repel force near spot">
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+              {magnets.map(m => {
+                const pct = (m.mag / maxMag) * 100;
+                const isPos = m.gex >= 0;
+                const dir = m.strike > spot ? "↑" : m.strike < spot ? "↓" : "·";
+                const distPct = ((m.dist / spot) * 100).toFixed(1);
+                return (
+                  <div key={m.strike} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 52, textAlign: "right", fontSize: 10, color: C.label, fontFamily: C.font, flexShrink: 0 }}>
+                      <span style={{ color: isPos ? C.call : C.put, marginRight: 2 }}>{dir}</span>
+                      ${m.strike}
+                    </div>
+                    <div style={{ flex: 1, height: 18, background: C.bg2, borderRadius: 3, position: "relative", overflow: "hidden" }}>
+                      <div style={{
+                        position: "absolute", inset: "0 auto 0 0",
+                        width: `${pct}%`,
+                        background: isPos
+                          ? `linear-gradient(90deg, ${C.call}22, ${C.call}88)`
+                          : `linear-gradient(90deg, ${C.put}22, ${C.put}88)`,
+                        borderRight: `1px solid ${isPos ? C.call : C.put}`,
+                      }} />
+                      <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", paddingLeft: 6, fontSize: 9, color: C.white, letterSpacing: "0.05em" }}>
+                        {isPos ? "MAGNET" : "REPULSE"} · {(m.gex / 1e9).toFixed(2)}B
+                      </span>
+                    </div>
+                    <div style={{ width: 36, textAlign: "right", fontSize: 9, color: C.dim, flexShrink: 0 }}>
+                      {distPct}%
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </SectionCard>
         </div>
 
-        {/* Hedging behavior matrix */}
-        <div className="rounded-lg border bg-card p-4 lg:col-span-2">
-          <SectionHeader
-            title="Dealer Hedging Behavior"
-            subtitle="Cómo reaccionan los dealers a los movimientos del precio"
-            icon={<Zap className="h-3.5 w-3.5" />}
-            info={
-              <>
-                <div className="font-bold text-primary mb-1">Dealer Hedging Behavior</div>
-                Matriz que predice cómo se cubrirán los dealers según el régimen actual y la dirección del precio. Es la base de toda la teoría de gamma exposure.
-                <div className="mt-1.5 text-muted-foreground italic">Conocer estas reacciones permite anticipar dónde habrá <em>presión compradora/vendedora</em> automática.</div>
-              </>
-            }
-          />
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <BehaviorCell
-              icon={<ArrowUp className="h-4 w-4" />}
-              when="Spot SUBE"
-              action={netGex >= 0 ? "Dealers VENDEN futuros" : "Dealers COMPRAN futuros"}
-              tone={netGex >= 0 ? "call" : "put"}
-              note={netGex >= 0 ? "Frena la subida (mean-revert)" : "Acelera la subida (chase)"}
-              info={netGex >= 0
-                ? <>En <strong>long gamma</strong>, cuando el spot sube los dealers están <em>cortos delta</em> (les sobra delta positivo del lado call). Para neutralizar venden futuros → <span className="text-call">presión bajista</span> que frena el rally.</>
-                : <>En <strong>short gamma</strong>, cuando sube el spot los dealers necesitan <em>comprar más delta</em>. Compran futuros → <span className="text-put">refuerza la subida</span> en cascada (gamma squeeze).</>
-              }
-            />
-            <BehaviorCell
-              icon={<ArrowDown className="h-4 w-4" />}
-              when="Spot BAJA"
-              action={netGex >= 0 ? "Dealers COMPRAN futuros" : "Dealers VENDEN futuros"}
-              tone={netGex >= 0 ? "call" : "put"}
-              note={netGex >= 0 ? "Frena la caída (soporte)" : "Acelera la caída (cascade)"}
-              info={netGex >= 0
-                ? <>En <strong>long gamma</strong>, cuando el spot baja los dealers ganan delta negativo. Para neutralizar compran futuros → <span className="text-call">soporte automático</span>.</>
-                : <>En <strong>short gamma</strong>, cuando baja el spot los dealers <em>se quedan más cortos delta</em>. Venden futuros → <span className="text-put">cascada bajista</span> (vol crush al alza).</>
-              }
-            />
-            <BehaviorCell
-              icon={<Minus className="h-4 w-4" />}
-              when="Spot LATERAL"
-              action={netGex >= 0 ? "Pin a strikes con alto GEX" : "Whipsaw / chop"}
-              tone="default"
-              note={netGex >= 0 ? `Pin probable: $${levels.majorWall}` : "Sin nivel claro de pin"}
-              info={netGex >= 0
-                ? <>El precio tiende a quedarse <em>magnetizado</em> al strike con mayor GEX (Major Wall = <strong>${levels.majorWall}</strong>) sobre todo cerca del vencimiento. Ideal para vender straddles ATM.</>
-                : <>Sin gamma positivo que estabilice, el precio rebota erráticamente. Esperar <strong>whipsaws</strong> y rangos rotos en ambas direcciones.</>
-              }
-            />
-            <BehaviorCell
-              icon={callBias > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-              when="OI Bias"
-              action={callBias > 0.05 ? "CALL HEAVY" : callBias < -0.05 ? "PUT HEAVY" : "BALANCED"}
-              tone={callBias > 0 ? "call" : callBias < 0 ? "put" : "default"}
-              note={`Skew ${(callBias * 100).toFixed(1)}%`}
-              info={
-                <>
-                  <strong>OI Bias</strong> = (CallOI − PutOI) / (CallOI + PutOI). Mide qué lado tiene más <em>open interest</em>.
-                  <div className="mt-1.5 text-muted-foreground"><span className="text-call">CALL HEAVY</span> = sentimiento alcista o coberturas de call sellers. <span className="text-put">PUT HEAVY</span> = miedo / hedging defensivo. <span>BALANCED</span> = sin sesgo claro.</div>
-                </>
-              }
-            />
-          </div>
-        </div>
-      </div>
+        {/* ══ SECTION 4 — STABILITY + GREEKS SNAPSHOT ═════════════ */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
 
-      {/* ─────────── SECTION 6 — TRADER PLAYBOOK ─────────── */}
-      <div className="rounded-lg border bg-card p-4" style={{ boxShadow: `inset 0 0 0 1px ${regime.hex}20` }}>
-        <SectionHeader
-          title="Trader Playbook"
-          subtitle={`Estrategias recomendadas para ${regime.title}`}
-          icon={<AlertTriangle className="h-3.5 w-3.5" style={{ color: regime.hex }} />}
-          info={
-            <>
-              <div className="font-bold text-primary mb-1">Trader Playbook</div>
-              Recomendaciones <strong>específicas para el régimen actual</strong> ({regime.title}). Las listas cambian dinámicamente cuando el régimen cambia.
-              <div className="mt-1.5 text-muted-foreground italic">No es asesoría financiera — son guidelines basadas en la mecánica de hedging de dealers.</div>
-            </>
-          }
-        />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-          <div className="rounded border border-call/30 bg-call/5 p-3">
-            <div className="text-[10px] uppercase tracking-widest text-call font-bold mb-2">✓ HACER</div>
-            <ul className="space-y-1.5">
-              {regime.playbook.do.map((item) => (
-                <li key={item} className="text-xs text-foreground/90 flex gap-2">
-                  <span className="text-call mt-0.5">▸</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="rounded border border-put/30 bg-put/5 p-3">
-            <div className="text-[10px] uppercase tracking-widest text-put font-bold mb-2">✗ EVITAR</div>
-            <ul className="space-y-1.5">
-              {regime.playbook.avoid.map((item) => (
-                <li key={item} className="text-xs text-foreground/90 flex gap-2">
-                  <span className="text-put mt-0.5">▸</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Regime Stability */}
+          <SectionCard title="REGIME STABILITY" subtitle="Sign consistency ±2% of spot">
+            <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 8 }}>
+              <StabilityRing score={stability.score} />
+              <div>
+                <div style={{
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.1em",
+                  color: stability.score > 70 ? C.call : stability.score > 40 ? C.gold : C.put,
+                }}>
+                  {stability.label}
+                </div>
+                <div style={{ fontSize: 10, color: C.label, marginTop: 6, lineHeight: 1.6, maxWidth: 160 }}>
+                  {stability.score > 70
+                    ? "High confidence. Regime likely to persist."
+                    : stability.score > 40
+                    ? "Moderate. Monitor for regime shift."
+                    : "Fragile. Any large flow can break it."}
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+
+          {/* Greeks Snapshot */}
+          <SectionCard title="GREEKS SNAPSHOT" subtitle="Aggregate option book exposure">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 8 }}>
+              <GreekBlock label="NET GEX"   value={`${(netGex / 1e9).toFixed(3)}B`} color={netGex >= 0 ? C.call : C.put}
+                info={netGex >= 0 ? "Dealers long gamma → stabilizing" : "Dealers short gamma → amplifying"} />
+              <GreekBlock label="NET DEX"   value={`${(netDex / 1e9).toFixed(3)}B`} color={netDex >= 0 ? C.call : C.put}
+                info={netDex >= 0 ? "Net long delta exposure" : "Net short delta exposure"} />
+              <GreekBlock label="NET VANNA" value={formatNumber(netVanna / 1e6, 1) + "M"} color={C.cyan}
+                info="Sensitivity of delta to vol changes" />
+              <GreekBlock label="CALL OI"   value={`${(totalCallOI / 1e6).toFixed(1)}M`} color={C.call}
+                info="Total call open interest" />
+              <GreekBlock label="PUT OI"    value={`${(totalPutOI / 1e6).toFixed(1)}M`} color={C.put}
+                info="Total put open interest" />
+              <GreekBlock label="OI SKEW"   value={`${(callBias * 100).toFixed(1)}%`} color={callBias > 0 ? C.call : C.put}
+                info={callBias > 0 ? "Call heavy — bullish bias" : callBias < 0 ? "Put heavy — defensive bias" : "Balanced OI"} />
+            </div>
+          </SectionCard>
         </div>
+
+        {/* ══ SECTION 5 — DEALER HEDGING BEHAVIOR ═════════════════ */}
+        <SectionCard title="DEALER HEDGING BEHAVIOR" subtitle="How dealers react to price moves in current regime">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 8, marginTop: 8 }}>
+            <BehaviorTile
+              icon={<ArrowUp style={{ width: 14, height: 14 }} />}
+              when="SPOT RISES"
+              action={netGex >= 0 ? "DEALERS SELL FUTURES" : "DEALERS BUY FUTURES"}
+              note={netGex >= 0 ? "Slows the rally → mean-revert" : "Accelerates rally → gamma squeeze"}
+              isPositive={netGex >= 0}
+            />
+            <BehaviorTile
+              icon={<ArrowDown style={{ width: 14, height: 14 }} />}
+              when="SPOT FALLS"
+              action={netGex >= 0 ? "DEALERS BUY FUTURES" : "DEALERS SELL FUTURES"}
+              note={netGex >= 0 ? "Automatic support → cushions drop" : "Cascades lower → vol crush upward"}
+              isPositive={netGex >= 0}
+            />
+            <BehaviorTile
+              icon={<Minus style={{ width: 14, height: 14 }} />}
+              when="SPOT SIDEWAYS"
+              action={netGex >= 0 ? `PIN TO $${levels.majorWall}` : "WHIPSAW / CHOP"}
+              note={netGex >= 0 ? "Strike magnetism dominates" : "No stabilizing gamma to pin"}
+              isPositive={netGex >= 0}
+            />
+            <BehaviorTile
+              icon={callBias > 0 ? <TrendingUp style={{ width: 14, height: 14 }} /> : <TrendingDown style={{ width: 14, height: 14 }} />}
+              when="OI POSITIONING"
+              action={callBias > 0.05 ? "CALL HEAVY" : callBias < -0.05 ? "PUT HEAVY" : "BALANCED OI"}
+              note={`C/P skew ${(callBias * 100).toFixed(1)}% · P/C ratio ${pcRatio.toFixed(2)}`}
+              isPositive={callBias >= 0}
+            />
+          </div>
+        </SectionCard>
+
+        {/* ══ SECTION 6 — TRADER PLAYBOOK ═════════════════════════ */}
+        <SectionCard title="TRADER PLAYBOOK" subtitle={`Strategy recommendations for ${rc.label}`}
+          accent={rc.hex}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+            <div style={{ background: `rgba(0,230,118,0.04)`, border: `1px solid rgba(0,230,118,0.15)`, borderRadius: 4, padding: "12px 14px" }}>
+              <div style={{ fontSize: 9, letterSpacing: "0.25em", color: C.call, marginBottom: 10, fontWeight: 700 }}>
+                ✓ EXECUTE
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {info.playbook.do.map(item => (
+                  <div key={item} style={{ display: "flex", gap: 8, fontSize: 11, color: C.bright, lineHeight: 1.5 }}>
+                    <span style={{ color: C.call, flexShrink: 0, marginTop: 1 }}>▸</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ background: `rgba(255,51,85,0.04)`, border: `1px solid rgba(255,51,85,0.15)`, borderRadius: 4, padding: "12px 14px" }}>
+              <div style={{ fontSize: 9, letterSpacing: "0.25em", color: C.put, marginBottom: 10, fontWeight: 700 }}>
+                ✗ AVOID
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {info.playbook.avoid.map(item => (
+                  <div key={item} style={{ display: "flex", gap: 8, fontSize: 11, color: C.bright, lineHeight: 1.5 }}>
+                    <span style={{ color: C.put, flexShrink: 0, marginTop: 1 }}>▸</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* disclaimer */}
+          <div style={{ marginTop: 10, fontSize: 9, color: C.dim, letterSpacing: "0.05em", textAlign: "center" }}>
+            ◈ NOT FINANCIAL ADVICE · BASED ON DEALER HEDGING MECHANICS · FOR EDUCATIONAL USE ONLY
+          </div>
+        </SectionCard>
+
       </div>
     </div>
-    </TooltipProvider>
   );
 }
 
-// ───────────── helpers ─────────────
+/* ══════════════════════════════════════════════════════════════════
+   SUB-COMPONENTS
+══════════════════════════════════════════════════════════════════ */
 
-function InfoTip({ children, side = "top" }: { children: React.ReactNode; side?: "top" | "right" | "bottom" | "left" }) {
+/* ── GPI Arc gauge ───────────────────────────────────────────────── */
+function GpiArc({ value, hex }: { value: number; hex: string }) {
+  const v     = Math.max(0, Math.min(100, value));
+  const angle = (v / 100) * 180 - 90;            // -90 (left) to +90 (right)
+  const R     = 60;
+  const cx    = 80, cy = 80;
+  const rad   = (angle * Math.PI) / 180;
+  const nx    = cx + R * Math.sin(rad);
+  const ny    = cy - R * Math.cos(rad);
+
+  // tick marks
+  const ticks = [0, 25, 50, 75, 100].map(pct => {
+    const a   = (pct / 100) * 180 - 90;
+    const ra  = (a * Math.PI) / 180;
+    const r1  = R - 6, r2 = R + 2;
+    return {
+      x1: cx + r1 * Math.sin(ra), y1: cy - r1 * Math.cos(ra),
+      x2: cx + r2 * Math.sin(ra), y2: cy - r2 * Math.cos(ra),
+      label: String(pct),
+      lx: cx + (R + 14) * Math.sin(ra),
+      ly: cy - (R + 14) * Math.cos(ra),
+    };
+  });
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button type="button" className="inline-flex items-center justify-center text-muted-foreground/60 hover:text-primary transition-colors cursor-help">
-          <Info className="h-3 w-3" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side={side} className="max-w-[280px] text-xs leading-relaxed bg-popover border-border">
-        {children}
-      </TooltipContent>
-    </Tooltip>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <svg width="160" height="100" viewBox="0 0 160 100">
+        <defs>
+          <linearGradient id="arc-grad" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%"   stopColor="#ff3355" />
+            <stop offset="40%"  stopColor="#ff9500" />
+            <stop offset="100%" stopColor="#00e676" />
+          </linearGradient>
+        </defs>
+        {/* background arc */}
+        <path
+          d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`}
+          fill="none" stroke={C.bg2} strokeWidth={10} />
+        {/* colored arc */}
+        <path
+          d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`}
+          fill="none" stroke="url(#arc-grad)" strokeWidth={10} strokeLinecap="round" opacity={0.85} />
+        {/* ticks */}
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke={C.muted} strokeWidth={1.5} />
+            <text x={t.lx} y={t.ly + 3} textAnchor="middle" fontSize={7} fill={C.dim} fontFamily={C.font}>{t.label}</text>
+          </g>
+        ))}
+        {/* needle */}
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={hex} strokeWidth={2.5} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={5} fill={hex} />
+        <circle cx={cx} cy={cy} r={2.5} fill={C.bg1} />
+      </svg>
+      <div style={{ fontSize: 26, fontWeight: 900, color: hex, textShadow: `0 0 20px ${hex}60`, marginTop: -6, fontFamily: C.font }}>
+        {v.toFixed(1)}
+      </div>
+      <div style={{ fontSize: 8, color: C.dim, letterSpacing: "0.2em", marginTop: 2 }}>
+        GAMMA PRESSURE INDEX
+      </div>
+    </div>
   );
 }
 
-function SectionHeader({
-  title, subtitle, legend, icon, info,
+/* ── Metric pill ─────────────────────────────────────────────────── */
+function MetricPill({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
+  return (
+    <div style={{
+      background: C.bg2, border: `1px solid ${C.border}`,
+      borderRadius: 4, padding: "8px 10px",
+      borderBottom: `2px solid ${color}22`,
+    }}>
+      <div style={{ fontSize: 8, letterSpacing: "0.2em", color: C.dim, marginBottom: 4, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontSize: 15, fontWeight: 800, color, fontFamily: C.font, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 8, color: C.dim, marginTop: 3, letterSpacing: "0.05em" }}>{sub}</div>}
+    </div>
+  );
+}
+
+/* ── Section card wrapper ────────────────────────────────────────── */
+function SectionCard({
+  title, subtitle, children, legend, accent,
 }: {
   title: string;
   subtitle?: string;
-  legend?: { swatch: string; label: string; dashed?: boolean }[];
-  icon?: React.ReactNode;
-  info?: React.ReactNode;
+  children: React.ReactNode;
+  legend?: { color: string; label: string; dashed?: boolean }[];
+  accent?: string;
 }) {
   return (
-    <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
-      <div>
-        <h3 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2">
-          {icon}{title}
-          {info && <InfoTip>{info}</InfoTip>}
-        </h3>
-        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-      </div>
-      {legend && (
-        <div className="flex gap-3 text-[10px] text-muted-foreground">
-          {legend.map((l) => (
-            <span key={l.label} className="flex items-center gap-1.5">
-              <span
-                className="inline-block h-2 w-3 rounded-sm"
-                style={{
+    <div style={{
+      background: C.bg1,
+      border: `1px solid ${C.border}`,
+      borderRadius: 6,
+      padding: "12px 14px",
+      ...(accent ? { boxShadow: `inset 0 0 0 1px ${accent}18` } : {}),
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 9, letterSpacing: "0.25em", color: C.label, fontWeight: 700 }}>{title}</div>
+          {subtitle && <div style={{ fontSize: 9, color: C.dim, marginTop: 2, letterSpacing: "0.04em" }}>{subtitle}</div>}
+        </div>
+        {legend && (
+          <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
+            {legend.map(l => (
+              <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 8, color: C.dim }}>
+                <div style={{
+                  width: 16, height: 2,
                   background: l.dashed
-                    ? `repeating-linear-gradient(90deg, ${l.swatch}, ${l.swatch} 3px, transparent 3px, transparent 5px)`
-                    : l.swatch,
-                }}
-              />
-              {l.label}
-            </span>
-          ))}
+                    ? `repeating-linear-gradient(90deg,${l.color},${l.color} 3px,transparent 3px,transparent 6px)`
+                    : l.color,
+                }} />
+                {l.label}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ── Stability ring ──────────────────────────────────────────────── */
+function StabilityRing({ score }: { score: number }) {
+  const color = score > 70 ? C.call : score > 40 ? C.gold : C.put;
+  const circ  = 2 * Math.PI * 32;
+  return (
+    <div style={{ position: "relative", width: 80, height: 80, flexShrink: 0 }}>
+      <svg width="80" height="80" viewBox="0 0 80 80" style={{ transform: "rotate(-90deg)" }}>
+        <circle cx="40" cy="40" r="32" fill="none" stroke={C.bg2} strokeWidth="7" />
+        <circle cx="40" cy="40" r="32" fill="none" stroke={color} strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={`${(score / 100) * circ} ${circ}`}
+          style={{ filter: `drop-shadow(0 0 4px ${color})` }}
+        />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontSize: 20, fontWeight: 900, color, fontFamily: C.font, lineHeight: 1 }}>{score}</span>
+        <span style={{ fontSize: 7, color: C.dim, letterSpacing: "0.1em" }}>SCORE</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Greek block ─────────────────────────────────────────────────── */
+function GreekBlock({ label, value, color, info }: { label: string; value: string; color: string; info: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div
+      style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "8px 10px", position: "relative", cursor: "help" }}
+      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}
+    >
+      <div style={{ fontSize: 7, letterSpacing: "0.2em", color: C.dim, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 800, color, fontFamily: C.font }}>{value}</div>
+      {show && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 50,
+          background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 4,
+          padding: "6px 10px", fontSize: 10, color: C.white, whiteSpace: "nowrap",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
+        }}>
+          {info}
         </div>
       )}
     </div>
   );
 }
 
-function Pill({
-  label, value, tone = "default", info,
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "call" | "put" | "primary";
-  info?: React.ReactNode;
-}) {
-  const toneClass =
-    tone === "call" ? "text-call"
-    : tone === "put" ? "text-put"
-    : tone === "primary" ? "text-primary"
-    : "text-foreground";
-  const inner = (
-    <div className="flex items-center justify-between gap-3 rounded border border-border/60 bg-secondary/30 px-3 py-2 hover:border-primary/40 transition-colors cursor-help">
-      <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1">
-        {label}
-        {info && <Info className="h-2.5 w-2.5 opacity-60" />}
-      </span>
-      <span className={`font-mono font-bold text-sm ${toneClass}`}>{value}</span>
-    </div>
-  );
-  if (!info) return inner;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{inner}</TooltipTrigger>
-      <TooltipContent side="left" className="max-w-[280px] text-xs leading-relaxed bg-popover border-border">{info}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function BehaviorCell({
-  icon, when, action, tone, note, info,
+/* ── Behavior tile ───────────────────────────────────────────────── */
+function BehaviorTile({
+  icon, when, action, note, isPositive,
 }: {
   icon: React.ReactNode;
   when: string;
   action: string;
-  tone: "call" | "put" | "default";
   note: string;
-  info?: React.ReactNode;
+  isPositive: boolean;
 }) {
-  const toneClass = tone === "call" ? "text-call" : tone === "put" ? "text-put" : "text-foreground";
-  const borderClass = tone === "call" ? "border-call/30" : tone === "put" ? "border-put/30" : "border-border";
-  const inner = (
-    <div className={`rounded border ${borderClass} bg-secondary/20 p-2.5 hover:bg-secondary/40 transition-colors cursor-help`}>
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-        <span className={toneClass}>{icon}</span>
-        {when}
-        {info && <Info className="h-2.5 w-2.5 opacity-60 ml-auto" />}
-      </div>
-      <div className={`text-sm font-bold mt-1 ${toneClass}`}>{action}</div>
-      <div className="text-[11px] text-muted-foreground mt-0.5 italic">{note}</div>
-    </div>
-  );
-  if (!info) return inner;
+  const color  = isPositive ? C.call : C.put;
+  const border = isPositive ? "rgba(0,230,118,0.2)" : "rgba(255,51,85,0.2)";
+  const bg     = isPositive ? "rgba(0,230,118,0.04)" : "rgba(255,51,85,0.04)";
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{inner}</TooltipTrigger>
-      <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed bg-popover border-border">{info}</TooltipContent>
-    </Tooltip>
+    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 4, padding: "10px 12px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 8, letterSpacing: "0.18em", color: C.dim, marginBottom: 5 }}>
+        <span style={{ color }}>{icon}</span>
+        {when}
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 800, color, letterSpacing: "0.05em", marginBottom: 4 }}>{action}</div>
+      <div style={{ fontSize: 10, color: C.label, lineHeight: 1.5, fontStyle: "italic" }}>{note}</div>
+    </div>
   );
 }
