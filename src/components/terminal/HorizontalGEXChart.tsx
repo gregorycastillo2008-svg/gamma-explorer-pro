@@ -231,19 +231,29 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
           ))}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider">EXP</span>
-          <select
-            value={expiryFilter}
-            onChange={(e) => setExpiryFilter(e.target.value)}
-            className="bg-transparent text-[10px] px-2 py-1 rounded outline-none cursor-pointer"
-            style={{ color: C.text, border: `1px solid ${C.border}`, fontFamily: FONT }}
-          >
-            <option value="all" style={{ background: C.bg }}>ALL</option>
-            {expiries.map((e) => (
-              <option key={e} value={String(e)} style={{ background: C.bg }}>{e}D</option>
-            ))}
-          </select>
+          {[{ v: "all", l: "ALL", sub: "" }, ...expiries.map(e => ({
+            v: String(e),
+            l: `${e}D`,
+            sub: e === 0 ? "HOY" : e === 1 ? "MAÑANA" : e === 2 ? "PASADO MÑN" : e === 7 ? "WEEKLY" : e === 14 ? "2-WEEK" : e === 30 ? "MONTHLY" : "",
+          }))].map(({ v, l, sub }) => (
+            <button
+              key={v}
+              onClick={() => setExpiryFilter(v)}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center",
+                fontSize: 9, padding: "2px 7px", borderRadius: 3,
+                fontFamily: FONT, letterSpacing: "0.08em", cursor: "pointer",
+                background: expiryFilter === v ? C.green : "transparent",
+                color: expiryFilter === v ? "#000" : C.muted,
+                border: `1px solid ${expiryFilter === v ? C.green : C.border}`,
+              }}
+            >
+              <span style={{ fontWeight: 700 }}>{l}</span>
+              {sub && <span style={{ fontSize: 7, opacity: 0.75 }}>{sub}</span>}
+            </button>
+          ))}
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
