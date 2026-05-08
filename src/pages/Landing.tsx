@@ -70,7 +70,7 @@ export default function Landing() {
           </span>
           <span className="font-bold text-white text-xl tracking-tight">GEX SATELIT</span>
         </Link>
-        <nav className="hidden md:flex items-center gap-4 text-sm text-white/70">
+        <nav className="hidden md:flex items-center gap-12 text-sm text-white/70">
           <a href="#features" className="nav-glow hover:text-white transition-colors font-mono text-base">Features</a>
           <a href="#capabilities" className="nav-glow hover:text-white transition-colors text-base font-mono">Capabilities</a>
           <a href="#planes" className="nav-glow hover:text-white transition-colors text-base font-mono">Pricing</a>
