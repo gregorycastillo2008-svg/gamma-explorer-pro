@@ -480,6 +480,8 @@ function fitGammaMoM(values: number[]): { k: number; theta: number; mean: number
 // ── Gamma Distribution Section ────────────────────────────────────────────────
 function GammaDistSection({ contracts, ticker }: { contracts: OptionContract[]; ticker: DemoTicker }) {
   const spot = ticker.spot;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hovered, setHovered] = useState<{ idx: number; mx: number; my: number } | null>(null);
 
   const CURVE_DEFS = [
     { days: 0,  label: "0D · HOY",        color: "#ff3355" },
@@ -602,8 +604,9 @@ function GammaDistSection({ contracts, ticker }: { contracts: OptionContract[]; 
       </div>
 
       {/* ── SVG multi-curve chart ── */}
-      <div style={{ background: "#080808", border: "1px solid #1a1a1a", borderRadius: 6, padding: "12px 8px 4px" }}>
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+      <div style={{ background: "#080808", border: "1px solid #1a1a1a", borderRadius: 6, padding: "12px 8px 4px", position: "relative" }}
+        onMouseLeave={() => setHovered(null)}>
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
           {/* Grid lines */}
           {yTicks.map(v => (
             <g key={v}>
@@ -643,11 +646,35 @@ function GammaDistSection({ contracts, ticker }: { contracts: OptionContract[]; 
               {/* Area fill */}
               <path
                 d={curvePath(curvePoints[i]) + ` L${toSvgX(xMax)},${toSvgY(0)} L${toSvgX(xMin)},${toSvgY(0)} Z`}
-                fill={cv.color} fillOpacity={0.06}
+                fill={cv.color} fillOpacity={hovered?.idx === i ? 0.14 : 0.06}
               />
               {/* Line */}
-              <path d={curvePath(curvePoints[i])} fill="none" stroke={cv.color}
-                strokeWidth={1.8} strokeLinejoin="round" />
+              <path d={curvePath(curvePoints[i])} fill="none"
+                stroke={cv.color}
+                strokeWidth={hovered?.idx === i ? 2.8 : 1.8}
+                strokeLinejoin="round"
+                style={{ filter: hovered?.idx === i ? `drop-shadow(0 0 4px ${cv.color})` : undefined }}
+              />
+              {/* Invisible hit path */}
+              <path
+                d={curvePath(curvePoints[i])}
+                fill="none" stroke="transparent" strokeWidth={14}
+                style={{ cursor: "crosshair" }}
+                onMouseEnter={(e) => {
+                  const svg = svgRef.current;
+                  if (!svg) return;
+                  const rect = svg.getBoundingClientRect();
+                  const scaleX = rect.width / W;
+                  setHovered({ idx: i, mx: e.clientX - rect.left, my: e.clientY - rect.top });
+                }}
+                onMouseMove={(e) => {
+                  const svg = svgRef.current;
+                  if (!svg) return;
+                  const rect = svg.getBoundingClientRect();
+                  setHovered({ idx: i, mx: e.clientX - rect.left, my: e.clientY - rect.top });
+                }}
+                onMouseLeave={() => setHovered(null)}
+              />
               {/* Peak label */}
               {(() => {
                 const mode = Math.max(0, (cv.k - 1) / cv.k);
@@ -656,7 +683,8 @@ function GammaDistSection({ contracts, ticker }: { contracts: OptionContract[]; 
                 const py = toSvgY(peakY) - 8;
                 return peakY > 0.02 ? (
                   <text x={px} y={py} textAnchor="middle" fill={cv.color}
-                    fontSize="8" fontFamily={FONT} fontWeight="700">
+                    fontSize="8" fontFamily={FONT} fontWeight="700"
+                    opacity={hovered && hovered.idx !== i ? 0.3 : 1}>
                     k={cv.k.toFixed(1)}
                   </text>
                 ) : null;
@@ -664,6 +692,55 @@ function GammaDistSection({ contracts, ticker }: { contracts: OptionContract[]; 
             </g>
           ))}
         </svg>
+
+        {/* Hover tooltip */}
+        {hovered && (() => {
+          const cv = curves[hovered.idx];
+          if (!cv) return null;
+          const skew = cv.k > 0 ? (2 / Math.sqrt(cv.k)).toFixed(2) : "—";
+          const interp = cv.k < 1
+            ? "Alta prob. de moves pequeños, cola derecha muy larga"
+            : cv.k < 3
+            ? "Distribución sesgada · opciones OTM relativamente baratas"
+            : cv.k < 8
+            ? "Forma moderada · mercado eficiente en pricing"
+            : "Casi simétrica · IV refleja movimiento esperado uniforme";
+          const tipW = 220;
+          const tipH = 160;
+          const left = hovered.mx + 14 + tipW > (svgRef.current?.getBoundingClientRect().width ?? 600)
+            ? hovered.mx - tipW - 14 : hovered.mx + 14;
+          const top = hovered.my - 20;
+          return (
+            <div style={{
+              position: "absolute", left, top,
+              background: "#050505", border: `1px solid ${cv.color}44`,
+              borderRadius: 6, padding: "10px 13px", pointerEvents: "none",
+              fontFamily: FONT, zIndex: 50, minWidth: tipW,
+              boxShadow: `0 0 20px ${cv.color}22`,
+            }}>
+              <div style={{ color: cv.color, fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", marginBottom: 6 }}>
+                {cv.label}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", fontSize: 9 }}>
+                <span style={{ color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>ATM IV</span>
+                <span style={{ color: "#c8d8e8", fontWeight: 700 }}>{cv.iv.toFixed(1)}%</span>
+                <span style={{ color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>k (shape)</span>
+                <span style={{ color: "#a78bfa", fontWeight: 700 }}>{cv.k.toFixed(3)}</span>
+                <span style={{ color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>θ (scale)</span>
+                <span style={{ color: "#ff9500", fontWeight: 700 }}>{cv.theta.toFixed(3)}</span>
+                <span style={{ color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>E[X] Move</span>
+                <span style={{ color: "#00ff88", fontWeight: 700 }}>${cv.em.toFixed(2)}</span>
+                <span style={{ color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>σ Move</span>
+                <span style={{ color: "#ffd000", fontWeight: 700 }}>${(cv.em / Math.sqrt(cv.k > 0 ? cv.k : 1)).toFixed(2)}</span>
+                <span style={{ color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Skewness</span>
+                <span style={{ color: "#ff3355", fontWeight: 700 }}>{skew}</span>
+              </div>
+              <div style={{ marginTop: 8, fontSize: 8, color: "#555", lineHeight: 1.4, borderTop: "1px solid #1a1a1a", paddingTop: 6 }}>
+                {interp}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Legend */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", padding: "6px 12px 10px", justifyContent: "center" }}>
@@ -962,20 +1039,19 @@ function lognormalPDF(S: number, K: number, T: number, sigma: number, r = 0.05):
   return Math.exp(-x * x / (2 * sigma * sigma * T)) / (K * sigma * Math.sqrt(T * 2 * Math.PI));
 }
 
-// ── Color ramp: thermal / fire  (cold=black → red → orange → yellow → white) ─
+// ── Color ramp: yellow → purple → red  (cold=dark → warm=yellow → hot=red via purple) ─
 function lerp(a: number, b: number, t: number) { return Math.round(a + (b - a) * t); }
 function heatColor(t: number): string {
   t = Math.max(0, Math.min(1, t));
-  // Classic thermal "hot" colormap — reddest zone = highest probability
+  // dark/black → dark-purple → bright-purple → amber/yellow → orange → strong-red
   const stops: [number, [number, number, number]][] = [
-    [0.00, [4,   4,  14]],   // near-black
-    [0.12, [45,  5,   5]],   // very dark red
-    [0.28, [130, 15,  5]],   // dark red
-    [0.45, [210, 35,  0]],   // red
-    [0.60, [245, 90,  0]],   // orange-red
-    [0.75, [255, 170,  0]],  // amber
-    [0.88, [255, 235, 55]],  // yellow
-    [1.00, [255, 255, 220]], // cream-white
+    [0.00, [2,   0,   6]],    // near-black
+    [0.18, [55,  0,   110]],  // dark purple
+    [0.36, [140, 0,   210]],  // bright violet
+    [0.52, [255, 190, 0]],    // bright yellow/amber  (hard jump purple→yellow = visual pop)
+    [0.68, [255, 80,  0]],    // orange-red
+    [0.84, [220, 0,   0]],    // strong red
+    [1.00, [255, 30,  30]],   // saturated red
   ];
   let lo = stops[0], hi = stops[stops.length - 1];
   for (let i = 0; i < stops.length - 1; i++) {
@@ -1002,6 +1078,7 @@ function GammaProbHeatmap({ spot, iv, contracts, levels }: {
   } | null>(null);
   const [hoverGex, setHoverGex] = useState<{ ri: number } | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [selectedDTE, setSelectedDTE] = useState<number | null>(null);
 
   const COLS = 100;
   const PAD  = 0.14;
@@ -1009,12 +1086,18 @@ function GammaProbHeatmap({ spot, iv, contracts, levels }: {
   const sMax = spot * (1 + PAD);
   const sRange = sMax - sMin;
 
-  const dtes = useMemo(() => {
+  const allDtes = useMemo(() => {
     const set = new Set<number>();
     contracts.forEach(c => set.add(c.expiry));
     const arr = Array.from(set).sort((a, b) => a - b);
     return arr.length > 0 ? arr.slice(0, 20) : [5, 10, 15, 21, 30, 45, 60, 90];
   }, [contracts]);
+
+  // When a DTE is selected, filter to just that day (closest available); otherwise show all
+  const dtes = useMemo(() => {
+    if (selectedDTE === null) return allDtes;
+    return [selectedDTE];
+  }, [selectedDTE, allDtes]);
 
   const ROWS = dtes.length;
 
@@ -1054,20 +1137,41 @@ function GammaProbHeatmap({ spot, iv, contracts, levels }: {
     for (const c of contracts) {
       const T = Math.max(c.expiry, 1) / 365;
       const sigma = c.iv || iv;
-      // Gamma ≈ lognormal PDF proxy (same formula used in GEX calc)
       const gamma_approx = lognormalPDF(spot, c.strike, T, sigma) * c.strike / spot;
       const sign = c.type === "call" ? 1 : -1;
       const gex = gamma_approx * c.oi * 100 * spot * spot * 0.01 * sign;
       map.set(c.expiry, (map.get(c.expiry) ?? 0) + gex);
     }
-    const values = dtes.map(d => map.get(d) ?? 0);
+    const values = dtes.map(d => {
+      // For a selected DTE not in contracts, find nearest
+      if (map.has(d)) return map.get(d)!;
+      const nearest = Array.from(map.keys()).reduce((best, k) =>
+        Math.abs(k - d) < Math.abs(best - d) ? k : best
+      , Array.from(map.keys())[0] ?? d);
+      return map.get(nearest) ?? 0;
+    });
     const maxAbsGex = Math.max(...values.map(Math.abs), 1);
     return values.map(gex => ({
       gex,
-      norm: gex / maxAbsGex,        // [-1, 1]
-      gexM: gex / 1e6,              // in millions for label
+      norm: gex / maxAbsGex,
+      gexM: gex / 1e6,
     }));
   }, [contracts, dtes, spot, iv]);
+
+  // ── PDF polyline for single-DTE overlay ──────────────────────────────────
+  const pdfLine = useMemo(() => {
+    if (selectedDTE === null) return null;
+    const T = Math.max(selectedDTE, 0.25) / 365;
+    const pts: { x: number; y: number }[] = [];
+    let maxY = 0;
+    for (let i = 0; i <= 200; i++) {
+      const K = sMin + (i / 200) * sRange;
+      const y = lognormalPDF(spot, K, T, iv);
+      if (y > maxY) maxY = y;
+      pts.push({ x: K, y });
+    }
+    return { pts, maxY };
+  }, [selectedDTE, spot, iv, sMin, sRange]);
 
   const maxAbsGexM = Math.max(...gexByDTE.map(d => Math.abs(d.gexM)), 0.01);
 
@@ -1151,15 +1255,40 @@ function GammaProbHeatmap({ spot, iv, contracts, levels }: {
         <span style={{ color: C.dim, fontSize: 8 }}>
           PDF(S_T=K | σ={(iv*100).toFixed(1)}%) · GEX panel (izquierda)
         </span>
+
+        {/* ── DTE day selector ── */}
+        <div className="flex items-center gap-1 mx-3">
+          {([null, 0, 1, 2, 3, 4, 5] as (number | null)[]).map(d => {
+            const active = selectedDTE === d;
+            const label = d === null ? "ALL" : `${d}D`;
+            const sub = d === 0 ? "HOY" : d === 1 ? "MÑN" : d === 2 ? "PAS" : d === null ? "" : `${d}D`;
+            return (
+              <button
+                key={String(d)}
+                onClick={() => { setSelectedDTE(d); setHover(null); }}
+                style={{
+                  fontFamily: FONT, fontSize: 8, padding: "2px 7px", borderRadius: 3,
+                  cursor: "pointer", lineHeight: 1.4,
+                  background: active ? (d === null ? "#333" : "#ff0000") : "transparent",
+                  color: active ? (d === null ? "#fff" : "#fff") : C.muted,
+                  border: `1px solid ${active ? (d === null ? "#555" : "#ff0000") : C.border}`,
+                  boxShadow: active && d !== null ? "0 0 8px #ff000066" : "none",
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>{label}</div>
+                {sub && <div style={{ fontSize: 6, opacity: 0.7 }}>{sub}</div>}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="ml-auto flex items-center gap-1.5">
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: "#e91e8c" }} />
-          <span style={{ color: C.muted, fontSize: 8 }}>GEX+</span>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: "#5b21b6" }} />
-          <span style={{ color: C.muted, fontSize: 8 }}>GEX−</span>
+          <div style={{ width: 28, height: 10, borderRadius: 2, background: "linear-gradient(to right,#1a0035,#7b00d4,#ffd000,#ff0000)" }} />
+          <span style={{ color: C.muted, fontSize: 8 }}>GEX HEAT</span>
           <div style={{ width: 1, height: 12, background: C.border, margin: "0 6px" }} />
           <span style={{ color: C.muted, fontSize: 8 }}>FRÍO</span>
-          <div style={{ width: 60, height: 8, borderRadius: 2, background: `linear-gradient(to right,${heatColor(0)},${heatColor(0.5)},${heatColor(1)})` }} />
-          <span style={{ color: "#ff6600", fontSize: 8 }}>CALIENTE</span>
+          <div style={{ width: 60, height: 8, borderRadius: 2, background: `linear-gradient(to right,${heatColor(0)},${heatColor(0.36)},${heatColor(0.52)},${heatColor(1)})` }} />
+          <span style={{ color: "#ff2020", fontSize: 8 }}>CALIENTE</span>
         </div>
       </div>
 
@@ -1179,14 +1308,35 @@ function GammaProbHeatmap({ spot, iv, contracts, levels }: {
           <clipPath id="gexClip">
             <rect x={GEX_L} y={MT} width={GEX_R - GEX_L} height={plotH} />
           </clipPath>
-          <linearGradient id="barPosGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#c2185b" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#e91e8c" stopOpacity="0.9" />
+          {/* Heat gradient for +GEX bars: from center (purple) → yellow → red at tip
+              gradientUnits=userSpaceOnUse so short bars stay cool, long bars glow red */}
+          <linearGradient id="barPosGrad"
+            gradientUnits="userSpaceOnUse"
+            x1={GEX_CX} y1="0" x2={GEX_R} y2="0">
+            <stop offset="0%"   stopColor="#1a0035" stopOpacity="0.6" />
+            <stop offset="28%"  stopColor="#7b00d4" stopOpacity="0.85" />
+            <stop offset="58%"  stopColor="#ffd000" stopOpacity="0.95" />
+            <stop offset="80%"  stopColor="#ff4400" stopOpacity="1.0" />
+            <stop offset="100%" stopColor="#ff0000" stopOpacity="1.0" />
           </linearGradient>
-          <linearGradient id="barNegGrad" x1="100%" y1="0%" x2="0%" y2="0%">
-            <stop offset="0%" stopColor="#4527a0" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#5b21b6" stopOpacity="0.9" />
+          {/* Heat gradient for -GEX bars: mirror — from center right to left tip */}
+          <linearGradient id="barNegGrad"
+            gradientUnits="userSpaceOnUse"
+            x1={GEX_CX} y1="0" x2={GEX_L} y2="0">
+            <stop offset="0%"   stopColor="#1a0035" stopOpacity="0.6" />
+            <stop offset="28%"  stopColor="#7b00d4" stopOpacity="0.85" />
+            <stop offset="58%"  stopColor="#ffd000" stopOpacity="0.95" />
+            <stop offset="80%"  stopColor="#ff4400" stopOpacity="1.0" />
+            <stop offset="100%" stopColor="#ff0000" stopOpacity="1.0" />
           </linearGradient>
+          {/* Red glow filter for high-intensity bars */}
+          <filter id="barHotGlow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
         {/* ════════════════════════════════════════════════════════════ */}
@@ -1204,28 +1354,43 @@ function GammaProbHeatmap({ spot, iv, contracts, levels }: {
         {/* GEX bars */}
         <g clipPath="url(#gexClip)">
           {gexByDTE.map(({ norm, gexM }, ri) => {
-            const barH = cH * 0.72;
-            const y    = MT + ri * cH + (cH - barH) / 2;
+            const absNorm = Math.abs(norm);
+            const barH  = cH * 0.72;
+            const y     = MT + ri * cH + (cH - barH) / 2;
             const isPos = norm >= 0;
-            const barW  = Math.abs(norm) * GEX_HW;
+            const barW  = absNorm * GEX_HW;
             const barX  = isPos ? GEX_CX : GEX_CX - barW;
             const isHov = hoverGex?.ri === ri;
+            const isHot = absNorm > 0.55;  // bars in the red zone
+
             return (
               <g key={ri}>
+                {/* Main bar with heat gradient */}
                 <rect
                   x={barX} y={y} width={Math.max(barW, 0.5)} height={barH}
                   fill={isPos ? "url(#barPosGrad)" : "url(#barNegGrad)"}
-                  fillOpacity={isHov ? 1 : 0.82}
+                  fillOpacity={isHov ? 1 : 0.9}
                   rx={1.5}
+                  filter={isHot || isHov ? "url(#barHotGlow)" : undefined}
                 />
-                {/* glow on hover */}
+                {/* Hot-tip red glow cap — only on big bars */}
+                {isHot && barW > 4 && (
+                  <rect
+                    x={isPos ? GEX_CX + barW - 4 : GEX_CX - barW}
+                    y={y} width={4} height={barH}
+                    fill="#ff0000" fillOpacity={0.85}
+                    rx={1}
+                    filter="url(#barHotGlow)"
+                  />
+                )}
+                {/* Hover outline */}
                 {isHov && (
                   <rect
                     x={barX - 1} y={y - 1}
                     width={Math.max(barW, 0.5) + 2} height={barH + 2}
                     fill="none"
-                    stroke={isPos ? "#e91e8c" : "#7c3aed"}
-                    strokeWidth={1} rx={2} opacity={0.8}
+                    stroke="#ff2200"
+                    strokeWidth={1} rx={2} opacity={0.9}
                   />
                 )}
               </g>
@@ -1260,17 +1425,17 @@ function GammaProbHeatmap({ spot, iv, contracts, levels }: {
 
         {/* DTE labels (between GEX panel and heatmap) */}
         {dtes.map((dte, ri) => {
-          const gd = gexByDTE[ri];
           const isHov = hoverGex?.ri === ri;
+          const dayLabel = dte === 0 ? "0D HOY" : dte === 1 ? "1D MÑN" : dte === 2 ? "2D PAS" : `${dte}d`;
           return (
             <text key={dte}
               x={SEP_X + 5}
               y={MT + (ri + 0.5) * cH}
               dominantBaseline="middle"
-              fill={isHov ? "#e5e7eb" : hover?.row === ri ? "#aaa" : C.muted}
-              fontSize={7.5} fontFamily={FONT}
-              fontWeight={isHov || hover?.row === ri ? 700 : 400}>
-              {dte}d
+              fill={isHov ? "#e5e7eb" : hover?.row === ri ? "#aaa" : selectedDTE !== null ? "#ff4040" : C.muted}
+              fontSize={selectedDTE !== null ? 8.5 : 7.5} fontFamily={FONT}
+              fontWeight={isHov || hover?.row === ri || selectedDTE !== null ? 700 : 400}>
+              {dayLabel}
             </text>
           );
         })}
@@ -1315,6 +1480,34 @@ function GammaProbHeatmap({ spot, iv, contracts, levels }: {
             fill="#ffffff" fillOpacity={0.04}
             stroke="#ffffff" strokeWidth={0.5} strokeOpacity={0.15} />
         )}
+
+        {/* ── PDF curve overlay for single-DTE mode ── */}
+        {pdfLine && pdfLine.maxY > 0 && (() => {
+          const pY = (y: number) => MT + plotH - (y / pdfLine.maxY) * plotH * 0.88;
+          const pX = (k: number) => ML + ((k - sMin) / sRange) * plotW;
+          const pts = pdfLine.pts;
+          // Area fill under curve
+          const areaD = pts.map((p, i) => `${i===0?"M":"L"}${pX(p.x).toFixed(1)},${pY(p.y).toFixed(1)}`).join(" ")
+            + ` L${pX(pts[pts.length-1].x).toFixed(1)},${(MT+plotH).toFixed(1)} L${pX(pts[0].x).toFixed(1)},${(MT+plotH).toFixed(1)} Z`;
+          const lineD = pts.map((p, i) => `${i===0?"M":"L"}${pX(p.x).toFixed(1)},${pY(p.y).toFixed(1)}`).join(" ");
+          // Find peak for label
+          const peakPt = pts.reduce((a, b) => b.y > a.y ? b : a, pts[0]);
+          return (
+            <g clipPath="url(#hClip3)">
+              <path d={areaD} fill="#ffffff" fillOpacity={0.07} />
+              <path d={lineD} fill="none" stroke="#ffffff" strokeWidth={2.2}
+                strokeLinejoin="round"
+                style={{ filter: "drop-shadow(0 0 5px rgba(255,255,255,0.6))" }} />
+              {/* Peak marker */}
+              <circle cx={pX(peakPt.x)} cy={pY(peakPt.y)} r={3.5}
+                fill="#fff" stroke="#000" strokeWidth={1} opacity={0.9} />
+              <text x={pX(peakPt.x)} y={pY(peakPt.y) - 9}
+                textAnchor="middle" fill="#fff" fontSize={8.5} fontFamily={FONT} fontWeight={700}>
+                PEAK ${peakPt.x.toFixed(0)}
+              </text>
+            </g>
+          );
+        })()}
 
         {/* Heatmap crosshair */}
         {hover && (
@@ -1395,20 +1588,20 @@ function GammaProbHeatmap({ spot, iv, contracts, levels }: {
           left: mousePos.x + 14,
           top: mousePos.y - 8,
           background: "#04040e",
-          border: `1px solid ${hoverGexDTE.norm >= 0 ? "#e91e8c" : "#7c3aed"}`,
+          border: `1px solid ${Math.abs(hoverGexDTE.norm) > 0.55 ? "#ff2200" : "#7b00d4"}`,
           borderRadius: 5,
           padding: "10px 14px",
           fontFamily: FONT,
           pointerEvents: "none",
           zIndex: 9999,
           minWidth: 185,
-          boxShadow: `0 0 20px ${hoverGexDTE.norm >= 0 ? "#e91e8c" : "#7c3aed"}44`,
+          boxShadow: `0 0 20px ${Math.abs(hoverGexDTE.norm) > 0.55 ? "#ff220066" : "#7b00d444"}`,
         }}>
           <div className="flex items-center gap-2 mb-2">
-            <div style={{ width: 9, height: 9, borderRadius: 2,
-              background: hoverGexDTE.norm >= 0 ? "#e91e8c" : "#7c3aed",
-              boxShadow: `0 0 6px ${hoverGexDTE.norm >= 0 ? "#e91e8c" : "#7c3aed"}` }} />
-            <span style={{ color: hoverGexDTE.norm >= 0 ? "#e91e8c" : "#a78bfa",
+            <div style={{ width: 22, height: 9, borderRadius: 2,
+              background: "linear-gradient(to right,#7b00d4,#ffd000,#ff0000)",
+              boxShadow: "0 0 6px #ff220066" }} />
+            <span style={{ color: Math.abs(hoverGexDTE.norm) > 0.55 ? "#ff4400" : "#a78bfa",
               fontSize: 10, fontWeight: 700, letterSpacing: "0.15em" }}>
               GEX × DTE
             </span>

@@ -298,7 +298,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
           style={{ borderRight: `1px solid ${C.border}` }}
         >
           <div style={{ height: chartH, padding: "6px 6px 8px 0" }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={chartH}>
               <BarChart
                 layout="vertical"
                 data={rows}

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-// Dark gamma background with vivid green/red bars for the Auth screen
+// Dark gamma background with heat-gradient bars (purple→yellow→red) for the Auth screen
 export function GammaBackgroundDark() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -65,21 +65,26 @@ export function GammaBackgroundDark() {
         const x = i * barW + 2;
         const top = positive ? midY - barH : midY;
 
+        // Heat gradient: dark purple (base) → violet → yellow → orange → red (tip)
         const grad = ctx.createLinearGradient(0, top, 0, top + barH);
         if (positive) {
-          // Vivid neon green
-          grad.addColorStop(0, "rgba(0,255,120,0.95)");
-          grad.addColorStop(1, "rgba(0,200,90,0.15)");
+          grad.addColorStop(0,    "rgba(255,0,0,0.95)");
+          grad.addColorStop(0.18, "rgba(255,68,0,0.92)");
+          grad.addColorStop(0.42, "rgba(255,208,0,0.88)");
+          grad.addColorStop(0.66, "rgba(123,0,212,0.75)");
+          grad.addColorStop(1,    "rgba(26,0,53,0.20)");
         } else {
-          // Vivid neon red
-          grad.addColorStop(0, "rgba(255,40,60,0.15)");
-          grad.addColorStop(1, "rgba(255,40,60,0.95)");
+          grad.addColorStop(0,    "rgba(26,0,53,0.20)");
+          grad.addColorStop(0.34, "rgba(123,0,212,0.75)");
+          grad.addColorStop(0.58, "rgba(255,208,0,0.88)");
+          grad.addColorStop(0.82, "rgba(255,68,0,0.92)");
+          grad.addColorStop(1,    "rgba(255,0,0,0.95)");
         }
         ctx.fillStyle = grad;
 
-        // Glow
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = positive ? "rgba(0,255,120,0.6)" : "rgba(255,40,60,0.6)";
+        // Glow — red-hot at tips
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = Math.abs(v) > 0.5 ? "rgba(255,40,0,0.7)" : "rgba(140,0,210,0.5)";
 
         const radius = Math.min(4, barW / 3);
         roundRect(ctx, x, top, barW - 4, Math.max(barH, 1), radius);
