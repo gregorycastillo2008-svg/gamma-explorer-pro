@@ -203,70 +203,11 @@ All colors MUST be HSL.
   background-color: black !important;
 }
 
-/* ── Nav link with always-on animated blue gradient on the sides ── */
 .nav-glow {
-  position: relative;
-  padding: 0.45rem 1rem;
-  border-radius: 0.6rem;
-  isolation: isolate;
-  overflow: visible;
-  color: rgba(255,255,255,0.85);
-  transition: color 0.15s ease, transform 0.15s ease;
-}
-/* soft pill background that pulses */
-.nav-glow::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgba(37,99,235,0.0) 0%,
-    rgba(37,99,235,0.18) 25%,
-    rgba(96,165,250,0.32) 50%,
-    rgba(37,99,235,0.18) 75%,
-    rgba(37,99,235,0.0) 100%
-  );
-  background-size: 200% 100%;
-  animation: nav-shimmer 2s linear infinite;
-  z-index: -2;
-  border: 1px solid rgba(96,165,250,0.25);
-  box-shadow:
-    0 0 18px rgba(59,130,246,0.35),
-    inset 0 0 12px rgba(96,165,250,0.18);
-  will-change: background-position;
-}
-/* glowing side blobs (left + right) */
-.nav-glow::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: -10px;
-  right: -10px;
-  height: 120%;
-  transform: translateY(-50%);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 0% 50%, rgba(59,130,246,0.55), transparent 55%),
-    radial-gradient(circle at 100% 50%, rgba(96,165,250,0.55), transparent 55%);
-  filter: blur(10px);
-  z-index: -3;
-  animation: nav-side-pulse 1.8s ease-in-out infinite;
-  pointer-events: none;
-  will-change: transform, opacity;
+  color: rgba(255,255,255,0.75);
+  transition: color 0.15s ease;
 }
 .nav-glow:hover {
   color: #fff;
-  transform: translateY(-1px);
-  text-shadow: 0 0 10px rgba(147,197,253,0.85);
-}
-
-@keyframes nav-shimmer {
-  0%   { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
-}
-@keyframes nav-side-pulse {
-  0%, 100% { opacity: 0.55; transform: translateY(-50%) scaleX(0.95); }
-  50%      { opacity: 1;    transform: translateY(-50%) scaleX(1.08); }
 }
 
