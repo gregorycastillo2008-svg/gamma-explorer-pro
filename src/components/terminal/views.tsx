@@ -2,6 +2,8 @@ import React from "react";
 import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, computeMaxPain, buildIvGrid, computeExposures, computeKeyLevels } from "@/lib/gex";
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
+import { GexScatter3D } from "./GexScatter3D";
+import { GexNetHorizontalChart } from "./GexNetHorizontalChart";
 import { GexDexBars } from "./GexDexBars";
 import { GexExposureTabs, HeatmapGridView, StrikeChartView, SurfaceView } from "./GexExposureTabs";
 import { TerminalTabs } from "./TerminalTabs";
@@ -21,6 +23,7 @@ import { GammaRegimePanel } from "./GammaRegimePanel";
 import { HedgePressurePanel } from "./HedgePressurePanel";
 import { StdDevAnomaliesPanel } from "./StdDevAnomaliesPanel";
 import { LogReturnAnomalyPanel } from "./LogReturnAnomalyPanel";
+import { CallPutOIChart } from "./CallPutOIChart";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -65,12 +68,12 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
             label: "GEX SURFACE",
             content: (
               <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot}`} className="h-full flex flex-col">
-                  <div className="h-full">
-                    <ExposureChart data={exposures} spot={ticker.spot} callWall={levels.callWall} putWall={levels.putWall} flip={levels.gammaFlip} metric="netGex" />
+                <Panel title="GEX Surface" subtitle={`${ticker.symbol} · spot $${ticker.spot} · scatter 3D`} className="h-full flex flex-col">
+                  <div className="flex-1 min-h-[320px]">
+                    <GexScatter3D contracts={contracts} spot={ticker.spot} symbol={ticker.symbol} />
                   </div>
                 </Panel>
-                <PCSkewByStrike contracts={contracts} spot={ticker.spot} strikeStep={ticker.strikeStep} />
+                <OIRightPanel contracts={contracts} exposures={exposures} spot={ticker.spot} strikeStep={ticker.strikeStep} />
               </div>
             ),
           },
@@ -86,6 +89,63 @@ export function OverviewView({ ticker, exposures, levels, contracts }: Ctx) {
           },
         ]}
       />
+    </div>
+  );
+}
+
+// ─────── OI RIGHT PANEL (tabs: P/C Skew | Call vs Put OI) ───────
+function OIRightPanel({
+  contracts, exposures, spot, strikeStep,
+}: { contracts: OptionContract[]; exposures: ExposurePoint[]; spot: number; strikeStep: number }) {
+  const [tab, setTab] = useState<"pcskew" | "callput">("callput");
+  const tabs: { key: typeof tab; label: string }[] = [
+    { key: "callput", label: "CALL vs PUT OI" },
+    { key: "pcskew",  label: "P/C SKEW" },
+  ];
+  return (
+    <div
+      className="h-full flex flex-col rounded"
+      style={{ background: "#050505", border: "1px solid #1a1a1a", fontFamily: "'Courier New', monospace" }}
+    >
+      {/* Tab bar */}
+      <div
+        className="flex items-center gap-0.5 px-2 pt-2 pb-0 shrink-0"
+        style={{ borderBottom: "1px solid #1a1a1a" }}
+      >
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              fontFamily: "'Courier New', monospace",
+              fontSize: 9,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              padding: "4px 10px 5px",
+              borderRadius: "3px 3px 0 0",
+              border: "none",
+              cursor: "pointer",
+              fontWeight: 700,
+              transition: "all 0.15s",
+              background: tab === t.key ? "#111" : "transparent",
+              color: tab === t.key ? "#e5e7eb" : "#444",
+              borderBottom: tab === t.key ? "2px solid #a78bfa" : "2px solid transparent",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-h-0 p-2">
+        {tab === "callput" && (
+          <CallPutOIChart exposures={exposures} spot={spot} />
+        )}
+        {tab === "pcskew" && (
+          <PCSkewByStrike contracts={contracts} spot={spot} strikeStep={strikeStep} />
+        )}
+      </div>
     </div>
   );
 }
@@ -428,20 +488,24 @@ function OpenInterestPanel({ ticker, exposures, contracts }: Ctx) {
   );
 }
 
-// ─────── PRICE + GEX CHART (GEX Bot — canvas, datos reales) ───────
+// ─────── CHART — GEX Net + TradingView side by side ───────
 export function ChartView({ ticker, exposures, levels }: Ctx) {
   return (
-    <div className="h-full w-full flex gap-1 overflow-hidden" style={{ minHeight: 520 }}>
-      {/* Gamma canvas — left half */}
-      <div style={{ flex: "1 1 0", minWidth: 0, height: "100%", overflow: "hidden" }}>
-        <GexBotChart ticker={ticker} exposures={exposures} levels={levels} />
+    <div className="h-full w-full flex gap-2 overflow-hidden" style={{ background: "#000", padding: "10px" }}>
+      {/* Left 50%: GEX Net horizontal bars */}
+      <div style={{ flex: "1 1 0", minWidth: 0, height: "100%", overflowY: "auto" }}>
+        <GexNetHorizontalChart
+          exposures={exposures}
+          spot={ticker.spot}
+          gammaFlip={levels.gammaFlip}
+          callWall={levels.callWall}
+          putWall={levels.putWall}
+          height={560}
+        />
       </div>
-      {/* TradingView chart + info panel — right half */}
-      <div style={{ flex: "1 1 0", minWidth: 0, height: "100%", overflow: "hidden", display: "flex" }}>
-        <div style={{ flex: 1, minWidth: 0, height: "100%", overflow: "hidden" }}>
-          <TradingViewGexChart ticker={ticker} exposures={exposures} levels={levels} embedded />
-        </div>
-        <GexInfoPanel ticker={ticker} exposures={exposures} levels={levels} />
+      {/* Right 50%: TradingView real-time chart with GEX levels */}
+      <div style={{ flex: "1 1 0", minWidth: 0, height: "100%", overflow: "hidden" }}>
+        <TradingViewGexChart ticker={ticker} exposures={exposures} levels={levels} embedded />
       </div>
     </div>
   );
@@ -883,7 +947,7 @@ export function LevelsView({ ticker, exposures, levels }: Ctx) {
 // ─────── HEDGE PRESSURE ───────
 export function HedgeView(ctx: Ctx) {
   return (
-    <div className="h-full overflow-hidden">
+    <div className="h-full overflow-y-auto">
       <HedgePressurePanel {...ctx} />
     </div>
   );

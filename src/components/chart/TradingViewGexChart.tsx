@@ -24,20 +24,22 @@ function toYahooSym(sym: string): string {
 }
 
 const SYMS = [
-  { label: "QQQ", yf: "QQQ"  },
-  { label: "SPY", yf: "SPY"  },
-  { label: "NQ",  yf: "NQ=F" },
-  { label: "ES",  yf: "ES=F" },
+  { label: "QQQ",  yf: "QQQ"    },
+  { label: "NDX",  yf: "^NDX"   },
+  { label: "SPX",  yf: "^GSPC"  },
+  { label: "SPY",  yf: "SPY"    },
+  { label: "NQ",   yf: "NQ=F"   },
 ];
 
 const LEGEND = [
-  { color: "#facc15", label: "DELTA ZERO", solid: true  },
+  { color: "#facc15", label: "ZERO γ",     solid: true  },
   { color: "#e8963a", label: "PRICE",      solid: true  },
-  { color: "#4ade80", label: "CALL GEX",   solid: false },
-  { color: "#f87171", label: "PUT GEX",    solid: false },
+  { color: "#00ff88", label: "MAX +GEX",   solid: true  },
+  { color: "#ff3355", label: "MAX −GEX",   solid: true  },
   { color: "#16a34a", label: "CALL WALL",  solid: false },
   { color: "#dc2626", label: "PUT WALL",   solid: false },
   { color: "#c084fc", label: "MAJOR WALL", solid: false },
+  { color: "#fbbf24", label: "MAX PAIN",   solid: false },
 ];
 
 // ── Parse Yahoo Finance OHLC ──────────────────────────────────────
@@ -338,20 +340,22 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
       );
     };
 
-    const maxCallEntry = exposures.length
-      ? exposures.reduce((b, p) => p.callGex > b.callGex ? p : b, exposures[0])
+    // Highest positive net GEX strike (green solid) and highest negative (red solid)
+    const maxPosEntry = exposures.length
+      ? exposures.reduce((b, p) => p.netGex > b.netGex ? p : b, exposures[0])
       : null;
-    const maxPutEntry = exposures.length
-      ? exposures.reduce((b, p) => Math.abs(p.putGex) > Math.abs(b.putGex) ? p : b, exposures[0])
+    const maxNegEntry = exposures.length
+      ? exposures.reduce((b, p) => p.netGex < b.netGex ? p : b, exposures[0])
       : null;
 
     // PRICE = actual last close of the chart (not options ticker.spot which may differ)
-    add(lastClose ?? ticker.spot,       "#e8963a", "PRICE",      LineStyle.Solid,  2);
-    add(maxCallEntry?.strike,           "#4ade80", "CALL GEX",   LineStyle.Dotted, 1);
-    add(maxPutEntry?.strike,            "#f87171", "PUT GEX",    LineStyle.Dotted, 1);
-    add(levels.callWall,                "#16a34a", "CALL WALL",  LineStyle.Dashed, 1);
-    add(levels.putWall,                 "#dc2626", "PUT WALL",   LineStyle.Dashed, 1);
-    add(levels.majorWall,               "#c084fc", "MAJOR WALL", LineStyle.Dashed, 1);
+    add(lastClose ?? ticker.spot,       "#e8963a", "● PRICE",      LineStyle.Solid,  2);
+    add(maxPosEntry?.strike,            "#00ff88", "▲ MAX +GEX",   LineStyle.Solid,  2);
+    add(maxNegEntry?.strike,            "#ff3355", "▼ MAX −GEX",   LineStyle.Solid,  2);
+    add(levels.callWall,                "#16a34a", "CALL WALL",    LineStyle.Dashed, 1);
+    add(levels.putWall,                 "#dc2626", "PUT WALL",     LineStyle.Dashed, 1);
+    add(levels.majorWall,               "#c084fc", "MAJOR WALL",   LineStyle.Dashed, 1);
+    add(levels.maxPain,                 "#fbbf24", "MAX PAIN",     LineStyle.Dashed, 1);
 
     setTick(n => n + 1);
   }, [levels, ticker.spot, exposures, lastClose]);

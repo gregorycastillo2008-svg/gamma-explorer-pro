@@ -9,6 +9,7 @@ import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
 import { VolatilityTable } from "./VolatilityTable";
 import { RealVolatilityDashboard } from "./RealVolatilityDashboard";
 import { VolatilityImbalanceDetector } from "./VolatilityImbalanceDetector";
+import { MonteCarloSimulation } from "./MonteCarloSimulation";
 
 interface Props {
   ticker: DemoTicker;
@@ -26,9 +27,16 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
     <div className="space-y-3" style={{ background: "#000000" }}>
       <TopMetricsBar data={data} />
 
+      {/* 3D Surface + IV Skew side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Panel className="min-h-[660px]"><Volatility3DSurface surface={data.surface} spot={data.spot} symbol={data.symbol} /></Panel>
         <Panel className="h-[500px]"><IVSkewChart data={data} /></Panel>
+      </div>
+
+      {/* Monte Carlo — below 3D Surface */}
+      <MonteCarloSimulation ticker={ticker} contracts={contracts} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Panel className="h-[500px]"><PutCallSkewPanel data={data} /></Panel>
         <Panel className="h-[500px]"><VolatilityTable data={data} /></Panel>
       </div>

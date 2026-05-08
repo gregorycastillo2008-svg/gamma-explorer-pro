@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { DemoTicker, OptionContract } from "@/lib/gex";
-import { bsGreeks, formatNumber } from "@/lib/gex";
+import { bsGreeks, computeExposures, computeKeyLevels, formatNumber } from "@/lib/gex";
+import { GexNetHorizontalChart } from "./GexNetHorizontalChart";
 
 interface Props {
   ticker: DemoTicker;
@@ -18,6 +19,10 @@ const CYAN = "#06b6d4";
 const YELLOW = "#fbbf24";
 
 export function OiAnalyticsWorkspace({ ticker, contracts }: Props) {
+  // ── Net GEX exposures (for horizontal bar chart) ──
+  const gexExposures = useMemo(() => computeExposures(ticker.spot, contracts), [ticker.spot, contracts]);
+  const gexLevels = useMemo(() => computeKeyLevels(gexExposures), [gexExposures]);
+
   // ── Aggregate per strike ──
   const perStrike = useMemo(() => {
     const m = new Map<number, { strike: number; callOI: number; putOI: number; callDelta: number; putDelta: number; ivVolNum: number; ivVolDen: number; volume: number }>();
@@ -102,10 +107,20 @@ export function OiAnalyticsWorkspace({ ticker, contracts }: Props) {
       </div>
 
       {/* ── 2 main panels ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 mb-6">
         <NormalizedOIPanel rows={perStrike} maxPutStrike={totals.maxPut?.strike} maxCallStrike={totals.maxCall?.strike} />
         <OIMatrixPanel rows={perStrike} spot={ticker.spot} />
       </div>
+
+      {/* ── GEX Net por Strike — horizontal bar chart ── */}
+      <GexNetHorizontalChart
+        exposures={gexExposures}
+        spot={ticker.spot}
+        gammaFlip={gexLevels.gammaFlip}
+        callWall={gexLevels.callWall}
+        putWall={gexLevels.putWall}
+        height={460}
+      />
     </div>
   );
 }

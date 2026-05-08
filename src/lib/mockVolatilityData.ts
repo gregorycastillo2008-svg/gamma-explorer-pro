@@ -51,7 +51,42 @@ export function buildVolatilityDataset(
   }
 
   const skew = generateIVSkew(spot, 30, baseIV);
-  const metrics = calculateSkewMetrics(skew, spot);
+
+  // ── Compute metrics from REAL contracts when available ──────────────────
+  let metrics: SkewMetrics;
+  if (realContracts && realContracts.length > 0) {
+    const puts  = realContracts.filter((c) => c.type === "put"  && c.iv > 0);
+    const calls = realContracts.filter((c) => c.type === "call" && c.iv > 0);
+
+    // ATM IV — average of contracts within 1% of spot
+    const atmSlice = realContracts.filter((c) => c.iv > 0 && Math.abs(c.strike / spot - 1) <= 0.01);
+    const realAtmIV = atmSlice.length
+      ? (atmSlice.reduce((s, c) => s + c.iv, 0) / atmSlice.length) * 100
+      : baseIV * 100;
+
+    // 5% OTM put & call for P/C IV Ratio
+    const closest = <T extends { strike: number }>(arr: T[], target: number): T | undefined =>
+      arr.length ? arr.reduce((b, c) => Math.abs(c.strike - target) < Math.abs(b.strike - target) ? c : b) : undefined;
+
+    const put5  = closest(puts,  spot * 0.95);
+    const call5 = closest(calls, spot * 1.05);
+    const putIv5  = put5  ? put5.iv  * 100 : realAtmIV * 1.08;
+    const callIv5 = call5 ? call5.iv * 100 : realAtmIV;
+    const pcRatio = +(putIv5 / Math.max(0.001, callIv5)).toFixed(3);
+
+    // 25Δ proxy: put ~97.5%, call ~102.5% of spot → risk reversal
+    const put25  = closest(puts,  spot * 0.975);
+    const call25 = closest(calls, spot * 1.025);
+    const rr = (put25 && call25)
+      ? +(put25.iv * 100 - call25.iv * 100).toFixed(2)
+      : 0;
+    const skewAngle = +(Math.atan(rr / 10) * 180 / Math.PI).toFixed(1);
+
+    metrics = { atmIV: +realAtmIV.toFixed(2), riskReversal: rr, skewAngle, pcRatio };
+  } else {
+    metrics = calculateSkewMetrics(skew, spot);
+  }
+
   const hvSeries = generateHistoricalHVData(180, spot, baseIV, seed);
 
   const last = hvSeries[hvSeries.length - 1];
