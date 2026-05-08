@@ -436,8 +436,351 @@ function OverviewTab({ data, ticker }: { data: ReturnType<typeof useGammaProbabi
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// GAMMA DISTRIBUTION MATH
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Lanczos log-gamma approximation */
+function lgammaFn(x: number): number {
+  if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgammaFn(1 - x);
+  x -= 1;
+  const a = [
+    0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61502916214059, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
+  ];
+  let s = a[0];
+  for (let i = 1; i < 9; i++) s += a[i] / (x + i);
+  const t = x + 7.5;
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(s);
+}
+
+/** Gamma PDF — f(x; k, θ) = x^(k-1)·e^(-x/θ) / (Γ(k)·θ^k) */
+function gammaPDFFn(x: number, k: number, theta: number): number {
+  if (x <= 0 || k <= 0 || theta <= 0) return 0;
+  return Math.exp((k - 1) * Math.log(x) - x / theta - lgammaFn(k) - k * Math.log(theta));
+}
+
+/** Normalized PDF: u = x/mean, shape depends only on k */
+function gammaNormPDF(u: number, k: number): number {
+  if (u <= 0 || k <= 0) return 0;
+  return Math.exp(k * Math.log(k) + (k - 1) * Math.log(u) - k * u - lgammaFn(k));
+}
+
+/** Method-of-moments Gamma fit to positive values */
+function fitGammaMoM(values: number[]): { k: number; theta: number; mean: number; std: number } {
+  const pos = values.filter(v => v > 0);
+  if (pos.length < 2) return { k: 1, theta: 1, mean: 1, std: 1 };
+  const mean = pos.reduce((a, b) => a + b, 0) / pos.length;
+  const variance = pos.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, pos.length - 1);
+  if (variance < 1e-30) return { k: 10, theta: mean / 10, mean, std: 0 };
+  return { k: (mean * mean) / variance, theta: variance / mean, mean, std: Math.sqrt(variance) };
+}
+
+// ── Gamma Distribution Section ────────────────────────────────────────────────
+function GammaDistSection({ contracts, ticker }: { contracts: OptionContract[]; ticker: DemoTicker }) {
+  const spot = ticker.spot;
+
+  const CURVE_DEFS = [
+    { days: 0,  label: "0D · HOY",        color: "#ff3355" },
+    { days: 1,  label: "1D · MAÑANA",     color: "#ff9500" },
+    { days: 2,  label: "2D · PASADO MÑN", color: "#ffd000" },
+    { days: 7,  label: "7D · WEEKLY",     color: "#00ff88" },
+    { days: 14, label: "14D · 2-WEEK",    color: "#3b82f6" },
+    { days: 30, label: "30D · MONTHLY",   color: "#a78bfa" },
+  ];
+
+  const curves = useMemo(() => {
+    return CURVE_DEFS.map(def => {
+      const window = Math.max(1, def.days * 0.5 + 1);
+      const expC = def.days === 0
+        ? contracts.filter(c => c.expiry <= 1)
+        : contracts.filter(c => Math.abs(c.expiry - def.days) <= window);
+
+      // ATM IV for this expiry
+      const atmC = expC.filter(c => Math.abs(c.strike - spot) <= ticker.strikeStep * 2);
+      const iv = atmC.length
+        ? (atmC.reduce((s, c) => s + c.iv, 0) / atmC.length)
+        : ticker.baseIV;
+      const T = Math.max(def.days, 0.25) / 365;
+      const em = spot * iv * Math.sqrt(T);   // 1σ expected move in $
+
+      // Fit Gamma to positive GEX distribution across strikes
+      const exps = computeExposures(spot, expC);
+      const posGex = exps.filter(e => e.netGex > 0).map(e => e.netGex);
+      const fit = fitGammaMoM(posGex);
+
+      // Clamp k so we get visually distinct curves (0.4 – 12)
+      const kDisplay = Math.max(0.4, Math.min(12, fit.k));
+
+      return {
+        ...def,
+        iv: iv * 100,
+        T,
+        em,
+        k: kDisplay,
+        kRaw: fit.k,
+        theta: fit.theta,
+        mean: fit.mean,
+        std: fit.std,
+        n: expC.length,
+      };
+    });
+  }, [contracts, spot, ticker]);
+
+  // SVG chart constants
+  const W = 540, H = 260;
+  const PAD = { left: 52, right: 20, top: 24, bottom: 36 };
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+  const xMin = 0, xMax = 4.5; // normalized u = x/mean
+
+  // Compute all curve points + find global y-max
+  const N_PTS = 200;
+  const curvePoints = curves.map(cv => {
+    const pts: { u: number; y: number }[] = [];
+    for (let i = 0; i <= N_PTS; i++) {
+      const u = xMin + (i / N_PTS) * (xMax - xMin);
+      pts.push({ u, y: gammaNormPDF(u, cv.k) });
+    }
+    return pts;
+  });
+  const yMax = Math.max(...curvePoints.flat().map(p => p.y), 0.01) * 1.08;
+
+  function toSvgX(u: number) { return PAD.left + ((u - xMin) / (xMax - xMin)) * plotW; }
+  function toSvgY(y: number) { return PAD.top + plotH - (y / yMax) * plotH; }
+
+  function curvePath(pts: { u: number; y: number }[]) {
+    return pts.map((p, i) => `${i === 0 ? "M" : "L"}${toSvgX(p.u).toFixed(1)},${toSvgY(p.y).toFixed(1)}`).join(" ");
+  }
+
+  // Grid y-ticks
+  const yTicks = [0, 0.1, 0.2, 0.3, 0.4, 0.5].filter(v => v <= yMax);
+  // Grid x-ticks: 0, 1, 2, 3, 4
+  const xTicks = [0, 1, 2, 3, 4];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* ── Section header ── */}
+      <div style={{ borderBottom: `1px solid #1a1a1a`, paddingBottom: 10 }}>
+        <div style={{ fontSize: 9, letterSpacing: "0.3em", color: "#555", fontFamily: FONT, marginBottom: 4 }}>
+          ◈ GAMMA DISTRIBUTION · PROBABILITY DENSITY FUNCTION
+        </div>
+        {/* Formula */}
+        <div style={{
+          fontFamily: FONT, fontSize: 12, color: "#c8d8e8", lineHeight: 2,
+          background: "#0c0c0c", border: "1px solid #1a1a1a", borderRadius: 4,
+          padding: "10px 16px", letterSpacing: "0.04em",
+        }}>
+          <span style={{ color: "#ffd000", fontWeight: 700 }}>f</span>
+          <span style={{ color: "#888" }}>(x; k, θ)</span>
+          <span style={{ color: "#555" }}> = </span>
+          <span style={{ color: "#e5e7eb" }}>
+            <span style={{ display: "inline-block", textAlign: "center", verticalAlign: "middle" }}>
+              <span style={{ display: "block", borderBottom: "1px solid #555", paddingBottom: 2, color: "#e5e7eb" }}>
+                x<sup style={{ fontSize: 9, color: "#a78bfa" }}>k−1</sup>
+                <span style={{ color: "#555", margin: "0 3px" }}>·</span>
+                e<sup style={{ fontSize: 9, color: "#ff9500" }}>−x/θ</sup>
+              </span>
+              <span style={{ display: "block", paddingTop: 2, color: "#e5e7eb" }}>
+                Γ(k)<span style={{ color: "#555", margin: "0 3px" }}>·</span>θ<sup style={{ fontSize: 9, color: "#ff9500" }}>k</sup>
+              </span>
+            </span>
+          </span>
+          <span style={{ color: "#555", margin: "0 20px" }}>·</span>
+          <span style={{ color: "#555", fontSize: 10 }}>x ∈ (0, ∞)</span>
+          <span style={{ color: "#333", margin: "0 16px" }}>|</span>
+          <span style={{ color: "#6a8aa8", fontSize: 10 }}>
+            <span style={{ color: "#a78bfa" }}>k</span> &gt; 0 shape
+            <span style={{ color: "#333", margin: "0 10px" }}>·</span>
+            <span style={{ color: "#ff9500" }}>θ</span> &gt; 0 scale
+            <span style={{ color: "#333", margin: "0 10px" }}>·</span>
+            <span style={{ color: "#ffd000" }}>Γ</span>(k) = ∫₀^∞ t^(k-1)·e^(-t)dt
+          </span>
+        </div>
+      </div>
+
+      {/* ── SVG multi-curve chart ── */}
+      <div style={{ background: "#080808", border: "1px solid #1a1a1a", borderRadius: 6, padding: "12px 8px 4px" }}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+          {/* Grid lines */}
+          {yTicks.map(v => (
+            <g key={v}>
+              <line x1={PAD.left} y1={toSvgY(v)} x2={W - PAD.right} y2={toSvgY(v)}
+                stroke="#141414" strokeWidth="1" />
+              <text x={PAD.left - 6} y={toSvgY(v) + 3} textAnchor="end"
+                fill="#444" fontSize="9" fontFamily={FONT}>{v.toFixed(1)}</text>
+            </g>
+          ))}
+          {xTicks.map(v => (
+            <g key={v}>
+              <line x1={toSvgX(v)} y1={PAD.top} x2={toSvgX(v)} y2={PAD.top + plotH}
+                stroke="#141414" strokeWidth="1" />
+              <text x={toSvgX(v)} y={PAD.top + plotH + 14} textAnchor="middle"
+                fill="#444" fontSize="9" fontFamily={FONT}>{v}</text>
+            </g>
+          ))}
+
+          {/* Axes */}
+          <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + plotH}
+            stroke="#2a2a2a" strokeWidth="1.5" />
+          <line x1={PAD.left} y1={PAD.top + plotH} x2={W - PAD.right} y2={PAD.top + plotH}
+            stroke="#2a2a2a" strokeWidth="1.5" />
+
+          {/* Axis labels */}
+          <text x={W / 2} y={H - 4} textAnchor="middle" fill="#333" fontSize="9" fontFamily={FONT}>
+            u = x / mean  (normalized)
+          </text>
+          <text x={12} y={PAD.top + plotH / 2} textAnchor="middle" fill="#333" fontSize="9"
+            fontFamily={FONT} transform={`rotate(-90, 12, ${PAD.top + plotH / 2})`}>
+            f(u; k)
+          </text>
+
+          {/* Curves */}
+          {curves.map((cv, i) => (
+            <g key={cv.days}>
+              {/* Area fill */}
+              <path
+                d={curvePath(curvePoints[i]) + ` L${toSvgX(xMax)},${toSvgY(0)} L${toSvgX(xMin)},${toSvgY(0)} Z`}
+                fill={cv.color} fillOpacity={0.06}
+              />
+              {/* Line */}
+              <path d={curvePath(curvePoints[i])} fill="none" stroke={cv.color}
+                strokeWidth={1.8} strokeLinejoin="round" />
+              {/* Peak label */}
+              {(() => {
+                const mode = Math.max(0, (cv.k - 1) / cv.k);
+                const peakY = gammaNormPDF(mode, cv.k);
+                const px = toSvgX(mode > 0.05 ? mode : 0.05);
+                const py = toSvgY(peakY) - 8;
+                return peakY > 0.02 ? (
+                  <text x={px} y={py} textAnchor="middle" fill={cv.color}
+                    fontSize="8" fontFamily={FONT} fontWeight="700">
+                    k={cv.k.toFixed(1)}
+                  </text>
+                ) : null;
+              })()}
+            </g>
+          ))}
+        </svg>
+
+        {/* Legend */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", padding: "6px 12px 10px", justifyContent: "center" }}>
+          {curves.map(cv => (
+            <div key={cv.days} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, fontFamily: FONT }}>
+              <div style={{ width: 18, height: 2, background: cv.color, borderRadius: 1 }} />
+              <span style={{ color: cv.color }}>{cv.label}</span>
+              <span style={{ color: "#333" }}>k={cv.k.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Calibrated parameter table ── */}
+      <div style={{ background: "#0c0c0c", border: "1px solid #1a1a1a", borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ padding: "8px 14px 6px", borderBottom: "1px solid #1a1a1a" }}>
+          <div style={{ fontSize: 9, letterSpacing: "0.25em", color: "#555", fontFamily: FONT }}>
+            PARÁMETROS CALIBRADOS · DATOS REALES DE OPCIONES
+          </div>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: FONT, fontSize: 10 }}>
+            <thead>
+              <tr style={{ background: "#080808" }}>
+                {["EXPIRY", "CONTRATOS", "ATM IV", "k (SHAPE)", "θ (SCALE)", "E[X] MOVE $", "σ MOVE $", "SKEW"].map(h => (
+                  <th key={h} style={{ padding: "6px 10px", color: "#444", fontSize: 8, letterSpacing: "0.15em",
+                    textAlign: "right", borderBottom: "1px solid #1a1a1a", whiteSpace: "nowrap" }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {curves.map((cv, i) => {
+                const skew = cv.k > 0 ? (2 / Math.sqrt(cv.k)).toFixed(2) : "—";
+                return (
+                  <tr key={cv.days} style={{ borderBottom: "1px solid #111" }}>
+                    <td style={{ padding: "7px 10px", color: cv.color, fontWeight: 700, textAlign: "right" }}>
+                      {cv.label}
+                    </td>
+                    <td style={{ padding: "7px 10px", color: "#555", textAlign: "right" }}>{cv.n}</td>
+                    <td style={{ padding: "7px 10px", color: "#c8d8e8", textAlign: "right" }}>{cv.iv.toFixed(1)}%</td>
+                    <td style={{ padding: "7px 10px", color: "#a78bfa", fontWeight: 700, textAlign: "right" }}>
+                      {cv.k.toFixed(3)}
+                    </td>
+                    <td style={{ padding: "7px 10px", color: "#ff9500", textAlign: "right" }}>
+                      {cv.theta > 1e9 ? `${(cv.theta / 1e9).toFixed(2)}B` :
+                       cv.theta > 1e6 ? `${(cv.theta / 1e6).toFixed(2)}M` :
+                       cv.theta.toFixed(2)}
+                    </td>
+                    <td style={{ padding: "7px 10px", color: "#00ff88", textAlign: "right" }}>
+                      ${cv.em.toFixed(0)}
+                    </td>
+                    <td style={{ padding: "7px 10px", color: "#3b82f6", textAlign: "right" }}>
+                      ${(cv.em / Math.sqrt(cv.k > 0 ? cv.k : 1)).toFixed(0)}
+                    </td>
+                    <td style={{ padding: "7px 10px", textAlign: "right",
+                      color: Number(skew) > 1.5 ? "#ff9500" : Number(skew) > 0.5 ? "#ffd000" : "#555" }}>
+                      {skew}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Math reference card ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ background: "#0c0c0c", border: "1px solid #1a1a1a", borderRadius: 6, padding: "12px 14px" }}>
+          <div style={{ fontSize: 8, letterSpacing: "0.25em", color: "#444", fontFamily: FONT, marginBottom: 8 }}>
+            PROPIEDADES
+          </div>
+          {[
+            { label: "Soporte", val: "x ∈ (0, ∞)", color: "#888" },
+            { label: "Media", val: "E[X] = k·θ", color: "#a78bfa" },
+            { label: "Varianza", val: "Var[X] = k·θ²", color: "#ff9500" },
+            { label: "Moda", val: "(k−1)·θ  para k≥1", color: "#ffd000" },
+            { label: "Skewness", val: "2 / √k", color: "#00ff88" },
+            { label: "Kurtosis", val: "6 / k", color: "#3b82f6" },
+          ].map(row => (
+            <div key={row.label} style={{ display: "flex", justifyContent: "space-between",
+              padding: "4px 0", borderBottom: "1px solid #111", fontSize: 10, fontFamily: FONT }}>
+              <span style={{ color: "#444" }}>{row.label}</span>
+              <span style={{ color: row.color, fontWeight: 600 }}>{row.val}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: "#0c0c0c", border: "1px solid #1a1a1a", borderRadius: 6, padding: "12px 14px" }}>
+          <div style={{ fontSize: 8, letterSpacing: "0.25em", color: "#444", fontFamily: FONT, marginBottom: 8 }}>
+            INTERPRETACIÓN FINANCIERA
+          </div>
+          {[
+            { label: "k pequeño (< 1)", val: "Cola derecha extrema → spike de volatilidad", color: "#ff3355" },
+            { label: "k = 1", val: "Distribución exponencial → decay constante", color: "#ff9500" },
+            { label: "k = 2–4", val: "Sesgo moderado → típico intraday", color: "#ffd000" },
+            { label: "k > 5", val: "Casi simétrico → movimientos contenidos", color: "#00ff88" },
+          ].map(row => (
+            <div key={row.label} style={{ marginBottom: 8, fontSize: 10, fontFamily: FONT }}>
+              <div style={{ color: row.color, fontWeight: 700, marginBottom: 2 }}>{row.label}</div>
+              <div style={{ color: "#555", fontSize: 9, lineHeight: 1.5 }}>{row.val}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 8, color: "#2a2a2a", textAlign: "center", fontFamily: FONT, paddingBottom: 4 }}>
+        k y θ calibrados por método de momentos sobre la distribución de GEX positivo por strike · Curvas normalizadas: u = x/E[X]
+      </div>
+    </div>
+  );
+}
+
 // ── Tab: DISTRIBUTION (Monte Carlo) ─────────────────────────────────────────
-function DistributionTab({ data, ticker }: { data: ReturnType<typeof useGammaProbabilities>; ticker: DemoTicker }) {
+function DistributionTab({ data, ticker, contracts }: { data: ReturnType<typeof useGammaProbabilities>; ticker: DemoTicker; contracts: OptionContract[] }) {
   const { histogram, levels, spot, impliedUp, impliedDown, mcPaths, T, iv } = data;
   const maxCount = Math.max(...histogram.map(b => b.count), 1);
 
@@ -453,7 +796,7 @@ function DistributionTab({ data, ticker }: { data: ReturnType<typeof useGammaPro
   const pctBelow = histogram.filter(b => b.price < spot).reduce((a,b)=>a+b.pct,0);
 
   return (
-    <div className="flex flex-col gap-3 p-4 h-full">
+    <div className="flex flex-col gap-3 p-4 h-full overflow-y-auto">
       {/* Header stats */}
       <div className="grid grid-cols-3 gap-2">
         {[
@@ -520,6 +863,11 @@ function DistributionTab({ data, ticker }: { data: ReturnType<typeof useGammaPro
           <div style={{ color:C.muted, fontSize:9, letterSpacing:"0.15em" }} className="uppercase mb-1">P(S_T &gt; Spot)</div>
           <div style={{ color:C.green, fontSize:22, fontWeight:900 }}>{(100-pctBelow).toFixed(1)}<span style={{fontSize:12}}>%</span></div>
         </div>
+      </div>
+
+      {/* ── Gamma Distribution PDF Section ── */}
+      <div style={{ borderTop:"1px solid #1a1a1a", paddingTop:16 }}>
+        <GammaDistSection contracts={contracts} ticker={ticker} />
       </div>
     </div>
   );
@@ -1669,7 +2017,7 @@ export function ProbabilityWorkspace({ ticker, contracts }: Props) {
       {/* ── Body ── */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {tab === "overview"      && <OverviewTab      data={data} ticker={ticker} />}
-        {tab === "distribution"  && <DistributionTab  data={data} ticker={ticker} />}
+        {tab === "distribution"  && <DistributionTab  data={data} ticker={ticker} contracts={contracts} />}
         {tab === "radar"         && <RadarTab         data={data} />}
         {tab === "regime"        && <RegimeTab        data={data} ticker={ticker} contracts={contracts} />}
       </div>
