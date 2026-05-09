@@ -50,3 +50,5 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 
+.vercel
+.env*.local

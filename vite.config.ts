@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   base: process.env.VITE_BASE_URL ?? "/",
   server: {
@@ -22,34 +21,39 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     minify: "terser",
-    sourcemap: false, // Deshabilita source maps en producción
-    chunkSizeWarningLimit: 1000, // Aumentar límite de tamaño de chunk a 1MB
+    sourcemap: false,
+    chunkSizeWarningLimit: 1000,
     terserOptions: {
       compress: {
-        drop_console: mode === "production", // Remueve console.log en producción
+        drop_console: mode === "production",
         dead_code: true,
         unused: true,
       },
-      mangle: true, // Ofusca nombres de variables
+      mangle: true,
       format: {
-        comments: false, // Remueve comentarios
+        comments: false,
       },
     },
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // Dividir vendor code
-          if (id.includes("node_modules")) {
-            if (id.includes("react")) {
-              return "react-vendor";
-            }
-            if (id.includes("three")) {
-              return "three-vendor";
-            }
-            if (id.includes("chart")) {
-              return "chart-vendor";
-            }
-            return "vendor";
+        manualChunks(id) {
+          if (id.includes('node_modules/react') ||
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/react-router')) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/recharts') ||
+              id.includes('node_modules/d3')) {
+            return 'chart-vendor';
+          }
+          if (id.includes('node_modules/three')) {
+            return 'three-vendor';
+          }
+          if (id.includes('node_modules/@supabase')) {
+            return 'supabase-vendor';
+          }
+          if (id.includes('node_modules')) {
+            return 'vendor';
           }
         },
       },
