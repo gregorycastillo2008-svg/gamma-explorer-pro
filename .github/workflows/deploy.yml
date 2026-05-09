@@ -37,6 +37,9 @@ jobs:
         run: npm run build
         env:
           VITE_BASE_URL: /gamma-explorer-pro/
+          VITE_SUPABASE_URL: https://ikvwejdepfvjuofcnbww.supabase.co
+          VITE_SUPABASE_PROJECT_ID: ikvwejdepfvjuofcnbww
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrdndlamRlcGZ2anVvZmNuYnd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTQ4OTEsImV4cCI6MjA5Mjc5MDg5MX0.JC55rSwUf8tG3VEjMAE-MCrxCpncGKIcf3La9oUS0JE
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
