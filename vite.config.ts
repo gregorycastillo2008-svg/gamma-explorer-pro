@@ -17,12 +17,11 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
   build: {
     minify: "terser",
     sourcemap: false,
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 2000,
     terserOptions: {
       compress: {
         drop_console: mode === "production",
@@ -32,26 +31,6 @@ export default defineConfig(({ mode }) => ({
       mangle: true,
       format: {
         comments: false,
-      },
-    },
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules/react') ||
-              id.includes('node_modules/react-dom') ||
-              id.includes('node_modules/react-router')) {
-            return 'react-vendor';
-          }
-          if (id.includes('node_modules/@supabase')) {
-            return 'supabase-vendor';
-          }
-          if (id.includes('node_modules/three')) {
-            return 'three-vendor';
-          }
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
       },
     },
   },
