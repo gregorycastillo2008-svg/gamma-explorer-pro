@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     minify: "terser",
     sourcemap: false,
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1500,
     terserOptions: {
       compress: {
         drop_console: mode === "production",
@@ -42,15 +42,11 @@ export default defineConfig(({ mode }) => ({
               id.includes('node_modules/react-router')) {
             return 'react-vendor';
           }
-          if (id.includes('node_modules/recharts') ||
-              id.includes('node_modules/d3')) {
-            return 'chart-vendor';
+          if (id.includes('node_modules/@supabase')) {
+            return 'supabase-vendor';
           }
           if (id.includes('node_modules/three')) {
             return 'three-vendor';
-          }
-          if (id.includes('node_modules/@supabase')) {
-            return 'supabase-vendor';
           }
           if (id.includes('node_modules')) {
             return 'vendor';
