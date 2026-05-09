@@ -19,19 +19,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    minify: "terser",
     sourcemap: false,
     chunkSizeWarningLimit: 2000,
-    terserOptions: {
-      compress: {
-        drop_console: mode === "production",
-        dead_code: true,
-        unused: true,
-      },
-      mangle: true,
-      format: {
-        comments: false,
-      },
-    },
   },
 }));
