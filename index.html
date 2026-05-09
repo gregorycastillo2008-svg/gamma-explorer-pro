@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/webp" href="/icon.webp" />
+    <!-- PROTECCIÓN DE CÓDIGO FUENTE -->
+    <script>
+      // Deshabilitar DevTools (F12, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+I)
+      document.addEventListener('keydown', function(e) {
+        if (
+          e.key === 'F12' ||
+          (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+          (e.ctrlKey && e.shiftKey && e.key === 'C') ||
+          (e.ctrlKey && e.key === 'I') ||
+          (e.ctrlKey && e.shiftKey && e.key === 'J')
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }, true);
+
+      // Deshabilitar click derecho
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        return false;
+      }, true);
+
+      // Detectar si DevTools está abierto y redirigir
+      let devToolsOpen = false;
+      setInterval(function() {
+        const threshold = 160;
+        if (
+          window.outerHeight - window.innerHeight > threshold ||
+          window.outerWidth - window.innerWidth > threshold
+        ) {
+          if (!devToolsOpen) {
+            devToolsOpen = true;
+            console.clear();
+            alert('⚠️ Las herramientas de desarrollo están deshabilitadas.\n\nAcceso no autorizado.');
+            window.location.href = 'about:blank';
+          }
+        }
+      }, 500);
+
+      // Deshabilitar console
+      window.console = {
+        log: function() {},
+        debug: function() {},
+        info: function() {},
+        warn: function() {},
+        error: function() {},
+        clear: function() {},
+        assert: function() {},
+        count: function() {}
+      };
+
+      // Proteger contra debugger statements
+      Object.defineProperty(window, 'debugger', {
+        value: undefined,
+        writable: false,
+        configurable: false
+      });
+    </script>
+    <link rel="alternate icon" href="/favicon.ico" />
+    <title>GEXSATELIT · Análisis Gamma Exposure profesional en tiempo real</title>
+    <meta name="description" content="GEXSATELIT es un dashboard financiero profesional para análisis de Gamma Exposure (GEX), Greeks de opciones y volatilidad en tiempo real.">
+    <meta name="author" content="GEXSATELIT" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/2ca9bd2a-55e3-4e61-8e43-4a1358fac59e/id-preview-3c526498--ac86e0ca-6148-4c5a-80ef-de7e971b13da.lovable.app-1777267006004.png">
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@Lovable" />
+    <meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/2ca9bd2a-55e3-4e61-8e43-4a1358fac59e/id-preview-3c526498--ac86e0ca-6148-4c5a-80ef-de7e971b13da.lovable.app-1777267006004.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    
+    <!-- Plotly.js for 3D IV Surface -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    
+    <meta property="og:title" content="GEXSATELIT · Análisis Gamma Exposure profesional en tiempo real">
+  <meta name="twitter:title" content="GEXSATELIT · Análisis Gamma Exposure profesional en tiempo real">
+  <meta property="og:description" content="Gamma Explorer Pro is a financial dashboard for analyzing options Greeks and volatility.">
+  <meta name="twitter:description" content="Gamma Explorer Pro is a financial dashboard for analyzing options Greeks and volatility.">
+  <style>
+    html, body { background:#0a0a0a !important; margin:0; padding:0; }
+    #allgex-loader {
+      position: fixed; inset: 0; z-index: 99999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background:#0a0a0a; color:#4a9eff; font-family: ui-monospace, "JetBrains Mono", monospace;
+      transition: opacity .4s ease;
+    }
+    #allgex-loader .spin {
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 3px solid #1e1e2e; border-top-color: #00ffee;
+      animation: allgex-spin 1s linear infinite; margin-bottom: 14px;
+    }
+    #allgex-loader .msg { font-size: 12px; letter-spacing: .15em; text-transform: uppercase; opacity:.85; }
+    @keyframes allgex-spin { to { transform: rotate(360deg); } }
+  </style>
+  <script type="module" crossorigin src="/assets/index-CF7BJK2c.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/vendor-Lpl58kpk.js">
+  <link rel="modulepreload" crossorigin href="/assets/three-vendor-CA18gYxB.js">
+  <link rel="modulepreload" crossorigin href="/assets/react-vendor-DvqItxn-.js">
+  <link rel="modulepreload" crossorigin href="/assets/chart-vendor-BhsfMQ6u.js">
+  <link rel="stylesheet" crossorigin href="/assets/index-D6SfanFi.css">
+</head>
+
+  <body>
+    <div id="allgex-loader" role="status" aria-live="polite">
+      <div class="spin"></div>
+      <div class="msg">Loading market data…</div>
+    </div>
+    <div id="root"></div>
+  </body>
+</html>
