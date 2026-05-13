@@ -85,7 +85,7 @@ async function fetchGdelt(cat: Category, maxRecords = 15): Promise<NewsItem[]> {
   const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`;
 
   const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (Lovable EconomyNews)" },
+    headers: { "User-Agent": "Mozilla/5.0 (GEXSATELIT EconomyNews)" },
   });
   if (!res.ok) {
     console.warn(`gdelt ${cat.key} status ${res.status}`);

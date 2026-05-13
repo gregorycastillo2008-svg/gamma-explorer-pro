@@ -14,10 +14,38 @@ export interface VolatilityDataset {
   vix: { v9d: number; vix: number; m3: number; structure: "Contango" | "Backwardation" };
   surface: IvPoint[];
   skew: SkewPoint[];
+  putSkew:  { strike: number; iv: number }[];  // per-strike put IV (real data)
+  callSkew: { strike: number; iv: number }[];  // per-strike call IV (real data)
+  skewLabel: string;                           // "STRONG PUT SKEW" | "MILD PUT SKEW" | "FLAT" | etc.
   metrics: SkewMetrics;
   putIvBars: { dte: string; putIv: number; callIv: number; rr: number }[];
   hvSeries: HVRow[];
   table: { strike: number; iv: number; oiSk: number; flag: string }[];
+}
+
+// ERF approx (Abramowitz & Stegun) — used for delta proxy
+function erfApprox(x: number): number {
+  const sign = x < 0 ? -1 : 1;
+  const ax = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * ax);
+  const y = 1 - (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429)))) * t * Math.exp(-ax * ax);
+  return sign * y;
+}
+
+function approxDelta(spot: number, strike: number, dte: number, iv: number): number {
+  const T = Math.max(1, dte) / 365;
+  const sT = iv * Math.sqrt(T);
+  if (sT < 1e-6) return 0.5;
+  const d1 = (Math.log(spot / strike) + 0.5 * iv * iv * T) / sT;
+  return 0.5 * (1 + erfApprox(d1 / Math.SQRT2));
+}
+
+function skewLabelFromRR(rr: number): string {
+  if (rr > 5)  return "STRONG PUT SKEW";
+  if (rr > 1.5) return "MILD PUT SKEW";
+  if (rr < -5)  return "STRONG CALL SKEW";
+  if (rr < -1.5) return "MILD CALL SKEW";
+  return "FLAT SKEW";
 }
 
 export function buildVolatilityDataset(
@@ -27,7 +55,7 @@ export function buildVolatilityDataset(
   seed = 7,
   realContracts?: OptionContract[],
 ): VolatilityDataset {
-  // Build REAL surface from CBOE contracts when available
+  // ── Surface ─────────────────────────────────────────────────────────────────
   let surface: IvPoint[];
   if (realContracts && realContracts.length > 0) {
     const map = new Map<string, { sum: number; n: number; strike: number; expiry: number }>();
@@ -35,8 +63,7 @@ export function buildVolatilityDataset(
       if (c.iv <= 0) continue;
       const key = `${c.strike}|${c.expiry}`;
       const cur = map.get(key) ?? { sum: 0, n: 0, strike: c.strike, expiry: c.expiry };
-      cur.sum += c.iv;
-      cur.n++;
+      cur.sum += c.iv; cur.n++;
       map.set(key, cur);
     }
     surface = Array.from(map.values()).map((v) => ({
@@ -46,49 +73,99 @@ export function buildVolatilityDataset(
       iv: +(v.sum / v.n).toFixed(4),
     }));
   } else {
-    const expiries = [1, 2, 3, 4, 5, 6, 7];
-    surface = generateIVSurface(spot, expiries, baseIV);
+    surface = generateIVSurface(spot, [1, 2, 3, 4, 5, 6, 7], baseIV);
   }
 
-  const skew = generateIVSkew(spot, 30, baseIV);
+  // ── IV Skew from real contracts ──────────────────────────────────────────────
+  let skew: SkewPoint[];
+  let putSkew:  { strike: number; iv: number }[] = [];
+  let callSkew: { strike: number; iv: number }[] = [];
 
-  // ── Compute metrics from REAL contracts when available ──────────────────
+  if (realContracts && realContracts.length > 0) {
+    // Pick expiry closest to 30 DTE (allow ±12 days)
+    const uniqExp = Array.from(new Set(realContracts.map(c => c.expiry))).sort((a, b) => a - b);
+    const tgt = uniqExp.reduce((b, e) => Math.abs(e - 30) < Math.abs(b - 30) ? e : b, uniqExp[0]);
+    const allowed = uniqExp.filter(e => Math.abs(e - tgt) <= 12);
+    const slice = realContracts.filter(c => allowed.includes(c.expiry) && c.iv > 0 && c.iv < 5);
+
+    const putMap  = new Map<number, { sum: number; n: number }>();
+    const callMap = new Map<number, { sum: number; n: number }>();
+    for (const c of slice) {
+      const m = c.type === "put" ? putMap : callMap;
+      const acc = m.get(c.strike) ?? { sum: 0, n: 0 };
+      acc.sum += c.iv; acc.n++; m.set(c.strike, acc);
+    }
+
+    const allK = Array.from(new Set([...putMap.keys(), ...callMap.keys()]))
+      .sort((a, b) => a - b)
+      .filter(k => k >= spot * 0.88 && k <= spot * 1.12);
+
+    putSkew  = allK.filter(k => putMap.has(k))
+      .map(k => ({ strike: k, iv: putMap.get(k)!.sum / putMap.get(k)!.n }));
+    callSkew = allK.filter(k => callMap.has(k))
+      .map(k => ({ strike: k, iv: callMap.get(k)!.sum / callMap.get(k)!.n }));
+
+    // Merged skew for backward-compat (SkewPoint[])
+    const mergeMap = new Map<number, { sum: number; n: number }>();
+    for (const [k, v] of putMap)  { const a = mergeMap.get(k) ?? {sum:0,n:0}; a.sum+=v.sum; a.n+=v.n; mergeMap.set(k,a); }
+    for (const [k, v] of callMap) { const a = mergeMap.get(k) ?? {sum:0,n:0}; a.sum+=v.sum; a.n+=v.n; mergeMap.set(k,a); }
+
+    skew = allK.filter(k => mergeMap.has(k)).map(k => {
+      const iv = mergeMap.get(k)!.sum / mergeMap.get(k)!.n;
+      const delta = approxDelta(spot, k, tgt, iv);
+      return { strike: k, iv: +iv.toFixed(4), delta: +delta.toFixed(3) };
+    });
+  } else {
+    skew = generateIVSkew(spot, 30, baseIV);
+    // Derive put/call from mock with small divergence (realistic)
+    putSkew  = skew.map(p => ({ strike: p.strike, iv: p.strike < spot ? p.iv * 1.025 : p.iv }));
+    callSkew = skew.map(p => ({ strike: p.strike, iv: p.strike > spot ? p.iv * 0.975 : p.iv }));
+  }
+
+  // ── Metrics ─────────────────────────────────────────────────────────────────
   let metrics: SkewMetrics;
   if (realContracts && realContracts.length > 0) {
     const puts  = realContracts.filter((c) => c.type === "put"  && c.iv > 0);
     const calls = realContracts.filter((c) => c.type === "call" && c.iv > 0);
 
-    // ATM IV — average of contracts within 1% of spot
-    const atmSlice = realContracts.filter((c) => c.iv > 0 && Math.abs(c.strike / spot - 1) <= 0.01);
+    const atmSlice = realContracts.filter(c => c.iv > 0 && Math.abs(c.strike / spot - 1) <= 0.01);
     const realAtmIV = atmSlice.length
       ? (atmSlice.reduce((s, c) => s + c.iv, 0) / atmSlice.length) * 100
       : baseIV * 100;
 
-    // 5% OTM put & call for P/C IV Ratio
     const closest = <T extends { strike: number }>(arr: T[], target: number): T | undefined =>
       arr.length ? arr.reduce((b, c) => Math.abs(c.strike - target) < Math.abs(b.strike - target) ? c : b) : undefined;
 
-    const put5  = closest(puts,  spot * 0.95);
-    const call5 = closest(calls, spot * 1.05);
+    const put5   = closest(puts,  spot * 0.95);
+    const call5  = closest(calls, spot * 1.05);
     const putIv5  = put5  ? put5.iv  * 100 : realAtmIV * 1.08;
     const callIv5 = call5 ? call5.iv * 100 : realAtmIV;
     const pcRatio = +(putIv5 / Math.max(0.001, callIv5)).toFixed(3);
 
-    // 25Δ proxy: put ~97.5%, call ~102.5% of spot → risk reversal
     const put25  = closest(puts,  spot * 0.975);
     const call25 = closest(calls, spot * 1.025);
     const rr = (put25 && call25)
       ? +(put25.iv * 100 - call25.iv * 100).toFixed(2)
       : 0;
     const skewAngle = +(Math.atan(rr / 10) * 180 / Math.PI).toFixed(1);
-
     metrics = { atmIV: +realAtmIV.toFixed(2), riskReversal: rr, skewAngle, pcRatio };
   } else {
     metrics = calculateSkewMetrics(skew, spot);
   }
 
-  const hvSeries = generateHistoricalHVData(180, spot, baseIV, seed);
+  const skewLabel = skewLabelFromRR(metrics.riskReversal);
 
+  // ── Table from real skew ─────────────────────────────────────────────────────
+  const table = skew
+    .filter((_, i) => i % 2 === 0)
+    .map((p) => ({
+      strike: p.strike,
+      iv: +(p.iv * 100).toFixed(2),
+      oiSk: +((p.iv - baseIV) * 100).toFixed(2),
+      flag: p.iv > baseIV * 1.15 ? "PUT" : p.iv < baseIV * 1.02 ? "CALL" : "MILD",
+    }));
+
+  const hvSeries = generateHistoricalHVData(180, spot, baseIV, seed);
   const last = hvSeries[hvSeries.length - 1];
   const atmIV = metrics.atmIV;
   const volPremium = +(atmIV - last.hv30).toFixed(2);
@@ -101,33 +178,23 @@ export function buildVolatilityDataset(
     structure: "Contango" as const,
   };
 
-  // Put/Call IV per "DTE bucket" (1d..9d) for the bars chart
+  // Put/Call IV per DTE bucket for the bars chart
   const putIvBars = [1, 3, 5, 7, 9].map((d) => {
     const sk = generateIVSkew(spot, d, baseIV);
-    const put5 = sk.reduce((b, p) => Math.abs(p.strike - spot * 0.95) < Math.abs(b.strike - spot * 0.95) ? p : b, sk[0]);
-    const call5 = sk.reduce((b, p) => Math.abs(p.strike - spot * 1.05) < Math.abs(b.strike - spot * 1.05) ? p : b, sk[0]);
+    const p5 = sk.reduce((b, p) => Math.abs(p.strike - spot * 0.95) < Math.abs(b.strike - spot * 0.95) ? p : b, sk[0]);
+    const c5 = sk.reduce((b, p) => Math.abs(p.strike - spot * 1.05) < Math.abs(b.strike - spot * 1.05) ? p : b, sk[0]);
     return {
       dte: `${d}d`,
-      putIv: +(put5.iv * 100).toFixed(2),
-      callIv: +(call5.iv * 100).toFixed(2),
-      rr: +(put5.iv * 100 - call5.iv * 100).toFixed(2),
+      putIv:  +(p5.iv * 100).toFixed(2),
+      callIv: +(c5.iv * 100).toFixed(2),
+      rr:     +(p5.iv * 100 - c5.iv * 100).toFixed(2),
     };
   });
-
-  // Side table: strike → IV / OI skew flag
-  const table = skew
-    .filter((_, i) => i % 2 === 0)
-    .map((p) => ({
-      strike: p.strike,
-      iv: +(p.iv * 100).toFixed(2),
-      oiSk: +((p.iv - baseIV) * 100).toFixed(2),
-      flag: p.iv > baseIV * 1.15 ? "PUT" : p.iv < baseIV * 1.02 ? "CALL" : "MILD",
-    }));
 
   return {
     symbol, spot,
     atmIV, hv15: last.hv10 * 1.05, hv20: last.hv20, hv30: last.hv30,
     volPremium, diRisk, vix,
-    surface, skew, metrics, putIvBars, hvSeries, table,
+    surface, skew, putSkew, callSkew, skewLabel, metrics, putIvBars, hvSeries, table,
   };
 }

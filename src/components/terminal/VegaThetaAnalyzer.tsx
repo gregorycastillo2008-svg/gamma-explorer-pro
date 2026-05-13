@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend, BarChart, Bar, ComposedChart } from "recharts";
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RTooltip, ReferenceLine, Legend, BarChart, Bar, ComposedChart, Area } from "recharts";
 import { Panel } from "./Panel";
 import type { DemoTicker, OptionContract } from "@/lib/gex";
 import { formatNumber } from "@/lib/gex";
@@ -250,14 +250,34 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
     const atmK = Math.round(spot / ticker.strikeStep) * ticker.strikeStep;
     const itmK = Math.round((spot * 0.97) / ticker.strikeStep) * ticker.strikeStep;
     const otmK = Math.round((spot * 1.03) / ticker.strikeStep) * ticker.strikeStep;
+    const deepOtmK = Math.round((spot * 1.06) / ticker.strikeStep) * ticker.strikeStep;
+    const step = Math.max(1, Math.floor(days / 120));
     const out: any[] = [];
-    for (let day = 0; day <= days; day++) {
+    for (let day = 0; day <= days; day += step) {
       const Tt = Math.max(0.001, (days - day) / 365);
+      const atmP = bsCall(spot, atmK, Tt, r, iv);
+      const itmP = bsCall(spot, itmK, Tt, r, iv);
+      const otmP = bsCall(spot, otmK, Tt, r, iv);
+      const deepOtmP = bsCall(spot, deepOtmK, Tt, r, iv);
+      const atmTV = Math.max(0, atmP - Math.max(0, spot - atmK));
+      const itmTV = Math.max(0, itmP - Math.max(0, spot - itmK));
+      const atmTh = Math.abs(thetaCall(spot, atmK, Tt, r, iv));
+      const itmTh = Math.abs(thetaCall(spot, itmK, Tt, r, iv));
+      const otmTh = Math.abs(thetaCall(spot, otmK, Tt, r, iv));
+      const atmV = vega(spot, atmK, Tt, r, iv);
       out.push({
         daysLeft: days - day,
-        atm: bsCall(spot, atmK, Tt, r, iv),
-        itm: bsCall(spot, itmK, Tt, r, iv),
-        otm: bsCall(spot, otmK, Tt, r, iv),
+        atm: +atmP.toFixed(4),
+        itm: +itmP.toFixed(4),
+        otm: +otmP.toFixed(4),
+        deepOtm: +deepOtmP.toFixed(4),
+        atmTV: +atmTV.toFixed(4),
+        itmTV: +itmTV.toFixed(4),
+        atmTheta: +atmTh.toFixed(5),
+        itmTheta: +itmTh.toFixed(5),
+        otmTheta: +otmTh.toFixed(5),
+        atmVega: +atmV.toFixed(4),
+        thetaVegaRatio: atmV > 0 ? +(atmTh / atmV).toFixed(4) : 0,
       });
     }
     return out;
@@ -265,6 +285,11 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
 
   // ─── Heatmap (vega/theta toggle)
   const [showVega, setShowVega] = useState(true);
+  const [heatHover, setHeatHover] = useState<{
+    strike: number; dte: number; value: number;
+    vega: number; theta: number; delta: number; gamma: number;
+    iv: number; moneyness: number; x: number; y: number;
+  } | null>(null);
   const heatmap = useMemo(() => {
     const dtes = [7, 14, 30, 60, 90, 180];
     const step = ticker.strikeStep;
@@ -272,22 +297,32 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
     const lo = Math.round((spot * 0.92) / step) * step;
     const hi = Math.round((spot * 1.08) / step) * step;
     for (let K = lo; K <= hi; K += step) strikes.push(K);
-    const rows = strikes.map((K) =>
-      dtes.map((dte) => {
+    const rows = strikes.map((K) => {
+      const moneyness = ((K - spot) / spot) * 100;
+      return dtes.map((dte) => {
         const Tt = dte / 365;
-        return { strike: K, dte, value: showVega ? vega(spot, K, Tt, r, iv) : thetaCall(spot, K, Tt, r, iv) };
-      })
-    );
+        const v = vega(spot, K, Tt, r, iv);
+        const th = thetaCall(spot, K, Tt, r, iv);
+        const d = deltaCall(spot, K, Tt, r, iv);
+        const g = gamma(spot, K, Tt, r, iv);
+        return { strike: K, dte, value: showVega ? v : th, vega: v, theta: th, delta: d, gamma: g, iv, moneyness };
+      });
+    });
     return { dtes, strikes, rows };
   }, [showVega, spot, iv, ticker.strikeStep]);
 
   function heatColor(v: number, isVega: boolean) {
+    const intensity = Math.min(Math.abs(v) / (isVega ? 1.5 : 0.6), 1);
     if (isVega) {
-      const intensity = Math.min(Math.abs(v) / 1.2, 1);
-      return `hsl(${240 - intensity * 240}, 80%, ${20 + intensity * 30}%)`;
+      const hue = 210 - intensity * 25;
+      const sat = 40 + intensity * 60;
+      const lit = 10 + intensity * 45;
+      return `hsl(${hue}, ${sat}%, ${lit}%)`;
     } else {
-      const intensity = Math.min(Math.abs(v) / 0.5, 1);
-      return `hsl(${120 - intensity * 120}, 80%, ${20 + intensity * 30}%)`;
+      const hue = 10 - intensity * 5;
+      const sat = 40 + intensity * 60;
+      const lit = 10 + intensity * 45;
+      return `hsl(${hue}, ${sat}%, ${lit}%)`;
     }
   }
 
@@ -427,20 +462,101 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Theta decay */}
-        <Panel title="Theta Decay Timeline" subtitle="ATM · ITM · OTM calls">
-          <div className="h-[280px]">
+        <Panel title="Theta Decay Timeline" subtitle={`${selectedExpiry}D · IV ${(iv * 100).toFixed(1)}% · Black-Scholes`}>
+          {(() => {
+            const atmK = Math.round(spot / ticker.strikeStep) * ticker.strikeStep;
+            const atmTh = Math.abs(thetaCall(spot, atmK, T, r, iv));
+            const atmV = vega(spot, atmK, T, r, iv);
+            const atmP = bsCall(spot, atmK, T, r, iv);
+            const atmTV = Math.max(0, atmP - Math.max(0, spot - atmK));
+            return (
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                {[
+                  { label: "ATM θ/day", value: `-$${atmTh.toFixed(3)}`, color: COL.red },
+                  { label: "ATM Vega ν", value: atmV.toFixed(4), color: "#00e5ff" },
+                  { label: "θ/ν Ratio", value: atmV > 0 ? (atmTh / atmV).toFixed(4) : "—", color: COL.purple },
+                  { label: "Time Value", value: `$${atmTV.toFixed(2)}`, color: COL.yellow },
+                ].map((s) => (
+                  <div key={s.label} style={{ background: COL.bg2, border: `1px solid ${COL.border}`, borderRadius: 6, padding: "6px 10px" }}>
+                    <div style={{ color: COL.txt3, fontSize: 9, marginBottom: 2, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                    <div style={{ color: s.color, fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+          <div className="h-[310px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={decaySeries} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
+              <ComposedChart data={decaySeries} margin={{ top: 10, right: 55, left: 10, bottom: 22 }}>
+                <defs>
+                  <linearGradient id="tvGradTheta" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={COL.yellow} stopOpacity={0.18} />
+                    <stop offset="95%" stopColor={COL.yellow} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid stroke={COL.border} strokeDasharray="2 4" />
-                <XAxis dataKey="daysLeft" reversed tick={{ fill: COL.txt2, fontSize: 10 }} label={{ value: "Days left", fill: COL.txt3, fontSize: 10, position: "insideBottom", dy: 10 }} />
-                <YAxis tick={{ fill: COL.txt2, fontSize: 10 }} />
-                <RTooltip contentStyle={{ background: COL.bg2, border: `1px solid ${COL.border}`, fontSize: 11 }} />
-                <ReferenceLine x={selectedExpiry} stroke={COL.yellow} strokeDasharray="3 3" label={{ value: "TODAY", fill: COL.yellow, fontSize: 10 }} />
-                <Line type="monotone" dataKey="atm" stroke={COL.yellow} strokeWidth={2} dot={false} name="ATM" />
-                <Line type="monotone" dataKey="itm" stroke={COL.green} strokeWidth={2} dot={false} name="ITM" />
-                <Line type="monotone" dataKey="otm" stroke={COL.red} strokeWidth={2} dot={false} name="OTM" />
-                <Legend wrapperStyle={{ fontSize: 10 }} />
-              </LineChart>
+                <XAxis
+                  dataKey="daysLeft"
+                  reversed
+                  tick={{ fill: COL.txt2, fontSize: 10 }}
+                  label={{ value: "Days to Expiry", fill: COL.txt3, fontSize: 10, position: "insideBottom", dy: 14 }}
+                />
+                <YAxis
+                  yAxisId="price"
+                  tick={{ fill: COL.txt2, fontSize: 10 }}
+                  tickFormatter={(v) => `$${Number(v).toFixed(1)}`}
+                  label={{ value: "Price ($)", fill: COL.txt2, fontSize: 9, angle: -90, position: "insideLeft", dx: -2 }}
+                />
+                <YAxis
+                  yAxisId="rate"
+                  orientation="right"
+                  tick={{ fill: "#a78bfa", fontSize: 9 }}
+                  tickFormatter={(v) => Number(v).toFixed(4)}
+                  label={{ value: "θ / ν", fill: "#a78bfa", fontSize: 9, angle: 90, position: "insideRight", dx: 14 }}
+                />
+                <RTooltip
+                  contentStyle={{ background: "#0d1520", border: `1px solid ${COL.border}`, fontSize: 11, borderRadius: 8 }}
+                  formatter={(value: any, name: string) => {
+                    const map: Record<string, [string, string]> = {
+                      atm: ["ATM Price", COL.yellow],
+                      itm: ["ITM -3% Price", COL.green],
+                      otm: ["OTM +3% Price", COL.red],
+                      deepOtm: ["OTM +6% Price", "#ff88aa"],
+                      atmTV: ["ATM Time Value", "#ffcc44"],
+                      atmTheta: ["ATM θ/day", "#a78bfa"],
+                      itmTheta: ["ITM θ/day", "#c4b5fd"],
+                      otmTheta: ["OTM θ/day", "#f87171"],
+                      atmVega: ["Vega (ν)", "#00e5ff"],
+                    };
+                    const [label, color] = map[name] ?? [name, "#fff"];
+                    return [typeof value === "number" ? value.toFixed(5) : String(value), <span style={{ color }}>{label}</span>];
+                  }}
+                  labelFormatter={(l) => `${l} days left`}
+                />
+                <ReferenceLine yAxisId="price" x={0} stroke={COL.yellow} strokeWidth={1.5} strokeDasharray="3 3"
+                  label={{ value: "EXPIRY", fill: COL.yellow, fontSize: 9, position: "top" }} />
+                <Area yAxisId="price" type="monotone" dataKey="atmTV" fill="url(#tvGradTheta)"
+                  stroke={COL.yellow} strokeWidth={0.8} strokeDasharray="4 3" dot={false} name="atmTV" />
+                <Line yAxisId="price" type="monotone" dataKey="atm" stroke={COL.yellow} strokeWidth={2.5} dot={false} name="atm" />
+                <Line yAxisId="price" type="monotone" dataKey="itm" stroke={COL.green} strokeWidth={1.8} dot={false} name="itm" />
+                <Line yAxisId="price" type="monotone" dataKey="otm" stroke={COL.red} strokeWidth={1.8} dot={false} name="otm" />
+                <Line yAxisId="price" type="monotone" dataKey="deepOtm" stroke="#ff88aa" strokeWidth={1} strokeDasharray="3 2" dot={false} name="deepOtm" />
+                <Line yAxisId="rate" type="monotone" dataKey="atmTheta" stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="5 2" dot={false} name="atmTheta" />
+                <Line yAxisId="rate" type="monotone" dataKey="itmTheta" stroke="#c4b5fd" strokeWidth={1} strokeDasharray="3 2" dot={false} name="itmTheta" />
+                <Line yAxisId="rate" type="monotone" dataKey="otmTheta" stroke="#f87171" strokeWidth={1} strokeDasharray="3 2" dot={false} name="otmTheta" />
+                <Line yAxisId="rate" type="monotone" dataKey="atmVega" stroke="#00e5ff" strokeWidth={1.5} strokeDasharray="2 3" dot={false} name="atmVega" />
+                <Legend
+                  wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+                  formatter={(value: string) => {
+                    const labels: Record<string, string> = {
+                      atm: "ATM", itm: "ITM -3%", otm: "OTM +3%", deepOtm: "OTM +6%",
+                      atmTV: "Time Value", atmTheta: "ATM θ/day", itmTheta: "ITM θ/day",
+                      otmTheta: "OTM θ/day", atmVega: "Vega (ν)",
+                    };
+                    return labels[value] ?? value;
+                  }}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </Panel>
@@ -480,36 +596,170 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
       </div>
 
       {/* Heatmap */}
-      <Panel title={`${showVega ? "Vega" : "Theta"} Heatmap`} subtitle="Strike × DTE">
-        <div className="flex justify-end mb-2">
-          <button onClick={() => setShowVega((v) => !v)} className="text-[10px] font-mono px-2 py-1 rounded"
-            style={{ background: COL.bg2, color: COL.txt, border: `1px solid ${COL.border}` }}>
-            Toggle → {showVega ? "THETA" : "VEGA"}
-          </button>
+      <Panel title={`${showVega ? "Vega (ν)" : "Theta (θ)"} Heatmap`} subtitle="Strike × DTE · hover a cell for details">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setShowVega(true)}
+              className="text-[10px] font-mono px-3 py-1 rounded"
+              style={{
+                background: showVega ? "#00e5ff22" : COL.bg2,
+                color: showVega ? "#00e5ff" : COL.txt2,
+                border: `1px solid ${showVega ? "#00e5ff88" : COL.border}`,
+                fontWeight: showVega ? 700 : 400,
+              }}
+            >ν VEGA</button>
+            <button
+              onClick={() => setShowVega(false)}
+              className="text-[10px] font-mono px-3 py-1 rounded"
+              style={{
+                background: !showVega ? "#ff446622" : COL.bg2,
+                color: !showVega ? COL.red : COL.txt2,
+                border: `1px solid ${!showVega ? "#ff446688" : COL.border}`,
+                fontWeight: !showVega ? 700 : 400,
+              }}
+            >θ THETA</button>
+          </div>
+          <div className="flex items-center gap-2 text-[9px] font-mono">
+            <span style={{ color: COL.txt3 }}>LOW</span>
+            <div style={{
+              width: 100, height: 8, borderRadius: 4,
+              background: showVega
+                ? "linear-gradient(to right, #0d1520, #063d6b, #0077bb, #00aadd, #00e5ff)"
+                : "linear-gradient(to right, #0d1520, #4a0a00, #8b1a00, #cc2200, #ff3300)",
+            }} />
+            <span style={{ color: COL.txt3 }}>HIGH</span>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="font-mono text-[9px]" style={{ borderCollapse: "separate", borderSpacing: 1 }}>
+
+        <div className="overflow-x-auto" onMouseLeave={() => setHeatHover(null)}>
+          <table className="font-mono text-[10px]" style={{ borderCollapse: "separate", borderSpacing: 2 }}>
             <thead>
               <tr>
-                <th className="px-2 py-1" style={{ color: COL.txt2 }}>Strike</th>
-                {heatmap.dtes.map((d) => <th key={d} className="px-2 py-1" style={{ color: COL.txt2, minWidth: 60 }}>{d}D</th>)}
+                <th className="px-2 py-1.5 text-right" style={{ color: COL.txt3, fontSize: 9 }}>Strike</th>
+                <th className="px-2 py-1.5 text-center" style={{ color: COL.txt3, fontSize: 9 }}>Δ%</th>
+                {heatmap.dtes.map((d) => (
+                  <th key={d} className="px-2 py-1.5 text-center" style={{ color: COL.txt2, minWidth: 64 }}>{d}D</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {heatmap.rows.map((row, i) => (
-                <tr key={i}>
-                  <td className="px-2 py-1 font-bold text-right" style={{ color: COL.txt }}>{row[0].strike}</td>
-                  {row.map((cell, j) => (
-                    <td key={j} title={`${cell.strike} · ${cell.dte}D = ${cell.value.toFixed(4)}`}
-                      className="text-center" style={{ background: heatColor(cell.value, showVega), color: "#fff", padding: "4px 6px" }}>
-                      {cell.value.toFixed(3)}
+              {heatmap.rows.map((row, i) => {
+                const isATM = Math.abs(row[0].moneyness) < 1.5;
+                const mn = row[0].moneyness;
+                return (
+                  <tr key={i} style={{ background: isATM ? "#ffdd4408" : "transparent" }}>
+                    <td className="px-2 py-1 text-right font-bold" style={{ color: isATM ? COL.yellow : COL.txt, whiteSpace: "nowrap" }}>
+                      {row[0].strike}
+                      {isATM && <span style={{ marginLeft: 4, fontSize: 8, color: COL.yellow, fontWeight: 400 }}>ATM</span>}
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    <td className="px-2 py-1 text-center" style={{ color: mn > 0 ? COL.red : mn < 0 ? COL.green : COL.yellow, fontSize: 9 }}>
+                      {mn > 0 ? "+" : ""}{mn.toFixed(1)}%
+                    </td>
+                    {row.map((cell, j) => (
+                      <td
+                        key={j}
+                        onMouseEnter={(e) => {
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setHeatHover({ ...cell, x: rect.left + rect.width / 2, y: rect.top });
+                        }}
+                        className="text-center"
+                        style={{
+                          background: heatColor(cell.value, showVega),
+                          color: "#fff",
+                          padding: "5px 6px",
+                          cursor: "crosshair",
+                          borderRadius: 3,
+                          outline: heatHover?.strike === cell.strike && heatHover?.dte === cell.dte
+                            ? "2px solid rgba(255,255,255,0.5)" : "none",
+                          transition: "outline 0.05s",
+                        }}
+                      >
+                        {Math.abs(cell.value) < 0.0001
+                          ? cell.value.toExponential(1)
+                          : Math.abs(cell.value).toFixed(showVega ? 3 : 4)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {heatHover && (
+          <div
+            style={{
+              position: "fixed",
+              left: Math.max(125, Math.min(heatHover.x, window.innerWidth - 125)),
+              top: Math.max(10, heatHover.y - 12),
+              transform: "translate(-50%, -100%)",
+              background: "#0b1422",
+              border: "1px solid #2a3a54",
+              borderRadius: 10,
+              padding: "12px 16px",
+              zIndex: 9999,
+              width: 250,
+              boxShadow: "0 12px 40px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04)",
+              pointerEvents: "none",
+              fontFamily: "monospace",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #1e2d42", paddingBottom: 8, marginBottom: 10 }}>
+              <div>
+                <span style={{ color: "#6b7a94", fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>Strike</span>
+                <span style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginLeft: 8 }}>${heatHover.strike}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "#6b7a94", fontSize: 9 }}>{heatHover.dte}D</span>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                  background: Math.abs(heatHover.moneyness) < 1.5 ? "#ffdd4420" : heatHover.moneyness > 0 ? "#ff446620" : "#00ff8820",
+                  color: Math.abs(heatHover.moneyness) < 1.5 ? COL.yellow : heatHover.moneyness > 0 ? COL.red : COL.green,
+                  border: `1px solid ${Math.abs(heatHover.moneyness) < 1.5 ? "#ffdd4440" : heatHover.moneyness > 0 ? "#ff446640" : "#00ff8840"}`,
+                }}>
+                  {Math.abs(heatHover.moneyness) < 1.5 ? "ATM" : heatHover.moneyness > 0 ? `OTM +${heatHover.moneyness.toFixed(1)}%` : `ITM ${heatHover.moneyness.toFixed(1)}%`}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "9px 16px", fontSize: 11, marginBottom: 10 }}>
+              {[
+                { label: "Vega (ν)", value: heatHover.vega.toFixed(4), color: "#00e5ff" },
+                { label: "Theta (θ)/day", value: `-${Math.abs(heatHover.theta).toFixed(4)}`, color: COL.red },
+                { label: "Delta (Δ)", value: heatHover.delta.toFixed(3), color: COL.green },
+                { label: "Gamma (Γ)", value: heatHover.gamma.toFixed(5), color: "#ff8800" },
+                { label: "θ/ν Ratio", value: heatHover.vega > 0 ? (Math.abs(heatHover.theta) / heatHover.vega).toFixed(4) : "—", color: COL.purple },
+                { label: "Impl. Vol", value: `${(heatHover.iv * 100).toFixed(1)}%`, color: COL.txt2 },
+              ].map((s) => (
+                <div key={s.label}>
+                  <div style={{ color: "#4a5a74", fontSize: 8, textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 }}>{s.label}</div>
+                  <div style={{ color: s.color, fontWeight: 600, fontSize: 12 }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ borderTop: "1px solid #1e2d42", paddingTop: 8 }}>
+              <div style={{ fontSize: 8, color: "#4a5a74", marginBottom: 5, textTransform: "uppercase", letterSpacing: 1 }}>Vega / Theta Balance</div>
+              <div style={{ height: 5, background: "#1a2332", borderRadius: 3, overflow: "hidden", display: "flex" }}>
+                {(() => {
+                  const total = heatHover.vega + Math.abs(heatHover.theta);
+                  const vegaPct = total > 0 ? (heatHover.vega / total) * 100 : 50;
+                  return (
+                    <>
+                      <div style={{ width: `${vegaPct}%`, background: "linear-gradient(to right, #0077bb, #00e5ff)" }} />
+                      <div style={{ flex: 1, background: "linear-gradient(to right, #cc2200, #ff4466)" }} />
+                    </>
+                  );
+                })()}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8, marginTop: 3 }}>
+                <span style={{ color: "#00e5ff" }}>ν {heatHover.vega.toFixed(4)}</span>
+                <span style={{ color: COL.red }}>θ -{Math.abs(heatHover.theta).toFixed(4)}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </Panel>
 
       {/* Scenario analyzer */}
@@ -593,95 +843,210 @@ export function VegaThetaAnalyzer({ ticker, contracts }: Props) {
           </div>
         </Panel>
       )}
-      {/* Options chain — moved to bottom */}
-      <Panel title="Options Chain · Greeks" subtitle={`${selectedExpiry}D · IV ${(iv * 100).toFixed(1)}%`} noPad>
-        <div className="flex justify-end px-3 py-1 border-b" style={{ borderColor: COL.border }}>
-          <button onClick={exportCSV} className="text-[10px] font-mono px-2 py-0.5 rounded"
-            style={{ background: COL.bg2, color: COL.yellow, border: `1px solid ${COL.border}` }}>
-            ⬇ CSV
-          </button>
+      {/* Options chain */}
+      <Panel title="Options Chain · Greeks" subtitle={`${selectedExpiry}D · IV ${(iv * 100).toFixed(1)}% · Black-Scholes`} noPad>
+        {/* ── KPI Summary Bar ── */}
+        {(() => {
+          const sumCOi  = chainRows.reduce((s, r) => s + r.call.oi, 0);
+          const sumPOi  = chainRows.reduce((s, r) => s + r.put.oi, 0);
+          const pcr     = sumPOi / Math.max(1, sumCOi);
+          const sumCVeg = chainRows.reduce((s, r) => s + r.call.vega  * r.call.oi * 100, 0);
+          const sumCTh  = chainRows.reduce((s, r) => s + r.call.theta * r.call.oi * 100, 0);
+          const sumPVeg = chainRows.reduce((s, r) => s + r.put.vega   * r.put.oi  * 100, 0);
+          const kpis = [
+            { label: "Call OI",    value: formatNumber(sumCOi),   color: COL.green  },
+            { label: "Put OI",     value: formatNumber(sumPOi),    color: COL.red    },
+            { label: "P/C Ratio",  value: pcr.toFixed(2),          color: pcr > 1 ? COL.red : COL.green },
+            { label: "ATM IV",     value: `${(iv * 100).toFixed(1)}%`, color: COL.purple },
+            { label: "Σ Call ν",   value: formatNumber(sumCVeg),   color: "#00e5ff"  },
+            { label: "Σ Put ν",    value: formatNumber(sumPVeg),   color: "#22ccff"  },
+            { label: "Σ Call θ",   value: formatNumber(sumCTh),    color: COL.red    },
+          ];
+          return (
+            <div style={{ display: "flex", borderBottom: `1px solid ${COL.border}` }}>
+              {kpis.map((k, i) => (
+                <div key={k.label} style={{
+                  flex: 1, padding: "10px 14px",
+                  background: COL.bg2,
+                  borderRight: i < kpis.length - 1 ? `1px solid ${COL.border}` : "none",
+                }}>
+                  <div style={{ color: COL.txt3, fontSize: 8, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{k.label}</div>
+                  <div style={{ color: k.color, fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{k.value}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+        {/* ── Toolbar ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", borderBottom: `1px solid ${COL.border}` }}>
+          <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+            {([
+              { color: "#00ff8844", border: COL.green,  label: "ITM Call" },
+              { color: "#ffdd4422", border: COL.yellow, label: "ATM" },
+              { color: "transparent", border: COL.border, label: "OTM" },
+            ] as const).map((l) => (
+              <div key={l.label} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color, border: `1px solid ${l.border}` }} />
+                <span style={{ color: COL.txt3, fontSize: 9, fontFamily: "monospace" }}>{l.label}</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={exportCSV} style={{
+            background: "transparent", color: COL.yellow,
+            border: `1px solid ${COL.yellow}50`, borderRadius: 5,
+            padding: "4px 12px", fontSize: 10, fontFamily: "monospace", cursor: "pointer",
+          }}>⬇ Export CSV</button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="text-[10px] font-mono w-full" style={{ color: COL.txt }}>
-            <thead style={{ background: COL.bg2, color: COL.txt2 }}>
-              <tr className="text-[9px] tracking-widest">
-                <th colSpan={6} className="px-2 py-1.5 text-center" style={{ color: COL.green }}>CALLS</th>
-                <th className="px-2 py-1.5 text-center" style={{ color: COL.yellow }}>STRIKE</th>
-                <th colSpan={6} className="px-2 py-1.5 text-center" style={{ color: COL.red }}>PUTS</th>
-              </tr>
-              <tr className="text-[9px]">
-                <th className="px-1.5 py-1">BID</th><th>ASK</th><th>IV</th><th>Δ</th><th>ν</th><th>θ</th>
-                <th></th>
-                <th>θ</th><th>ν</th><th>Δ</th><th>IV</th><th>BID</th><th className="px-1.5">ASK</th>
+
+        {/* ── Chain Table ── */}
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 2px", fontFamily: "monospace", minWidth: 860 }}>
+            <thead>
+              <tr>
+                <th colSpan={6} style={{ padding: "7px 14px", background: `${COL.green}12`, borderTop: `2px solid ${COL.green}50`, borderBottom: `1px solid ${COL.green}25`, color: COL.green, fontSize: 9, letterSpacing: 3, textAlign: "center", fontWeight: 700 }}>
+                  CALLS
+                </th>
+                <th style={{ width: 86, padding: "7px 6px", background: `${COL.yellow}12`, borderTop: `2px solid ${COL.yellow}50`, borderBottom: `1px solid ${COL.yellow}25`, color: COL.yellow, fontSize: 9, letterSpacing: 2, textAlign: "center", fontWeight: 700 }}>
+                  STRIKE
+                </th>
+                <th colSpan={6} style={{ padding: "7px 14px", background: `${COL.red}12`, borderTop: `2px solid ${COL.red}50`, borderBottom: `1px solid ${COL.red}25`, color: COL.red, fontSize: 9, letterSpacing: 3, textAlign: "center", fontWeight: 700 }}>
+                  PUTS
+                </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody style={{ padding: "0 10px" }}>
               {chainRows.map((row) => {
-                const itmCall = row.strike < spot;
-                const bg = row.isATM ? "#ffdd4422" : itmCall ? "#00ff8811" : "#ff446611";
+                const itmCall   = row.strike < spot;
+                const rowBg     = row.isATM ? "#ffdd4408" : itmCall ? "#00ff8806" : "transparent";
+                const accentCol = row.isATM ? COL.yellow : itmCall ? COL.green : "transparent";
                 return (
-                  <tr key={row.strike} style={{ background: bg }} className="hover:opacity-90">
-                    <td className="px-1.5 py-1 text-right">{row.call.bid.toFixed(2)}</td>
-                    <td className="text-right">{row.call.ask.toFixed(2)}</td>
-                    <td className="text-right" style={{ color: COL.txt2 }}>{(row.call.iv * 100).toFixed(1)}%</td>
-                    <td className="text-right" style={{ color: row.call.delta > 0.5 ? COL.green : COL.txt2, fontWeight: row.call.delta > 0.7 ? 700 : 400 }}>{row.call.delta.toFixed(3)}</td>
-                    <td className="text-right" style={{ color: row.call.vega > 0.5 ? COL.green : COL.yellow }}>{row.call.vega.toFixed(3)}</td>
-                    <td className="text-right" style={{ color: COL.red }}>{row.call.theta.toFixed(3)}</td>
-                    <td className="px-2 text-center font-bold" style={{ color: row.isATM ? COL.yellow : COL.txt }}>{row.strike}</td>
-                    <td className="text-right" style={{ color: COL.red }}>{row.put.theta.toFixed(3)}</td>
-                    <td className="text-right" style={{ color: row.put.vega > 0.5 ? COL.green : COL.yellow }}>{row.put.vega.toFixed(3)}</td>
-                    <td className="text-right" style={{ color: row.put.delta < -0.5 ? COL.red : COL.txt2, fontWeight: row.put.delta < -0.7 ? 700 : 400 }}>{row.put.delta.toFixed(3)}</td>
-                    <td className="text-right" style={{ color: COL.txt2 }}>{(row.put.iv * 100).toFixed(1)}%</td>
-                    <td className="text-right">{row.put.bid.toFixed(2)}</td>
-                    <td className="px-1.5 text-right">{row.put.ask.toFixed(2)}</td>
+                  <tr key={row.strike} style={{ background: rowBg }}>
+                    {/* ── CALLS ── */}
+                    {gTd("BID", row.call.bid.toFixed(2),   COL.txt,                                                                                false, false, accentCol)}
+                    {gTd("ASK", row.call.ask.toFixed(2),   COL.txt2)}
+                    {gTd("IV",  `${(row.call.iv*100).toFixed(1)}%`, "#9966ff")}
+                    {gTd("Δ",   row.call.delta.toFixed(3), row.call.delta > 0.7 ? COL.green : row.call.delta > 0.4 ? "#55bb77" : COL.txt2, row.call.delta > 0.5)}
+                    {gTd("ν",   row.call.vega.toFixed(3),  "#00e5ff")}
+                    {gTd("θ",   row.call.theta.toFixed(3), "#ff5577")}
+                    {/* ── STRIKE ── */}
+                    <td style={{ padding: "2px 4px" }}>
+                      <div style={{
+                        background: row.isATM ? "#ffdd4418" : COL.bg2,
+                        border: `1px solid ${row.isATM ? COL.yellow : COL.border}`,
+                        borderRadius: 5, padding: "5px 4px", textAlign: "center",
+                      }}>
+                        <div style={{ color: row.isATM ? COL.yellow : COL.txt, fontWeight: 700, fontSize: 12 }}>{row.strike}</div>
+                        <div style={{ fontSize: 7, marginTop: 1, letterSpacing: 1,
+                          color: row.isATM ? COL.yellow : itmCall ? COL.green : COL.txt3 }}>
+                          {row.isATM ? "ATM" : itmCall ? "ITM" : "OTM"}
+                        </div>
+                      </div>
+                    </td>
+                    {/* ── PUTS ── */}
+                    {gTd("θ",   row.put.theta.toFixed(3),  "#ff5577")}
+                    {gTd("ν",   row.put.vega.toFixed(3),   "#00e5ff")}
+                    {gTd("Δ",   row.put.delta.toFixed(3),  Math.abs(row.put.delta) > 0.7 ? COL.red : Math.abs(row.put.delta) > 0.4 ? "#ff7799" : COL.txt2, Math.abs(row.put.delta) > 0.5)}
+                    {gTd("IV",  `${(row.put.iv*100).toFixed(1)}%`,  "#9966ff")}
+                    {gTd("BID", row.put.bid.toFixed(2),    COL.txt2)}
+                    {gTd("ASK", row.put.ask.toFixed(2),    COL.txt, false, false, undefined, accentCol)}
                   </tr>
                 );
               })}
+
+              {/* ── Weighted-average row ── */}
               {(() => {
                 const tot = chainRows.reduce((acc, r) => {
-                  acc.cBid += r.call.bid * r.call.oi; acc.cAsk += r.call.ask * r.call.oi; acc.cIv += r.call.iv * r.call.oi; acc.cOi += r.call.oi;
-                  acc.cDelta += r.call.delta * r.call.oi; acc.cVega += r.call.vega * r.call.oi; acc.cTheta += r.call.theta * r.call.oi;
-                  acc.pBid += r.put.bid * r.put.oi; acc.pAsk += r.put.ask * r.put.oi; acc.pIv += r.put.iv * r.put.oi; acc.pOi += r.put.oi;
-                  acc.pDelta += r.put.delta * r.put.oi; acc.pVega += r.put.vega * r.put.oi; acc.pTheta += r.put.theta * r.put.oi;
+                  acc.cBid += r.call.bid * r.call.oi; acc.cAsk += r.call.ask * r.call.oi;
+                  acc.cIv  += r.call.iv  * r.call.oi; acc.cOi  += r.call.oi;
+                  acc.cDelta += r.call.delta * r.call.oi; acc.cVega += r.call.vega * r.call.oi;
+                  acc.cTheta += r.call.theta * r.call.oi;
+                  acc.pBid += r.put.bid * r.put.oi; acc.pAsk += r.put.ask * r.put.oi;
+                  acc.pIv  += r.put.iv  * r.put.oi; acc.pOi  += r.put.oi;
+                  acc.pDelta += r.put.delta * r.put.oi; acc.pVega += r.put.vega * r.put.oi;
+                  acc.pTheta += r.put.theta * r.put.oi;
                   return acc;
-                }, { cBid: 0, cAsk: 0, cIv: 0, cOi: 0, cDelta: 0, cVega: 0, cTheta: 0, pBid: 0, pAsk: 0, pIv: 0, pOi: 0, pDelta: 0, pVega: 0, pTheta: 0 });
+                }, { cBid:0, cAsk:0, cIv:0, cOi:0, cDelta:0, cVega:0, cTheta:0, pBid:0, pAsk:0, pIv:0, pOi:0, pDelta:0, pVega:0, pTheta:0 });
                 const cW = Math.max(1, tot.cOi);
                 const pW = Math.max(1, tot.pOi);
                 return (
-                  <tr style={{ background: "#ffffff10", borderTop: `2px solid ${COL.yellow}`, fontWeight: 700 }}>
-                    <td className="px-1.5 py-1.5 text-right">{(tot.cBid / cW).toFixed(2)}</td>
-                    <td className="text-right">{(tot.cAsk / cW).toFixed(2)}</td>
-                    <td className="text-right" style={{ color: COL.txt2 }}>{((tot.cIv / cW) * 100).toFixed(1)}%</td>
-                    <td className="text-right" style={{ color: COL.green }}>{(tot.cDelta / cW).toFixed(3)}</td>
-                    <td className="text-right" style={{ color: COL.green }}>{(tot.cVega / cW).toFixed(3)}</td>
-                    <td className="text-right" style={{ color: COL.red }}>{(tot.cTheta / cW).toFixed(3)}</td>
-                    <td className="px-2 text-center" style={{ color: COL.yellow }}>TOTAL</td>
-                    <td className="text-right" style={{ color: COL.red }}>{(tot.pTheta / pW).toFixed(3)}</td>
-                    <td className="text-right" style={{ color: COL.green }}>{(tot.pVega / pW).toFixed(3)}</td>
-                    <td className="text-right" style={{ color: COL.red }}>{(tot.pDelta / pW).toFixed(3)}</td>
-                    <td className="text-right" style={{ color: COL.txt2 }}>{((tot.pIv / pW) * 100).toFixed(1)}%</td>
-                    <td className="text-right">{(tot.pBid / pW).toFixed(2)}</td>
-                    <td className="px-1.5 text-right">{(tot.pAsk / pW).toFixed(2)}</td>
+                  <tr style={{ opacity: 0.75 }}>
+                    {gTd("BID",  (tot.cBid/cW).toFixed(2),              COL.txt,    false, true)}
+                    {gTd("ASK",  (tot.cAsk/cW).toFixed(2),              COL.txt2,   false, true)}
+                    {gTd("IV",   `${((tot.cIv/cW)*100).toFixed(1)}%`,   "#9966ff",  false, true)}
+                    {gTd("Δ",    (tot.cDelta/cW).toFixed(3),            COL.green,  false, true)}
+                    {gTd("ν",    (tot.cVega/cW).toFixed(3),             "#00e5ff",  false, true)}
+                    {gTd("θ",    (tot.cTheta/cW).toFixed(3),            "#ff5577",  false, true)}
+                    <td style={{ padding: "2px 4px" }}>
+                      <div style={{ background: "#ffdd4410", border: `1px solid ${COL.yellow}30`, borderRadius: 5, padding: "5px 4px", textAlign: "center" }}>
+                        <div style={{ color: COL.yellow, fontWeight: 700, fontSize: 8, letterSpacing: 1 }}>WGT AVG</div>
+                      </div>
+                    </td>
+                    {gTd("θ",    (tot.pTheta/pW).toFixed(3),            "#ff5577",  false, true)}
+                    {gTd("ν",    (tot.pVega/pW).toFixed(3),             "#00e5ff",  false, true)}
+                    {gTd("Δ",    (tot.pDelta/pW).toFixed(3),            COL.red,    false, true)}
+                    {gTd("IV",   `${((tot.pIv/pW)*100).toFixed(1)}%`,   "#9966ff",  false, true)}
+                    {gTd("BID",  (tot.pBid/pW).toFixed(2),              COL.txt2,   false, true)}
+                    {gTd("ASK",  (tot.pAsk/pW).toFixed(2),              COL.txt,    false, true)}
                   </tr>
                 );
               })()}
             </tbody>
+
+            {/* ── Footer totals ── */}
             <tfoot>
               {(() => {
                 const sum = chainRows.reduce((acc, r) => {
-                  acc.cVol += r.call.volume; acc.cOi += r.call.oi; acc.pVol += r.put.volume; acc.pOi += r.put.oi;
-                  acc.cVegaT += r.call.vega * r.call.oi * 100; acc.cThetaT += r.call.theta * r.call.oi * 100;
-                  acc.pVegaT += r.put.vega * r.put.oi * 100; acc.pThetaT += r.put.theta * r.put.oi * 100;
+                  acc.cVol   += r.call.volume; acc.cOi   += r.call.oi;
+                  acc.pVol   += r.put.volume;  acc.pOi   += r.put.oi;
+                  acc.cVegaT += r.call.vega  * r.call.oi * 100;
+                  acc.cThetT += r.call.theta * r.call.oi * 100;
+                  acc.pVegaT += r.put.vega   * r.put.oi  * 100;
+                  acc.pThetT += r.put.theta  * r.put.oi  * 100;
                   return acc;
-                }, { cVol: 0, cOi: 0, pVol: 0, pOi: 0, cVegaT: 0, cThetaT: 0, pVegaT: 0, pThetaT: 0 });
+                }, { cVol:0, cOi:0, pVol:0, pOi:0, cVegaT:0, cThetT:0, pVegaT:0, pThetT:0 });
                 return (
-                  <tr style={{ background: COL.bg2, color: COL.txt2 }} className="text-[9px]">
-                    <td colSpan={6} className="px-2 py-1.5 text-center" style={{ color: COL.green }}>
-                      OI {formatNumber(sum.cOi)} · VOL {formatNumber(sum.cVol)} · ΣΝ {formatNumber(sum.cVegaT)} · ΣΘ {formatNumber(sum.cThetaT)}
+                  <tr>
+                    <td colSpan={6} style={{ padding: "10px 14px" }}>
+                      <div style={{ background: `${COL.green}0d`, border: `1px solid ${COL.green}22`, borderRadius: 7, padding: "10px 14px" }}>
+                        <div style={{ fontSize: 8, color: COL.green, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>CALLS TOTALS</div>
+                        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                          {[
+                            { label: "Open Interest", value: formatNumber(sum.cOi),    color: COL.green  },
+                            { label: "Volume",         value: formatNumber(sum.cVol),   color: COL.green  },
+                            { label: "Σ Vega (ν)",     value: formatNumber(sum.cVegaT), color: "#00e5ff"  },
+                            { label: "Σ Theta (θ)",    value: formatNumber(sum.cThetT), color: "#ff5577"  },
+                          ].map((s) => (
+                            <div key={s.label}>
+                              <div style={{ color: "#4a5a74", fontSize: 8, textTransform: "uppercase", letterSpacing: 1, marginBottom: 3 }}>{s.label}</div>
+                              <div style={{ color: s.color, fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{s.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </td>
-                    <td className="text-center" style={{ color: COL.yellow }}>SUM</td>
-                    <td colSpan={6} className="px-2 py-1.5 text-center" style={{ color: COL.red }}>
-                      ΣΘ {formatNumber(sum.pThetaT)} · ΣΝ {formatNumber(sum.pVegaT)} · OI {formatNumber(sum.pOi)} · VOL {formatNumber(sum.pVol)}
+                    <td style={{ padding: "10px 4px" }}>
+                      <div style={{ background: "#ffdd4408", border: `1px solid ${COL.yellow}22`, borderRadius: 7, height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 6 }}>
+                        <span style={{ color: COL.yellow, fontSize: 7, letterSpacing: 1, fontFamily: "monospace", textTransform: "uppercase", writingMode: "vertical-rl" }}>TOTALS</span>
+                      </div>
+                    </td>
+                    <td colSpan={6} style={{ padding: "10px 14px" }}>
+                      <div style={{ background: `${COL.red}0d`, border: `1px solid ${COL.red}22`, borderRadius: 7, padding: "10px 14px" }}>
+                        <div style={{ fontSize: 8, color: COL.red, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>PUTS TOTALS</div>
+                        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          {[
+                            { label: "Σ Theta (θ)",    value: formatNumber(sum.pThetT), color: "#ff5577"  },
+                            { label: "Σ Vega (ν)",      value: formatNumber(sum.pVegaT), color: "#00e5ff"  },
+                            { label: "Volume",          value: formatNumber(sum.pVol),   color: COL.red    },
+                            { label: "Open Interest",   value: formatNumber(sum.pOi),    color: COL.red    },
+                          ].map((s) => (
+                            <div key={s.label} style={{ textAlign: "right" }}>
+                              <div style={{ color: "#4a5a74", fontSize: 8, textTransform: "uppercase", letterSpacing: 1, marginBottom: 3 }}>{s.label}</div>
+                              <div style={{ color: s.color, fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{s.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -709,5 +1074,30 @@ function MetricCard({ title, value, subtitle, color, icon, gauge }: {
         </div>
       )}
     </div>
+  );
+}
+
+// Renders a single greek card cell inside the Options Chain table
+function gTd(
+  label: string, value: string, color: string,
+  bold = false, dim = false,
+  accentLeft?: string, accentRight?: string,
+) {
+  return (
+    <td style={{ padding: "2px 3px" }}>
+      <div style={{
+        background: dim ? "#ffffff04" : "#0d1828",
+        border: "1px solid #1a2b40",
+        borderRadius: 5,
+        padding: "5px 7px",
+        textAlign: "center",
+        minWidth: 54,
+        ...(accentLeft  ? { borderLeft:  `2px solid ${accentLeft}`  } : {}),
+        ...(accentRight ? { borderRight: `2px solid ${accentRight}` } : {}),
+      }}>
+        <div style={{ color: "#3a4e68", fontSize: 7, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3, fontFamily: "monospace" }}>{label}</div>
+        <div style={{ color, fontWeight: bold ? 700 : 500, fontSize: 11, fontFamily: "monospace" }}>{value}</div>
+      </div>
+    </td>
   );
 }

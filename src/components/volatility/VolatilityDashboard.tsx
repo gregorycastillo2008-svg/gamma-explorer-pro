@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { DemoTicker, OptionContract, computeExposures } from "@/lib/gex";
 import { buildVolatilityDataset } from "@/lib/mockVolatilityData";
 import { TopMetricsBar } from "./TopMetricsBar";
-import { Volatility3DSurface } from "@/components/terminal/Volatility3DSurface";
+import { IvSurface3DReal } from "@/components/terminal/IvSurface3DReal";
 import { IVSkewChart } from "./IVSkewChart";
 import { PutCallSkewPanel } from "./PutCallSkewPanel";
 import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
@@ -23,14 +23,54 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
   );
   const exposures = useMemo(() => computeExposures(ticker.spot, contracts), [ticker.spot, contracts]);
 
+  // Build cellMap for IvSurface3DReal from real contracts
+  const { strikes, expiries, cellMap, ivMin, ivMax } = useMemo(() => {
+    const strikeSet = new Set<number>();
+    const expirySet = new Set<number>();
+    const ivAcc = new Map<string, { sum: number; count: number }>();
+    for (const c of contracts) {
+      if (c.iv <= 0 || c.iv > 5) continue;
+      strikeSet.add(c.strike);
+      expirySet.add(c.expiry);
+      const key = `${c.strike}|${c.expiry}`;
+      const acc = ivAcc.get(key) ?? { sum: 0, count: 0 };
+      acc.sum += c.iv; acc.count += 1;
+      ivAcc.set(key, acc);
+    }
+    const cellMap = new Map<string, number>();
+    let lo = Infinity, hi = -Infinity;
+    ivAcc.forEach(({ sum, count }, key) => {
+      const iv = sum / count;
+      cellMap.set(key, iv);
+      if (iv < lo) lo = iv;
+      if (iv > hi) hi = iv;
+    });
+    return {
+      strikes: Array.from(strikeSet).sort((a, b) => a - b),
+      expiries: Array.from(expirySet).sort((a, b) => a - b),
+      cellMap,
+      ivMin: lo === Infinity ? 0.05 : lo,
+      ivMax: hi === -Infinity ? 0.50 : hi,
+    };
+  }, [contracts]);
+
   return (
     <div className="space-y-3" style={{ background: "#000000" }}>
       <TopMetricsBar data={data} />
 
-      {/* 3D Surface + IV Skew side by side */}
+      {/* 3D IV Surface (smooth Plotly) + IV Skew side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <Panel className="min-h-[660px]"><Volatility3DSurface surface={data.surface} spot={data.spot} symbol={data.symbol} /></Panel>
-        <Panel className="h-[500px]"><IVSkewChart data={data} /></Panel>
+        <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #1f1f1f" }}>
+          <IvSurface3DReal
+            strikes={strikes}
+            expiries={expiries}
+            cellMap={cellMap}
+            min={ivMin}
+            max={ivMax}
+            spot={ticker.spot}
+          />
+        </div>
+        <Panel className="h-[560px]"><IVSkewChart data={data} /></Panel>
       </div>
 
       {/* Monte Carlo — below 3D Surface */}

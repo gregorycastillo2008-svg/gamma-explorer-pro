@@ -33,6 +33,7 @@ import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tool
 import { IvSurface3D } from "./IvSurface3D";
 import { GexBotChart } from "./GexBotChart";
 import { IvSurface3DReal } from "./IvSurface3DReal";
+import { VolDesk } from "./VolDesk";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { VolatilityRegimeIndicator } from "./VolatilityRegimeIndicator";
@@ -949,6 +950,15 @@ export function HedgeView(ctx: Ctx) {
   return (
     <div className="h-full overflow-y-auto">
       <HedgePressurePanel {...ctx} />
+    </div>
+  );
+}
+
+// ─────── VOLDESK ───────
+export function VolDeskView() {
+  return (
+    <div className="h-full overflow-y-auto">
+      <VolDesk />
     </div>
   );
 }

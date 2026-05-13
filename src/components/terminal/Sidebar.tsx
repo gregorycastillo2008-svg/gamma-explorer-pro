@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 export type Section =
   | "overview" | "chart" | "oi-analytics" | "gex-dex" | "greeks" | "depth" | "levels"
-  | "hedge" | "vanna-charm" | "vega-theta"
+  | "hedge" | "voldesk" | "vanna-charm" | "vega-theta"
   | "volatility" | "volatility-regime" | "expected-move" | "heatmap" | "regime" | "risk" | "anomaly" | "economy"
   | "sentiment" | "ai-bias" | "probability";
 
@@ -18,8 +18,9 @@ export const SECTIONS: { id: Section; label: string; icon: any; group: string }[
   { id: "greeks", label: "Greek Ladder", icon: Sigma, group: "MAIN" },
   { id: "depth", label: "Depth View", icon: Layers, group: "MAIN" },
   { id: "levels", label: "Level Scan", icon: Target, group: "MAIN" },
-  { id: "hedge", label: "Hedge Pressure", icon: Gauge, group: "MAIN" },
-  { id: "vanna-charm", label: "Vanna & Charm", icon: Wind, group: "MAIN" },
+  { id: "hedge",    label: "Hedge Pressure", icon: Gauge,      group: "MAIN" },
+  { id: "voldesk",  label: "VolDesk",        icon: BarChart2,  group: "MAIN" },
+  { id: "vanna-charm", label: "Vanna & Charm", icon: Wind,    group: "MAIN" },
   { id: "vega-theta", label: "Vega & Theta", icon: TrendingUp, group: "MAIN" },
   { id: "volatility", label: "Volatility", icon: LineChart, group: "ANALYSIS" },
   { id: "volatility-regime", label: "Vol Regime Indicator", icon: Gauge, group: "ANALYSIS" },

@@ -17,7 +17,7 @@ import { Sidebar, Section } from "@/components/terminal/Sidebar";
 import { Topbar } from "@/components/terminal/Topbar";
 import {
   OverviewView, ChartView, GreeksView, DepthView, LevelsView,
-  HedgeView, VannaCharmView, VegaThetaView, VolatilityView, RegimeView,
+  HedgeView, VolDeskView, VannaCharmView, VegaThetaView, VolatilityView, RegimeView,
   OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
   VolatilityRegimeIndicatorView, ExpectedMoveCalculatorView, SentimentView,
 } from "@/components/terminal/views";
@@ -221,7 +221,8 @@ export default function Dashboard() {
       case "greeks": return <GreeksView {...ctx} />;
       case "depth": return <DepthMultiPanel ticker={ticker} contracts={filtered} />;
       case "levels": return <LevelsView {...ctx} />;
-      case "hedge": return <HedgeView {...ctx} />;
+      case "hedge":   return <HedgeView {...ctx} />;
+      case "voldesk": return <VolDeskView />;
       case "vanna-charm": return <VannaCharmWorkspace ticker={ticker} contracts={filtered} />;
       case "vega-theta": return <VegaThetaView {...ctx} />;
       case "volatility": return <VolatilityView {...ctx} />;
