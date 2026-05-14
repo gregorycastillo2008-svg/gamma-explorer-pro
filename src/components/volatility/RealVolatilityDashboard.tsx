@@ -137,6 +137,12 @@ const REGIME_COLORS: Record<Regime, string> = {
 export function RealVolatilityDashboard({ defaultTicker = "SPY", impliedVol }: Props) {
   const [ticker, setTicker] = useState(defaultTicker);
   const [tickerInput, setTickerInput] = useState(defaultTicker);
+
+  // Sync internal ticker when the parent switches active symbol
+  useEffect(() => {
+    setTicker(defaultTicker);
+    setTickerInput(defaultTicker);
+  }, [defaultTicker]);
   const [period, setPeriod] = useState<"3M" | "6M" | "1Y" | "2Y">("1Y");
   const [ohlc, setOhlc] = useState<OHLC[]>([]);
   const [loading, setLoading] = useState(false);

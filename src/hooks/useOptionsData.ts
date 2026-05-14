@@ -138,54 +138,67 @@ export function useOptionsData(symbol: string): OptionsData {
         return;
       }
 
-      // ── 1. CBOE Delayed (15-min, free, no key) — parallel direct+proxy ──
-      try {
-        const cboe = await fetchCboeChain(upper);
-        if (aborted.current) return;
-        const base = getDemoTicker(cboe.symbol) ?? fallback;
-        const step = cboe.strikes.length > 1
-          ? Math.max(0.5, Math.round((cboe.strikes[1] - cboe.strikes[0]) * 10) / 10)
-          : (base.strikeStep ?? 5);
+      // ── Race CBOE client (direct+proxy) and Supabase edge simultaneously ─
+      // Supabase edge is server-side (no CORS) and most reliable.
+      // CBOE client is faster when CORS allows it. Take whichever wins.
+      const supaUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cboe-options?symbol=${encodeURIComponent(upper)}`;
+      const supaKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-        const resp: CachedResp = {
-          symbol: cboe.symbol,
-          spot: cboe.spot,
-          priceChangePct: cboe.priceChangePct,
-          iv30: cboe.iv30,
-          expiries: cboe.expiries,
-          strikes: cboe.strikes,
-          contracts: cboe.contracts,
-          source: cboe.source,
-          fetchedAt: cboe.fetchedAt,
-        };
+      const fromCboe = fetchCboeChain(upper).then((cboe): CachedResp => ({
+        symbol: cboe.symbol,
+        spot: cboe.spot,
+        priceChangePct: cboe.priceChangePct,
+        iv30: cboe.iv30,
+        expiries: cboe.expiries,
+        strikes: cboe.strikes,
+        contracts: cboe.contracts,
+        source: cboe.source,
+        fetchedAt: cboe.fetchedAt,
+      }));
+
+      const fromSupa = (supaUrl && supaKey
+        ? fetch(supaUrl, {
+            headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}` },
+            signal: AbortSignal.timeout(12_000),
+          }).then((r) => {
+            if (!r.ok) throw new Error(`supabase HTTP ${r.status}`);
+            return r.json();
+          }).then((j): CachedResp => {
+            if (!j?.contracts?.length) throw new Error("empty");
+            // Normalize IV: CBOE occasionally sends percentage form (>2)
+            const contracts = j.contracts.map((c: any) => ({
+              ...c,
+              iv: c.iv > 2 ? c.iv / 100 : c.iv,
+            }));
+            return {
+              symbol: j.symbol,
+              spot: j.spot,
+              priceChangePct: j.priceChangePct ?? 0,
+              iv30: j.iv30 ?? 0,
+              expiries: j.expiries ?? [],
+              strikes: j.strikes ?? [],
+              contracts,
+              source: j.source ?? "CBOE Delayed (edge)",
+              fetchedAt: j.fetchedAt ?? new Date().toISOString(),
+            };
+          })
+        : Promise.reject("no supabase config")) as Promise<CachedResp>;
+
+      try {
+        const resp = await Promise.any([fromCboe, fromSupa]);
+        if (aborted.current) return;
+        const base = getDemoTicker(resp.symbol) ?? fallback;
+        const step = resp.strikes.length > 1
+          ? Math.max(0.5, Math.round((resp.strikes[1] - resp.strikes[0]) * 10) / 10)
+          : (base.strikeStep ?? 5);
         CACHE.set(upper, { at: Date.now(), resp });
         apply(resp, base, step);
         return;
-      } catch (_cboeErr) {
-        // fall through to Supabase
+      } catch {
+        // both sources failed — fall through to demo
       }
 
-      // ── 2. Supabase edge function (secondary) ────────────────────────────
-      try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cboe-options?symbol=${encodeURIComponent(upper)}`;
-        const r = await fetch(url, {
-          headers: {
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const json = await r.json();
-        if (!json?.contracts?.length) throw new Error("empty chain");
-        if (aborted.current) return;
-        CACHE.set(upper, { at: Date.now(), resp: json });
-        apply(json);
-        return;
-      } catch (_supaErr) {
-        // fall through to demo
-      }
-
-      // ── 3. Demo fallback ─────────────────────────────────────────────────
+      // ── Demo fallback ─────────────────────────────────────────────────────
       if (aborted.current) return;
       const t = getDemoTicker(upper) ?? fallback;
       setTicker(t);

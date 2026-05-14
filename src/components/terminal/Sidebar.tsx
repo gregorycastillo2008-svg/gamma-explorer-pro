@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 export type Section =
   | "overview" | "chart" | "oi-analytics" | "gex-dex" | "greeks" | "depth" | "levels"
-  | "hedge" | "vanna-charm" | "vega-theta"
+  | "hedge" | "voldesk" | "vanna-charm" | "vega-theta"
   | "volatility" | "volatility-regime" | "expected-move" | "heatmap" | "regime" | "risk" | "anomaly" | "economy"
   | "sentiment" | "ai-bias" | "probability";
 
@@ -18,8 +18,9 @@ export const SECTIONS: { id: Section; label: string; icon: any; group: string }[
   { id: "greeks", label: "Greek Ladder", icon: Sigma, group: "MAIN" },
   { id: "depth", label: "Depth View", icon: Layers, group: "MAIN" },
   { id: "levels", label: "Level Scan", icon: Target, group: "MAIN" },
-  { id: "hedge", label: "Hedge Pressure", icon: Gauge, group: "MAIN" },
-  { id: "vanna-charm", label: "Vanna & Charm", icon: Wind, group: "MAIN" },
+  { id: "hedge",    label: "Hedge Pressure", icon: Gauge,      group: "MAIN" },
+  { id: "voldesk",  label: "VolDesk",        icon: BarChart2,  group: "MAIN" },
+  { id: "vanna-charm", label: "Vanna & Charm", icon: Wind,    group: "MAIN" },
   { id: "vega-theta", label: "Vega & Theta", icon: TrendingUp, group: "MAIN" },
   { id: "volatility", label: "Volatility", icon: LineChart, group: "ANALYSIS" },
   { id: "volatility-regime", label: "Vol Regime Indicator", icon: Gauge, group: "ANALYSIS" },
@@ -52,11 +53,12 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200 shrink-0",
+        "flex flex-col transition-all duration-200 shrink-0",
         collapsed ? "w-16" : "w-60"
       )}
+      style={{ background: "#111111", borderRight: "1px solid #1f1f1f" }}
     >
-      <div className="h-14 flex items-center px-3 border-b border-sidebar-border">
+      <div className="h-14 flex items-center px-3" style={{ background: "#1f1f1f", borderBottom: "1px solid #2a2a2a" }}>
         <div className="h-8 w-8 flex items-center justify-center shrink-0 text-base" title="GEXSATELIT">
           ​
         </div>
@@ -70,7 +72,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3 bg-black">
+      <nav className="flex-1 overflow-y-auto py-3" style={{ background: "#111111" }}>
         {groups.map((g) => (
           <div key={g} className="mb-3">
             {!collapsed && <div className="px-3 mb-1 text-[10px] font-bold tracking-widest text-sidebar-foreground/50">{g}</div>}
@@ -113,7 +115,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         )}
       </nav>
 
-      <div className="border-t border-sidebar-border p-2 bg-black">
+      <div className="p-2" style={{ background: "#111111", borderTop: "1px solid #1f1f1f" }}>
         {!collapsed && (
           <div className="px-2 py-1.5 text-[10px] text-sidebar-foreground/70 truncate">
             {tier ? `Plan: ${tier.toUpperCase()}` : "No plan"}

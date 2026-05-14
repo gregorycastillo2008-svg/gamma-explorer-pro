@@ -1,4 +1,5 @@
 import React from "react";
+import Plotly from "plotly.js/dist/plotly";
 import { ExposurePoint, KeyLevels, formatNumber, DemoTicker, OptionContract, computeMaxPain, buildIvGrid, computeExposures, computeKeyLevels } from "@/lib/gex";
 import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
@@ -33,6 +34,7 @@ import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tool
 import { IvSurface3D } from "./IvSurface3D";
 import { GexBotChart } from "./GexBotChart";
 import { IvSurface3DReal } from "./IvSurface3DReal";
+import { VolDesk } from "./VolDesk";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { VolatilityRegimeIndicator } from "./VolatilityRegimeIndicator";
@@ -949,6 +951,15 @@ export function HedgeView(ctx: Ctx) {
   return (
     <div className="h-full overflow-y-auto">
       <HedgePressurePanel {...ctx} />
+    </div>
+  );
+}
+
+// ─────── VOLDESK ───────
+export function VolDeskView() {
+  return (
+    <div className="h-full overflow-y-auto">
+      <VolDesk />
     </div>
   );
 }
@@ -2223,78 +2234,350 @@ function HorizontalBars({ exposures, metric, max, spot, maxPain }: {
 }
 
 
-// ─────── HEATMAP IV + 3D Surface ───────
-export function HeatmapView({ ticker, contracts }: Ctx) {
-  const grid = buildIvGrid(contracts);
-  const expiries = Array.from(new Set(grid.map((c) => c.expiry))).sort((a, b) => a - b);
-  const strikes = Array.from(new Set(grid.map((c) => c.strike))).sort((a, b) => b - a);
-  const cellMap = new Map(grid.map((c) => [`${c.strike}|${c.expiry}`, c.iv]));
-  const ivs = grid.map((c) => c.iv);
-  const min = Math.min(...ivs), max = Math.max(...ivs);
+// ─────── GEX 3D SURFACE (Strike × DTE × Net GEX) ───────
+function GexSurface3D({ contracts, spot, symbol }: { contracts: OptionContract[]; spot: number; symbol: string }) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const [elev, setElev] = useState(28);
+  const [azim, setAzim] = useState(215);
+  const sliderApplyingRef = useRef(false);
+  const syncTimerRef      = useRef<ReturnType<typeof setTimeout>>();
 
-  const colorFor = (iv: number) => {
-    const t = (iv - min) / (max - min || 1);
-    if (t < 0.33) return `hsl(220 80% ${30 + t * 60}%)`;
-    if (t < 0.66) return `hsl(${180 - (t - 0.33) * 240} 80% 50%)`;
-    return `hsl(${40 - (t - 0.66) * 120} 90% 55%)`;
-  };
+  const { strikeAxis, dteAxis, zGex } = useMemo(() => {
+    const strikeSet = new Set<number>();
+    const dteSet    = new Set<number>();
+    for (const c of contracts) {
+      if (c.gamma > 0 && c.oi > 0 && c.strike > 0 && c.expiry > 0) {
+        // Keep strikes within ±25% of spot for focused view
+        if (Math.abs(c.strike / spot - 1) < 0.25) { strikeSet.add(c.strike); dteSet.add(c.expiry); }
+      }
+    }
+    const strikeAxis = Array.from(strikeSet).sort((a, b) => a - b);
+    const dteAxis    = Array.from(dteSet).sort((a, b) => a - b);
+    if (strikeAxis.length < 2 || dteAxis.length < 2) return { strikeAxis, dteAxis, zGex: [] };
 
-  const heatmapContent = (
-    <div className="overflow-x-auto">
-      <div className="inline-block min-w-full">
-        <div className="grid" style={{ gridTemplateColumns: `60px repeat(${expiries.length}, minmax(50px, 1fr))` }}>
-          <div />
-          {expiries.map((e) => (
-            <div key={`h-${e}`} className="text-[10px] font-mono text-muted-foreground text-center pb-1 border-b border-border">{e}d</div>
-          ))}
-          {strikes.map((s) => (
-            <div key={`row-${s}`} className="contents">
-              <div className={`text-[10px] font-mono py-0.5 pr-2 text-right ${Math.abs(s - ticker.spot) < ticker.strikeStep ? "text-primary font-bold" : "text-muted-foreground"}`}>{s}</div>
-              {expiries.map((e) => {
-                const iv = cellMap.get(`${s}|${e}`);
-                return (
-                  <div
-                    key={`${s}-${e}`}
-                    className="h-6 border border-background flex items-center justify-center text-[9px] font-mono text-foreground/90"
-                    style={{ background: iv != null ? colorFor(iv) : "transparent" }}
-                    title={iv != null ? `IV ${(iv * 100).toFixed(1)}%` : ""}
-                  >
-                    {iv != null ? (iv * 100).toFixed(0) : ""}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
+    // Build GEX map: net gamma exposure per (strike, dte) cell
+    const gexMap = new Map<string, number>();
+    for (const c of contracts) {
+      if (!strikeSet.has(c.strike) || !dteSet.has(c.expiry)) continue;
+      const sign = c.type === "call" ? 1 : -1;
+      const gex  = sign * c.gamma * c.oi * spot * spot * 0.01; // $ gamma per 1% move
+      const key  = `${c.strike}|${c.expiry}`;
+      gexMap.set(key, (gexMap.get(key) ?? 0) + gex);
+    }
+
+    // Build z matrix [dte_i][strike_i] for Plotly (y=dte, x=strike)
+    const zGex = dteAxis.map(dte =>
+      strikeAxis.map(K => (gexMap.get(`${K}|${dte}`) ?? 0) / 1e6), // in $M
+    );
+    return { strikeAxis, dteAxis, zGex };
+  }, [contracts, spot]);
+
+  useEffect(() => {
+    const div = divRef.current;
+    if (!div || !zGex.length) return;
+
+    const allVals = zGex.flat();
+    const absMax  = Math.max(1, ...allVals.map(Math.abs));
+
+    const data = [{
+      type: "surface",
+      x: strikeAxis, y: dteAxis, z: zGex,
+      colorscale: [
+        [0.00, "#b00030"], [0.20, "#e83030"], [0.38, "#f07040"],
+        [0.50, "#111828"], // zero plane — dark neutral
+        [0.62, "#40a060"], [0.80, "#20c870"], [1.00, "#10e880"],
+      ],
+      cmin: -absMax, cmax: absMax,
+      showscale: true,
+      colorbar: {
+        title: { text: "GEX $M", font: { color: "#6a7a9a", size: 10 }, side: "right" },
+        tickfont: { color: "#6a7a9a", size: 9 },
+        len: 0.65, thickness: 12, x: 0.97,
+        bgcolor: "rgba(0,0,0,0)", bordercolor: "#1e2d42",
+      },
+      contours: {
+        z: { show: true, color: "rgba(255,255,255,0.08)", width: 1, usecolormap: false },
+      },
+      lighting: { ambient: 0.65, diffuse: 0.90, specular: 0.30, roughness: 0.35, fresnel: 0.25 },
+      lightposition: { x: 800, y: -600, z: 1600 },
+      opacity: 1.0,
+      hovertemplate: "<b>Strike</b> $%{x:.0f}<br><b>DTE</b> %{y}D<br><b>GEX</b> %{z:.2f}M<extra></extra>",
+    }];
+
+    const el0 = elev * Math.PI / 180;
+    const az0 = azim * Math.PI / 180;
+    const d = 2.5;
+
+    const layout = {
+      autosize: true,
+      scene: {
+        xaxis: { title: { text: "Strike", font: { size: 10, color: "#6a7a9a" } }, color: "#2a3a58", gridcolor: "#111d30", linecolor: "#0e1828", tickfont: { size: 8, color: "#4a5a78" }, backgroundcolor: "#060a14", showbackground: true, showgrid: true, showspikes: false },
+        yaxis: { title: { text: "DTE",    font: { size: 10, color: "#6a7a9a" } }, color: "#2a3a58", gridcolor: "#111d30", linecolor: "#0e1828", tickfont: { size: 8, color: "#4a5a78" }, backgroundcolor: "#060a14", showbackground: true, showgrid: true, showspikes: false },
+        zaxis: { title: { text: "GEX $M", font: { size: 10, color: "#6a7a9a" } }, color: "#2a3a58", gridcolor: "#111d30", linecolor: "#0e1828", tickfont: { size: 8, color: "#4a5a78" }, backgroundcolor: "#060a14", showbackground: true, showgrid: true, showspikes: false },
+        bgcolor: "#06080f",
+        camera: {
+          eye: { x: d * Math.cos(el0) * Math.cos(az0), y: d * Math.cos(el0) * Math.sin(az0), z: d * Math.sin(el0) },
+          up: { x: 0, y: 0, z: 1 },
+          center: { x: 0, y: 0, z: -0.05 },
+        },
+        aspectmode: "manual",
+        aspectratio: { x: 1.6, y: 0.8, z: 0.55 },
+        dragmode: "orbit",
+      },
+      margin: { l: 0, r: 24, b: 0, t: 8 },
+      paper_bgcolor: "#06080f",
+      font: { color: "#6a7a9a", family: "JetBrains Mono, monospace", size: 10 },
+      hoverlabel: { bgcolor: "#0b1322", bordercolor: "#1e3050", font: { color: "#d8e6ff", size: 11 } },
+      showlegend: false,
+      uirevision: "camera",
+    };
+
+    (Plotly as any).newPlot(div, data, layout, { displayModeBar: false, responsive: true, scrollZoom: true });
+
+    // Sync slider state back from Plotly's camera after user drag
+    (div as any).on("plotly_relayout", (evtData: Record<string, any>) => {
+      if (sliderApplyingRef.current) return;
+      const eye = evtData?.["scene.camera"]?.eye ?? evtData?.["scene.camera.eye"];
+      if (!eye || typeof eye.x !== "number") return;
+      const r = Math.sqrt(eye.x ** 2 + eye.y ** 2 + eye.z ** 2);
+      if (r < 0.1) return;
+      const newElev = Math.round(Math.asin(Math.max(-1, Math.min(1, eye.z / r))) * 180 / Math.PI);
+      const newAzim = (Math.round(Math.atan2(eye.y, eye.x) * 180 / Math.PI) + 360) % 360;
+      clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = setTimeout(() => { setElev(newElev); setAzim(newAzim); }, 80);
+    });
+
+    const ro = new ResizeObserver(() => (Plotly as any).Plots.resize(div));
+    ro.observe(div);
+    return () => { clearTimeout(syncTimerRef.current); ro.disconnect(); try { (Plotly as any).purge(div); } catch (_) {} };
+  }, [strikeAxis, dteAxis, zGex]);
+
+  // Apply slider-driven camera updates without re-plotting
+  useEffect(() => {
+    const div = divRef.current;
+    if (!div) return;
+    const el = elev * Math.PI / 180;
+    const az = azim * Math.PI / 180;
+    const d = 2.5;
+    sliderApplyingRef.current = true;
+    (Plotly as any).relayout(div, {
+      "scene.camera.eye": {
+        x: d * Math.cos(el) * Math.cos(az),
+        y: d * Math.cos(el) * Math.sin(az),
+        z: d * Math.sin(el),
+      },
+    });
+    setTimeout(() => { sliderApplyingRef.current = false; }, 200);
+  }, [elev, azim]);
+
+  const CTL3D: React.CSSProperties = { color: "#6a7a9a", fontSize: 11, fontFamily: "monospace", display: "inline-flex", alignItems: "center", gap: 4 };
+
+  return (
+    <div style={{ width: "100%", background: "#06080f", borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ padding: "8px 14px 4px", fontSize: 10, fontFamily: "monospace", color: "#4a6080", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+        GEX 3D Surface · {symbol} · Net $ Gamma Exposure · rojo=short/put · verde=long/call
       </div>
-      <div className="flex items-center gap-2 mt-3 text-[10px] text-muted-foreground">
-        <span>Low {(min * 100).toFixed(1)}%</span>
-        <div className="flex-1 h-2 rounded" style={{ background: "linear-gradient(90deg, hsl(220 80% 30%), hsl(180 80% 50%), hsl(60 80% 50%), hsl(0 90% 55%))" }} />
-        <span>High {(max * 100).toFixed(1)}%</span>
+      <div ref={divRef} style={{ width: "100%", height: 440 }} />
+      {/* Camera controls */}
+      <div style={{ display: "flex", gap: 16, padding: "6px 12px", flexWrap: "wrap", alignItems: "center", justifyContent: "center", background: "#06080f" }}>
+        <span style={{ color: "#333", fontSize: 11, fontFamily: "monospace" }}>🖱 drag: rotar | scroll: zoom</span>
+        <label style={CTL3D}>
+          Elev
+          <input type="range" min={-89} max={89} value={elev} onChange={e => setElev(+e.target.value)} style={{ width: 80 }} />
+          <span style={{ minWidth: 32 }}>{elev}°</span>
+        </label>
+        <label style={CTL3D}>
+          Az
+          <input type="range" min={0} max={360} value={azim} onChange={e => setAzim(+e.target.value)} style={{ width: 80 }} />
+          <span style={{ minWidth: 32 }}>{azim}°</span>
+        </label>
+      </div>
+      <div style={{ padding: "2px 14px 8px", display: "flex", justifyContent: "center" }}>
+        <div>
+          <div style={{ width: 220, height: 12, background: "linear-gradient(to right, #b00030, #e83030, #f07040, #111828, #40a060, #20c870, #10e880)", borderRadius: 3, border: "1px solid #1a2a40" }} />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#3a4a60", fontFamily: "monospace", marginTop: 2 }}>
+            <span>Short/Puts</span><span>Neutral</span><span>Long/Calls</span>
+          </div>
+        </div>
       </div>
     </div>
   );
+}
+
+// ─────── Helper: format GEX dollar value ───────
+function fmtGex(v: number): string {
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "+";
+  if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sign}${Math.round(abs / 1e3)}K`;
+  return `${sign}${Math.round(abs)}`;
+}
+
+// ─────── HEATMAP GEX + 3D Surface ───────
+export function HeatmapView({ ticker, contracts }: Ctx) {
+  const today = new Date();
+  const DAYS  = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+
+  const { gexMap, expiries, strikes, absMax } = useMemo(() => {
+    const gexMap   = new Map<string, number>();
+    const strikeSet = new Set<number>();
+    const dteSet    = new Set<number>();
+    const spot      = ticker.spot;
+
+    for (const c of contracts) {
+      if (!c.gamma || !c.oi || !c.strike || c.expiry == null) continue;
+      if (Math.abs(c.strike / spot - 1) > 0.22) continue; // ±22% of spot
+      strikeSet.add(c.strike);
+      dteSet.add(c.expiry);
+      const sign = c.type === "call" ? 1 : -1;
+      const gex  = sign * c.gamma * c.oi * spot * spot * 0.01;
+      const key  = `${c.strike}|${c.expiry}`;
+      gexMap.set(key, (gexMap.get(key) ?? 0) + gex);
+    }
+
+    const strikes  = Array.from(strikeSet).sort((a, b) => b - a); // descending price
+    const expiries = Array.from(dteSet).sort((a, b) => a - b);    // ascending DTE
+    const vals     = Array.from(gexMap.values());
+    const absMax   = Math.max(1, ...vals.map(Math.abs));
+    return { gexMap, strikes, expiries, absMax };
+  }, [contracts, ticker.spot]);
+
+  // Auto-scroll to the top (highest strike) whenever data loads
+  useEffect(() => { tableScrollRef.current?.scrollTo({ top: 0, behavior: "instant" }); }, [strikes]);
+
+  // Cell background + text color based on normalized GEX
+  const cellStyle = (gex: number | undefined): { bg: string; color: string } => {
+    if (gex == null) return { bg: "transparent", color: "transparent" };
+    const n = gex / absMax; // –1 to +1
+    const a = Math.abs(n);
+    if (a < 0.02) return { bg: "transparent", color: "#2a2030" };
+    const alpha = Math.pow(a, 0.55) * 0.88;
+    if (n < 0) {
+      // Negative GEX — magenta/pink (CHARMEX style for short-gamma)
+      const r = Math.round(100 + a * 155);
+      const b = Math.round(60 + a * 140);
+      return {
+        bg: `rgba(${r},0,${b},${alpha})`,
+        color: a > 0.35 ? "#ffb8ff" : "#7a4a7a",
+      };
+    } else {
+      // Positive GEX — teal/cyan (long-gamma support)
+      const g = Math.round(80 + a * 160);
+      const b = Math.round(100 + a * 155);
+      return {
+        bg: `rgba(0,${g},${b},${alpha * 0.85})`,
+        color: a > 0.35 ? "#a0ffe8" : "#3a6060",
+      };
+    }
+  };
 
   return (
-    <Panel title="IV Heatmap & Surface" subtitle={`${ticker.symbol} · Implied Volatility · Strike × DTE`} noPad>
-      <div className="p-3">
-        <TerminalTabs
-          layoutId="iv-heatmap-tab-bg"
-          tabs={[
-            {
-              key: "surface",
-              label: "3D SURFACE",
-              content: <IvSurface3DReal strikes={strikes} expiries={expiries} cellMap={cellMap} min={min} max={max} spot={ticker.spot} />,
-            },
-            {
-              key: "flow",
-              label: <span style={{ background: "linear-gradient(90deg, #ffffff, #1e40af)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontWeight: 800 }}>HEATMAP</span>,
-              content: <OptionsFlowHeatmap ticker={ticker} contracts={contracts} />,
-            },
-          ]}
-        />
+    <div className="h-full overflow-y-auto space-y-3 pr-1">
+      {/* Row: GEX Heatmap + GEX 3D Surface */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+
+        {/* Professional GEX strike grid — CHARMEX style */}
+        <div style={{ borderRadius: 12, border: "1px solid #1a0f28", background: "#05030a" }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px 6px", borderBottom: "1px solid #100820" }}>
+            <span style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: "0.15em", color: "#5a3a7a", textTransform: "uppercase" }}>
+              {ticker.symbol} · GAMMA EXPOSURE
+            </span>
+            <span style={{ fontFamily: "monospace", fontSize: 9, color: "#4a2a5a", background: "#0d0616", border: "1px solid #1e0d30", borderRadius: 3, padding: "1px 6px" }}>
+              CMAP: gex
+            </span>
+          </div>
+
+          {/* Scrollable table */}
+          <div ref={tableScrollRef} style={{ overflowX: "auto", overflowY: "auto", maxHeight: 440 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 320, fontFamily: "monospace" }}>
+              <thead style={{ position: "sticky", top: 0, zIndex: 2, background: "#07040d" }}>
+                <tr>
+                  <th style={{ textAlign: "right", fontSize: 9, color: "#3a2050", padding: "4px 8px 4px 4px", width: 68, fontWeight: 400, borderBottom: "1px solid #100820" }}>
+                    STRIKE
+                  </th>
+                  {expiries.map(e => {
+                    const d = new Date(today.getTime() + e * 864e5);
+                    return (
+                      <th key={e} style={{ textAlign: "right", fontSize: 9, fontWeight: 400, padding: "3px 8px 3px 4px", minWidth: 84, borderBottom: "1px solid #100820" }}>
+                        <div style={{ color: e === 0 ? "#9060ff" : "#5a3a78" }}>{e}D</div>
+                        <div style={{ color: e === 0 ? "#6040aa" : "#342044", fontSize: 8, marginTop: 1 }}>
+                          ({DAYS[d.getDay()]}){MONTHS[d.getMonth()]} {d.getDate()}
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {strikes.map(s => {
+                  const isSpot = Math.abs(s - ticker.spot) < ticker.strikeStep;
+                  const rowVals = expiries.map(e => gexMap.get(`${s}|${e}`));
+                  if (rowVals.every(v => v == null)) return null;
+                  return (
+                    <tr
+                      key={s}
+                      style={{
+                        borderTop: isSpot ? "1px solid rgba(150,80,255,0.18)" : "1px solid rgba(0,0,0,0.15)",
+                        background: isSpot ? "rgba(100,40,160,0.06)" : "transparent",
+                      }}
+                    >
+                      <td style={{
+                        textAlign: "right", fontSize: 9, padding: "2px 8px 2px 4px",
+                        color: isSpot ? "#c090ff" : "#4a2870",
+                        fontWeight: isSpot ? 700 : 400,
+                      }}>
+                        ${s}{isSpot && <span style={{ color: "#7050cc", marginLeft: 2, fontSize: 8 }}>●</span>}
+                      </td>
+                      {rowVals.map((gex, i) => {
+                        const { bg, color } = cellStyle(gex);
+                        return (
+                          <td
+                            key={expiries[i]}
+                            title={gex != null ? `GEX ${fmtGex(gex)}` : ""}
+                            style={{
+                              textAlign: "right",
+                              fontSize: 9,
+                              padding: "2px 8px 2px 4px",
+                              background: bg,
+                              color,
+                            }}
+                          >
+                            {gex != null ? fmtGex(gex) : ""}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Color legend */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", borderTop: "1px solid #100820" }}>
+            <span style={{ fontFamily: "monospace", fontSize: 8, color: "#3a2050" }}>Short/Puts</span>
+            <div style={{
+              flex: 1, height: 5, borderRadius: 2,
+              background: "linear-gradient(to right, rgba(220,0,200,0.7), rgba(80,0,80,0.3), rgba(0,0,0,0), rgba(0,80,80,0.3), rgba(0,200,180,0.65))",
+            }} />
+            <span style={{ fontFamily: "monospace", fontSize: 8, color: "#3a2050" }}>Long/Calls</span>
+          </div>
+        </div>
+
+        {/* GEX 3D Surface — net gamma exposure by strike × DTE */}
+        <GexSurface3D contracts={contracts} spot={ticker.spot} symbol={ticker.symbol} />
       </div>
-    </Panel>
+
+      {/* Options Flow Heatmap below */}
+      <div className="rounded-xl border border-[#1a2030] bg-[#08090f] p-3">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-[#4a5a78] font-mono mb-2">Options Flow Heatmap</div>
+        <OptionsFlowHeatmap ticker={ticker} contracts={contracts} />
+      </div>
+    </div>
   );
 }
 

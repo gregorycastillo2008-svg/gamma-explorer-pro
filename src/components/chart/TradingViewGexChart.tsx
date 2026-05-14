@@ -5,6 +5,7 @@ import {
   LineData,
 } from "lightweight-charts";
 import type { ExposurePoint, KeyLevels, DemoTicker } from "@/lib/gex";
+import { GammaHeatmapOverlay } from "./GammaHeatmapOverlay";
 
 interface Props {
   ticker: DemoTicker;
@@ -13,14 +14,13 @@ interface Props {
   embedded?: boolean;
 }
 
-// Map dashboard ticker symbol → Yahoo Finance symbol
 function toYahooSym(sym: string): string {
   const s = sym.toUpperCase();
   if (s === "NQ" || s === "NQX") return "NQ=F";
   if (s === "ES" || s === "ESX") return "ES=F";
   if (s === "RTY")               return "RTY=F";
   if (s === "YM")                return "YM=F";
-  return s; // QQQ, SPY, AAPL, etc.
+  return s;
 }
 
 const SYMS = [
@@ -31,15 +31,22 @@ const SYMS = [
   { label: "NQ",   yf: "NQ=F"   },
 ];
 
+function bucketSizeForSym(yf: string): number {
+  if (yf === "NQ=F") return 50;
+  if (yf === "^GSPC" || yf === "ES=F") return 25;
+  return 1;
+}
+
 const LEGEND = [
-  { color: "#facc15", label: "ZERO γ",     solid: true  },
-  { color: "#e8963a", label: "PRICE",      solid: true  },
-  { color: "#00ff88", label: "MAX +GEX",   solid: true  },
-  { color: "#ff3355", label: "MAX −GEX",   solid: true  },
-  { color: "#16a34a", label: "CALL WALL",  solid: false },
-  { color: "#dc2626", label: "PUT WALL",   solid: false },
-  { color: "#c084fc", label: "MAJOR WALL", solid: false },
-  { color: "#fbbf24", label: "MAX PAIN",   solid: false },
+  { color: "#facc15", label: "ZERO γ",      solid: true  },
+  { color: "#e8963a", label: "PRICE",       solid: true  },
+  { color: "#00ff88", label: "MAX +GEX",    solid: true  },
+  { color: "#ff3355", label: "MAX −GEX",    solid: true  },
+  { color: "#16a34a", label: "CALL WALL",   solid: false },
+  { color: "#dc2626", label: "PUT WALL",    solid: false },
+  { color: "#c084fc", label: "MAJOR WALL",  solid: false },
+  { color: "#fbbf24", label: "MAX PAIN",    solid: false },
+  { color: "#06b6d4", label: "VOL TRIGGER", solid: false },
 ];
 
 // ── Parse Yahoo Finance OHLC ──────────────────────────────────────
@@ -186,15 +193,41 @@ function GexOverlay({
   );
 }
 
+// ── Level tooltip ────────────────────────────────────────────────
+interface LevelMeta {
+  price: number;
+  name: string;
+  color: string;
+  info: string;
+}
+
+interface LevelTip {
+  x: number;
+  y: number;
+  name: string;
+  price: number;
+  color: string;
+  distPct: string;
+  info: string;
+}
+
+function fmtCompact(n: number): string {
+  const a = Math.abs(n);
+  const s = n < 0 ? "-" : "+";
+  if (a >= 1e9) return `${s}${(a / 1e9).toFixed(1)}B`;
+  if (a >= 1e6) return `${s}${(a / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `${s}${(a / 1e3).toFixed(0)}K`;
+  return `${s}${a.toFixed(0)}`;
+}
+
 // ─────────────────────────────────────────────────────────────────
 export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Props) {
-  // Auto-sync chart symbol to dashboard ticker
   const [sym, setSym]             = useState(() => toYahooSym(ticker.symbol));
   const [loading, setLoading]     = useState(true);
   const [tick, setTick]           = useState(0);
   const [lastClose, setLastClose] = useState<number | null>(null);
+  const [levelTip, setLevelTip]   = useState<LevelTip | null>(null);
 
-  // When the dashboard ticker changes, switch the chart symbol
   useEffect(() => {
     setSym(toYahooSym(ticker.symbol));
   }, [ticker.symbol]);
@@ -208,6 +241,7 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
   const pLinesRef     = useRef<IPriceLine[]>([]);
   const levelsRef     = useRef(levels);
   const lastCloseRef  = useRef<number | null>(null);
+  const levelMetaRef  = useRef<LevelMeta[]>([]);
 
   useEffect(() => { levelsRef.current = levels; }, [levels]);
   useEffect(() => { lastCloseRef.current = lastClose; }, [lastClose]);
@@ -219,37 +253,40 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "#000000" },
-        textColor: "#4a6688",
+        textColor: "#aaaaaa",
         fontFamily: "'Courier New', monospace",
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: "#090d14" },
-        horzLines: { color: "#090d14" },
+        vertLines: { visible: false },
+        horzLines: { visible: false },
       },
-      rightPriceScale: { borderColor: "#0e1420" },
+      rightPriceScale: {
+        borderColor: "#111",
+        textColor: "#aaaaaa",
+      },
       timeScale: {
-        borderColor: "#0e1420",
+        borderColor: "#111",
+        textColor: "#555555",
         timeVisible: true,
         secondsVisible: false,
         fixLeftEdge: true,
       },
       crosshair: {
         mode: 1,
-        vertLine: { color: "#1a2535", width: 1, style: LineStyle.Dashed, labelBackgroundColor: "#0e1420" },
-        horzLine: { color: "#1a2535", width: 1, style: LineStyle.Dashed, labelBackgroundColor: "#0e1420" },
+        vertLine: { color: "rgba(255,255,255,0.14)", width: 1, style: LineStyle.Dashed, labelBackgroundColor: "#111" },
+        horzLine: { color: "rgba(255,255,255,0.14)", width: 1, style: LineStyle.Dashed, labelBackgroundColor: "#111" },
       },
     });
     chartRef.current = chart;
 
     const candles = chart.addCandlestickSeries({
-      upColor: "#22c55e", downColor: "#ef4444",
-      borderUpColor: "#22c55e", borderDownColor: "#ef4444",
-      wickUpColor: "#22c55e", wickDownColor: "#ef4444",
+      upColor: "#26a69a", downColor: "#ef5350",
+      borderVisible: false,
+      wickUpColor: "#26a69a", wickDownColor: "#ef5350",
     });
     seriesRef.current = candles;
 
-    // Delta Zero — rendered as a VWAP-style line ON the candlesticks
     const dzLine = chart.addLineSeries({
       color: "#facc15",
       lineWidth: 2,
@@ -269,10 +306,11 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
     return () => {
       ro.disconnect();
       chart.remove();
-      chartRef.current  = null;
-      seriesRef.current = null;
+      chartRef.current     = null;
+      seriesRef.current    = null;
       deltaZeroRef.current = null;
-      pLinesRef.current = [];
+      pLinesRef.current    = [];
+      levelMetaRef.current = [];
       candleDataRef.current = [];
     };
   }, []);
@@ -281,7 +319,6 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
   const syncDeltaZero = (data: CandlestickData[], flipPrice: number | null | undefined, chartPrice: number | null) => {
     const dz = deltaZeroRef.current;
     if (!dz || !data.length || flipPrice == null || !isFinite(flipPrice)) return;
-    // Only draw if gamma flip is within ±25% of the chart's actual price
     if (chartPrice != null && Math.abs(flipPrice - chartPrice) / chartPrice > 0.25) return;
     dz.setData(data.map(c => ({ time: c.time, value: flipPrice } as LineData)));
   };
@@ -290,7 +327,6 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
   useEffect(() => {
     setLoading(true);
     setLastClose(null);
-    // Clear delta zero while loading
     if (deltaZeroRef.current) deltaZeroRef.current.setData([]);
 
     fetchOHLC(sym).then(data => {
@@ -316,31 +352,38 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
     );
   }, [levels.gammaFlip, levels.volTrigger]);
 
-  // ── Price lines — only levels within ±22% of real chart price ─
+  // ── Price lines + level metadata for tooltip ─────────────────
   useEffect(() => {
     const series = seriesRef.current;
     if (!series) return;
     pLinesRef.current.forEach(pl => series.removePriceLine(pl));
-    pLinesRef.current = [];
+    pLinesRef.current    = [];
+    levelMetaRef.current = [];
 
-    // Use the actual fetched price as the reference; fall back to ticker.spot
     const refPrice = lastClose ?? ticker.spot;
 
     const add = (
       price: number | null | undefined,
-      color: string, title: string,
+      color: string,
+      title: string,
+      info: string,
       style: LineStyle = LineStyle.Dashed,
       width: 1 | 2 = 1,
     ) => {
       if (price == null || !isFinite(price)) return;
-      // Skip lines that are too far from the visible chart range
       if (Math.abs(price - refPrice) / refPrice > 0.22) return;
       pLinesRef.current.push(
         series.createPriceLine({ price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title }),
       );
+      levelMetaRef.current.push({ price, name: title, color, info });
     };
 
-    // Highest positive net GEX strike (green solid) and highest negative (red solid)
+    // Compute OI/GEX info backing each level
+    const cwExp = exposures.find(e => e.strike === levels.callWall);
+    const pwExp = exposures.find(e => e.strike === levels.putWall);
+    const mwExp = exposures.find(e => e.strike === levels.majorWall);
+    const vtExp = exposures.find(e => e.strike === levels.volTrigger);
+
     const maxPosEntry = exposures.length
       ? exposures.reduce((b, p) => p.netGex > b.netGex ? p : b, exposures[0])
       : null;
@@ -348,17 +391,39 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
       ? exposures.reduce((b, p) => p.netGex < b.netGex ? p : b, exposures[0])
       : null;
 
-    // PRICE = actual last close of the chart (not options ticker.spot which may differ)
-    add(lastClose ?? ticker.spot,       "#e8963a", "● PRICE",      LineStyle.Solid,  2);
-    add(maxPosEntry?.strike,            "#00ff88", "▲ MAX +GEX",   LineStyle.Solid,  2);
-    add(maxNegEntry?.strike,            "#ff3355", "▼ MAX −GEX",   LineStyle.Solid,  2);
-    add(levels.callWall,                "#16a34a", "CALL WALL",    LineStyle.Dashed, 1);
-    add(levels.putWall,                 "#dc2626", "PUT WALL",     LineStyle.Dashed, 1);
-    add(levels.majorWall,               "#c084fc", "MAJOR WALL",   LineStyle.Dashed, 1);
-    add(levels.maxPain,                 "#fbbf24", "MAX PAIN",     LineStyle.Dashed, 1);
+    add(lastClose ?? ticker.spot, "#e8963a", "● PRICE",     `Last close`, LineStyle.Solid, 2);
+    add(maxPosEntry?.strike,      "#00ff88", "▲ MAX +GEX",  maxPosEntry  ? `GEX ${fmtCompact(maxPosEntry.netGex)}` : "",  LineStyle.Solid, 2);
+    add(maxNegEntry?.strike,      "#ff3355", "▼ MAX −GEX",  maxNegEntry  ? `GEX ${fmtCompact(maxNegEntry.netGex)}` : "",  LineStyle.Solid, 2);
+    add(levels.callWall,          "#16a34a", "CALL WALL",   cwExp        ? `Call OI ${fmtCompact(cwExp.callOI)}` : "Call wall");
+    add(levels.putWall,           "#dc2626", "PUT WALL",    pwExp        ? `Put OI ${fmtCompact(pwExp.putOI)}` : "Put wall");
+    add(levels.majorWall,         "#c084fc", "MAJOR WALL",  mwExp        ? `Net GEX ${fmtCompact(mwExp.netGex)}` : "Major wall");
+    add(levels.maxPain,           "#fbbf24", "MAX PAIN",    "Min total option payout");
+    add(levels.volTrigger,        "#06b6d4", "VOL TRIGGER", vtExp        ? `Net GEX ${fmtCompact(vtExp.netGex)}` : "γ zero-crossing");
 
     setTick(n => n + 1);
   }, [levels, ticker.spot, exposures, lastClose]);
+
+  // ── Hover tooltip for level lines ────────────────────────────
+  function handleWrapperMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const series = seriesRef.current;
+    const wrapper = wrapperRef.current;
+    if (!series || !wrapper) { setLevelTip(null); return; }
+    const rect   = wrapper.getBoundingClientRect();
+    const mouseY = e.clientY - rect.top;
+    const mouseX = e.clientX - rect.left;
+
+    for (const lv of levelMetaRef.current) {
+      const coordY = series.priceToCoordinate(lv.price);
+      if (coordY == null) continue;
+      if (Math.abs(mouseY - coordY) <= 4) {
+        const ref      = lastCloseRef.current ?? ticker.spot;
+        const distPct  = ((lv.price - ref) / ref * 100).toFixed(2);
+        setLevelTip({ x: mouseX, y: coordY, name: lv.name, price: lv.price, color: lv.color, distPct, info: lv.info });
+        return;
+      }
+    }
+    setLevelTip(null);
+  }
 
   // ── Render ────────────────────────────────────────────────────
   const symBar = (
@@ -380,7 +445,6 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
         </button>
       ))}
 
-      {/* Live price badge */}
       {lastClose != null && (
         <span style={{
           fontFamily: "'Courier New',monospace", fontSize: 10, fontWeight: 700,
@@ -391,7 +455,6 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
         </span>
       )}
 
-      {/* Legend */}
       <div style={{
         marginLeft: "auto", display: "flex", flexWrap: "wrap", gap: "3px 8px",
         fontFamily: "'Courier New',monospace", fontSize: 9,
@@ -418,7 +481,12 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#000", minHeight: 0 }}>
       {symBar}
-      <div ref={wrapperRef} style={{ position: "relative", width: "100%", minHeight: 0, flex: 1 }}>
+      <div
+        ref={wrapperRef}
+        style={{ position: "relative", width: "100%", minHeight: 0, flex: 1 }}
+        onMouseMove={handleWrapperMouseMove}
+        onMouseLeave={() => setLevelTip(null)}
+      >
         {loading && (
           <div style={{
             position: "absolute", inset: 0, zIndex: 10,
@@ -429,7 +497,22 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
             Cargando {sym} 1m…
           </div>
         )}
+
+        {/* Candlestick chart (lightweight-charts owns this div at z-index 0) */}
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+
+        {/* Smoke heatmap — z-index 1, blur 18px */}
+        <GammaHeatmapOverlay
+          tick={tick}
+          chartRef={chartRef}
+          seriesRef={seriesRef}
+          wrapperRef={wrapperRef}
+          exposures={exposures}
+          spot={lastClose ?? ticker.spot}
+          bucketSize={bucketSizeForSym(sym)}
+        />
+
+        {/* GEX bars — z-index 2 */}
         <GexOverlay
           tick={tick}
           chart={chartRef.current}
@@ -438,6 +521,40 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
           exposures={exposures}
           spot={lastClose ?? ticker.spot}
         />
+
+        {/* Level hover tooltip */}
+        {levelTip && (
+          <div
+            style={{
+              position: "absolute",
+              left: Math.min(levelTip.x + 14, (wrapperRef.current?.clientWidth ?? 600) - 200),
+              top: Math.max(0, levelTip.y - 44),
+              background: "#1e1e1e",
+              border: `1px solid ${levelTip.color}`,
+              borderRadius: 6,
+              padding: "6px 10px",
+              pointerEvents: "none",
+              zIndex: 20,
+              fontFamily: "'Courier New', monospace",
+              minWidth: 160,
+            }}
+          >
+            <div style={{ color: levelTip.color, fontWeight: 700, fontSize: 10, letterSpacing: "0.1em", marginBottom: 3 }}>
+              {levelTip.name}
+            </div>
+            <div style={{ color: "#e0e0e0", fontSize: 11, fontWeight: 700 }}>
+              ${levelTip.price.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            </div>
+            <div style={{ color: Number(levelTip.distPct) >= 0 ? "#22c55e" : "#ef4444", fontSize: 9, marginTop: 2 }}>
+              {Number(levelTip.distPct) >= 0 ? "+" : ""}{levelTip.distPct}% from price
+            </div>
+            {levelTip.info && (
+              <div style={{ color: "#6b7280", fontSize: 9, marginTop: 2 }}>
+                {levelTip.info}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

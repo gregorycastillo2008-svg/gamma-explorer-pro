@@ -45,15 +45,15 @@ export function TopMetricsBar({ data }: Props) {
         <span className={SUB}>IV − HV30</span>
       </div>
 
-      {/* VIX Term Structure */}
+      {/* IV Term Structure (real ATM IV by expiry bucket) */}
       <div className="flex flex-col">
-        <span className={LABEL}>VIX TERM STRUCT</span>
+        <span className={LABEL}>IV TERM STRUCT</span>
         <div className="flex items-baseline gap-2 font-jetbrains text-[11px] text-[#9ca3af] tabular-nums">
-          <span>9D <b className="text-[#e5e7eb]">{data.vix.v9d.toFixed(2)}</b></span>
-          <span>VIX <b className="text-[#e5e7eb]">{data.vix.vix.toFixed(2)}</b></span>
-          <span>3M <b className="text-[#e5e7eb]">{data.vix.m3.toFixed(2)}</b></span>
+          <span>ST <b className="text-[#e5e7eb]">{data.vix.v9d.toFixed(2)}%</b></span>
+          <span>MT <b className="text-[#e5e7eb]">{data.vix.vix.toFixed(2)}%</b></span>
+          <span>LT <b className="text-[#e5e7eb]">{data.vix.m3.toFixed(2)}%</b></span>
         </div>
-        <span className={SUB}>Calls (contango)</span>
+        <span className={SUB}>{data.vix.structure} · ATM IV</span>
       </div>
     </div>
   );

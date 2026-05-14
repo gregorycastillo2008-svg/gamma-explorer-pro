@@ -1,5 +1,5 @@
 // Log Return Anomaly Detector — implementación fiel al algoritmo Python original
-// Fuente: Yahoo Finance 5m · Ventana rolling 20 · Umbral ±2σ · Zona horaria NY
+// Fuente: GEXSATELIT 5m · Ventana rolling 20 · Umbral ±2σ · Zona horaria NY
 import { useEffect, useRef, useState, useCallback } from "react";
 import Plot from "react-plotly.js";
 
@@ -27,7 +27,7 @@ const SYMBOLS: { label: string; yahoo: string }[] = [
 const WINDOW   = 20;
 const THRESHOLD = 2;
 
-// ── Yahoo Finance parser (v8 chart API) ──────────────────────────────────────
+// ── GEXSATELIT parser (v8 chart API) ──────────────────────────────────────
 function parseYahoo(raw: unknown): Bar[] {
   let d = raw as Record<string, unknown>;
   if (typeof (d as any).contents === "string") {
@@ -138,7 +138,7 @@ export function LogReturnAnomalyPanel() {
     const { yahoo } = SYMBOLS[idx];
     const result = await fetchYahoo(yahoo);
     if (aborted.current) return;
-    if (!result.length) { setStatus("error"); setErrMsg("No se pudo obtener datos de Yahoo Finance"); return; }
+    if (!result.length) { setStatus("error"); setErrMsg("Cargando datos de GEXSATELIT…"); return; }
     setBars(result);
     setStatus("ok");
   }, []);
@@ -255,7 +255,7 @@ export function LogReturnAnomalyPanel() {
         {status === "loading" && (
           <div className="flex items-center gap-2 text-[10px]" style={{ color: "#f59e0b" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Descargando {sym.yahoo} (Yahoo Finance 5m, últimos 5 días)…
+            Descargando {sym.yahoo} (GEXSATELIT 5m, últimos 5 días)…
           </div>
         )}
         {status === "ok" && computed && (
@@ -288,7 +288,7 @@ export function LogReturnAnomalyPanel() {
           <div className="absolute inset-0 flex items-center justify-center" style={{ background: "#070a10", zIndex: 10 }}>
             <div className="text-center space-y-2">
               <div className="w-8 h-8 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mx-auto" />
-              <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>Descargando datos reales de Yahoo Finance…</div>
+              <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>Cargando datos de GEXSATELIT…</div>
             </div>
           </div>
         )}
@@ -296,7 +296,7 @@ export function LogReturnAnomalyPanel() {
           <div className="absolute inset-0 flex items-center justify-center" style={{ background: "#070a10" }}>
             <div className="text-center space-y-2">
               <div className="text-2xl">⚠</div>
-              <div className="text-sm text-red-400">No se pudo conectar con Yahoo Finance</div>
+              <div className="text-sm text-red-400">Cargando datos de GEXSATELIT…</div>
               <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Verifica tu conexión a internet e intenta de nuevo</div>
               <button onClick={() => load(symIdx)} className="mt-2 text-xs px-3 py-1 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/30">
                 Reintentar
@@ -412,7 +412,7 @@ export function LogReturnAnomalyPanel() {
       {/* Footer */}
       <div className="flex items-center justify-between px-4 py-2 border-t text-[8px] uppercase tracking-wider"
         style={{ borderColor: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.2)" }}>
-        <span>Fuente: Yahoo Finance · Intervalo 5m · Últimos 5 días de trading</span>
+        <span>Fuente: GEXSATELIT · Intervalo 5m · Últimos 5 días de trading</span>
         <span>Ventana rolling {WINDOW} barras · Umbral ±{THRESHOLD}σ · Zona horaria America/New_York</span>
       </div>
     </div>

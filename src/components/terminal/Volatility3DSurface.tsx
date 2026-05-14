@@ -112,6 +112,7 @@ export function Volatility3DSurface({ spot = 100, surface }: Props) {
   const [azim, setAzim] = useState(220);
   const [showDataPts, setShowDataPts] = useState(true);
   const [showRefPlane, setShowRefPlane] = useState(true);
+  const [showGrid, setShowGrid] = useState(true);
   const [tip, setTip] = useState<TooltipData | null>(null);
 
   // Memoize so the effect only re-runs when surface data actually changes
@@ -126,6 +127,7 @@ export function Volatility3DSurface({ spot = 100, surface }: Props) {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const dataPtsRef = useRef<THREE.Group | null>(null);
   const refPlaneRef = useRef<THREE.Mesh | null>(null);
+  const gridRef = useRef<THREE.GridHelper | null>(null);
 
   function updateCam() {
     const cam = cameraRef.current;
@@ -141,6 +143,7 @@ export function Volatility3DSurface({ spot = 100, surface }: Props) {
   useEffect(() => { azimRef.current = azim; updateCam(); }, [azim]);
   useEffect(() => { if (dataPtsRef.current) dataPtsRef.current.visible = showDataPts; }, [showDataPts]);
   useEffect(() => { if (refPlaneRef.current) refPlaneRef.current.visible = showRefPlane; }, [showRefPlane]);
+  useEffect(() => { if (gridRef.current) gridRef.current.visible = showGrid; }, [showGrid]);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -265,7 +268,9 @@ export function Volatility3DSurface({ spot = 100, surface }: Props) {
 
     const grid3 = new THREE.GridHelper(5, 12, 0x222222, 0x1a1a1a);
     grid3.position.y = -0.65;
+    grid3.visible = showGrid;
     scene.add(grid3);
+    gridRef.current = grid3;
 
     const axLine = (a: [number, number, number], b: [number, number, number], col: number, op = 0.6) => {
       const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]);
@@ -411,6 +416,18 @@ export function Volatility3DSurface({ spot = 100, surface }: Props) {
           <input type="checkbox" checked={showRefPlane} onChange={(e) => setShowRefPlane(e.target.checked)} />
           Ref plane
         </label>
+        <button
+          onClick={() => setShowGrid(g => !g)}
+          style={{
+            padding: "3px 10px", fontSize: 11, fontFamily: "monospace",
+            background: showGrid ? "rgba(34,34,34,0.9)" : "transparent",
+            border: `1px solid ${showGrid ? "#444" : "#2a2a2a"}`,
+            borderRadius: 5, color: showGrid ? "#e5e7eb" : "#555",
+            cursor: "pointer", transition: "all 0.15s",
+          }}
+        >
+          {showGrid ? "⊞ Grid ON" : "⊟ Grid OFF"}
+        </button>
       </div>
 
       <div style={{ display: "flex", justifyContent: "center", marginTop: 8, gap: 0, alignItems: "center" }}>

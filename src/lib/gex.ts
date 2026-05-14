@@ -267,10 +267,17 @@ export function generateDemoChain(t: DemoTicker): OptionContract[] {
   for (const expiry of t.expiries) {
     for (let k = minK; k <= maxK; k += t.strikeStep) {
       const moneyness = (k - t.spot) / t.spot;
-      // IV smile
-      const iv = t.baseIV * (1 + 0.8 * moneyness * moneyness) * (0.9 + rand() * 0.2);
+      // Real vol skew: negative slope (puts expensive) + parabolic wing premium
+      // m < 0 → OTM put → higher IV; m > 0 → OTM call → lower IV
+      const m = moneyness;
+      const baseSmile = t.baseIV * (1 + (-1.4 * m) + (1.8 * m * m));
+      const noise = 0.92 + rand() * 0.16;
+      // Small put/call divergence at same strike (realistic market microstructure)
+      const putPremium  = m < 0 ? 1 + (-0.04 * m) : 1;  // OTM puts: +0–5% extra
+      const callDiscount = m > 0 ? 1 - ( 0.03 * m) : 1;  // OTM calls: 0–4% cheaper
+      const ivBase = Math.max(0.04, baseSmile * noise);
       // OI distribution: peaks at round numbers and ATM
-      const distFromATM = Math.abs(moneyness);
+      const distFromATM = Math.abs(m);
       const baseOI = Math.exp(-distFromATM * 12) * 8000 + rand() * 1500;
       const roundBoost = k % (t.strikeStep * 4) === 0 ? 1.8 : 1;
       const expiryWeight = expiry <= 7 ? 1.4 : expiry <= 30 ? 1 : 0.6;
@@ -283,14 +290,14 @@ export function generateDemoChain(t: DemoTicker): OptionContract[] {
         strike: k,
         expiry,
         type: "call",
-        iv,
+        iv: Math.max(0.04, ivBase * callDiscount),
         oi: Math.round(baseOI * roundBoost * expiryWeight * callBias),
       });
       contracts.push({
         strike: k,
         expiry,
         type: "put",
-        iv,
+        iv: Math.max(0.04, ivBase * putPremium),
         oi: Math.round(baseOI * roundBoost * expiryWeight * putBias),
       });
     }
