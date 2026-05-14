@@ -44,24 +44,16 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/react') ||
-              id.includes('node_modules/react-dom') ||
-              id.includes('node_modules/react-router')) {
-            return 'react-vendor';
-          }
-          if (id.includes('node_modules/recharts') ||
-              id.includes('node_modules/d3')) {
-            return 'chart-vendor';
-          }
-          if (id.includes('node_modules/three')) {
-            return 'three-vendor';
-          }
-          if (id.includes('node_modules/@supabase')) {
-            return 'supabase-vendor';
-          }
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
+          if (/node_modules[\\/]plotly\.js/.test(id) || /node_modules[\\/]react-plotly/.test(id)) return 'plotly-vendor';
+          if (/node_modules[\\/]three[\\/]/.test(id)) return 'three-vendor';
+          if (/node_modules[\\/]@supabase[\\/]/.test(id)) return 'supabase-vendor';
+          if (/node_modules[\\/]framer-motion[\\/]/.test(id)) return 'motion-vendor';
+          if (/node_modules[\\/]@radix-ui[\\/]/.test(id)) return 'radix-vendor';
+          if (/node_modules[\\/]react-router/.test(id)) return 'react-router-vendor';
+          if (/node_modules[\\/]react-dom[\\/]/.test(id)) return 'react-vendor';
+          if (/node_modules[\\/]react[\\/]/.test(id)) return 'react-vendor';
+          if (/node_modules[\\/]@tanstack[\\/]/.test(id)) return 'query-vendor';
+          if (/node_modules[\\/]/.test(id)) return 'vendor';
         },
       },
     },

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Plotly from "plotly.js/dist/plotly";
 
 interface Props {
   strikes: number[];
@@ -146,9 +147,6 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
   useEffect(() => {
     const div = plotDivRef.current;
     if (!div) return;
-    const Plotly = (window as any).Plotly;
-    if (!Plotly) return;
-
     const refZ = dteAxis.map(() => strikeAxis.map(() => midIV));
 
     const data = [
@@ -267,8 +265,7 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
   // ── Camera update ──────────────────────────────────────────────────────────
   useEffect(() => {
     const div = plotDivRef.current;
-    const Plotly = (window as any).Plotly;
-    if (!div || !Plotly) return;
+    if (!div) return;
     const el = elev * Math.PI / 180;
     const az = azim * Math.PI / 180;
     const d = 2.5;
@@ -284,8 +281,7 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
   // ── Grid toggle ────────────────────────────────────────────────────────────
   useEffect(() => {
     const div = plotDivRef.current;
-    const Plotly = (window as any).Plotly;
-    if (!div || !Plotly) return;
+    if (!div) return;
     Plotly.relayout(div, {
       "scene.xaxis.showgrid": showGrid, "scene.xaxis.showbackground": showGrid,
       "scene.yaxis.showgrid": showGrid, "scene.yaxis.showbackground": showGrid,
@@ -296,15 +292,13 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
   // ── Trace visibility ───────────────────────────────────────────────────────
   useEffect(() => {
     const div = plotDivRef.current;
-    const Plotly = (window as any).Plotly;
-    if (!div || !Plotly) return;
+    if (!div) return;
     Plotly.restyle(div, { visible: showRefPlane }, [1]);
   }, [showRefPlane]);
 
   useEffect(() => {
     const div = plotDivRef.current;
-    const Plotly = (window as any).Plotly;
-    if (!div || !Plotly) return;
+    if (!div) return;
     Plotly.restyle(div, { visible: showDataPts }, [2]);
   }, [showDataPts]);
 

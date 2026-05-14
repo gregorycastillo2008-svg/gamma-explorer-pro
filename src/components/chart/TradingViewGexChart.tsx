@@ -5,6 +5,7 @@ import {
   LineData,
 } from "lightweight-charts";
 import type { ExposurePoint, KeyLevels, DemoTicker } from "@/lib/gex";
+import { GammaHeatmapOverlay } from "./GammaHeatmapOverlay";
 
 interface Props {
   ticker: DemoTicker;
@@ -30,6 +31,12 @@ const SYMS = [
   { label: "SPY",  yf: "SPY"    },
   { label: "NQ",   yf: "NQ=F"   },
 ];
+
+function bucketSizeForSym(yf: string): number {
+  if (yf === "NQ=F") return 50;
+  if (yf === "^GSPC" || yf === "ES=F") return 25;
+  return 1;
+}
 
 const LEGEND = [
   { color: "#facc15", label: "ZERO γ",     solid: true  },
@@ -219,33 +226,37 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "#000000" },
-        textColor: "#4a6688",
+        textColor: "#aaaaaa",
         fontFamily: "'Courier New', monospace",
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: "#090d14" },
-        horzLines: { color: "#090d14" },
+        vertLines: { visible: false },
+        horzLines: { visible: false },
       },
-      rightPriceScale: { borderColor: "#0e1420" },
+      rightPriceScale: {
+        borderColor: "#111",
+        textColor: "#aaaaaa",
+      },
       timeScale: {
-        borderColor: "#0e1420",
+        borderColor: "#111",
+        textColor: "#555555",
         timeVisible: true,
         secondsVisible: false,
         fixLeftEdge: true,
       },
       crosshair: {
         mode: 1,
-        vertLine: { color: "#1a2535", width: 1, style: LineStyle.Dashed, labelBackgroundColor: "#0e1420" },
-        horzLine: { color: "#1a2535", width: 1, style: LineStyle.Dashed, labelBackgroundColor: "#0e1420" },
+        vertLine: { color: "rgba(255,255,255,0.14)", width: 1, style: LineStyle.Dashed, labelBackgroundColor: "#111" },
+        horzLine: { color: "rgba(255,255,255,0.14)", width: 1, style: LineStyle.Dashed, labelBackgroundColor: "#111" },
       },
     });
     chartRef.current = chart;
 
     const candles = chart.addCandlestickSeries({
-      upColor: "#22c55e", downColor: "#ef4444",
-      borderUpColor: "#22c55e", borderDownColor: "#ef4444",
-      wickUpColor: "#22c55e", wickDownColor: "#ef4444",
+      upColor: "#26a69a", downColor: "#ef5350",
+      borderVisible: false,
+      wickUpColor: "#26a69a", wickDownColor: "#ef5350",
     });
     seriesRef.current = candles;
 
@@ -430,6 +441,15 @@ export function TradingViewGexChart({ ticker, exposures, levels, embedded }: Pro
           </div>
         )}
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        <GammaHeatmapOverlay
+          tick={tick}
+          chartRef={chartRef}
+          seriesRef={seriesRef}
+          wrapperRef={wrapperRef}
+          exposures={exposures}
+          spot={lastClose ?? ticker.spot}
+          bucketSize={bucketSizeForSym(sym)}
+        />
         <GexOverlay
           tick={tick}
           chart={chartRef.current}
