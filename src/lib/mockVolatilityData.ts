@@ -171,25 +171,77 @@ export function buildVolatilityDataset(
   const volPremium = +(atmIV - last.hv30).toFixed(2);
   const diRisk = Math.max(0, Math.min(100, +((atmIV - 8) * 4.7).toFixed(1)));
 
-  const vix = {
-    v9d: +(atmIV * 1.05).toFixed(2),
-    vix: +(atmIV * 1.18).toFixed(2),
-    m3: +(atmIV * 1.34).toFixed(2),
-    structure: "Contango" as const,
-  };
-
-  // Put/Call IV per DTE bucket for the bars chart
-  const putIvBars = [1, 3, 5, 7, 9].map((d) => {
-    const sk = generateIVSkew(spot, d, baseIV);
-    const p5 = sk.reduce((b, p) => Math.abs(p.strike - spot * 0.95) < Math.abs(b.strike - spot * 0.95) ? p : b, sk[0]);
-    const c5 = sk.reduce((b, p) => Math.abs(p.strike - spot * 1.05) < Math.abs(b.strike - spot * 1.05) ? p : b, sk[0]);
-    return {
-      dte: `${d}d`,
-      putIv:  +(p5.iv * 100).toFixed(2),
-      callIv: +(c5.iv * 100).toFixed(2),
-      rr:     +(p5.iv * 100 - c5.iv * 100).toFixed(2),
+  // IV Term Structure — real ATM IV at short / medium / long expiry from real contracts
+  // Labels repurposed: v9d=short (≤10d), vix=medium (25-35d), m3=long (85-95d)
+  let vix: { v9d: number; vix: number; m3: number; structure: "Contango" | "Backwardation" };
+  if (realContracts && realContracts.length > 0) {
+    const atmBand = (c: OptionContract) => Math.abs(c.strike / spot - 1) <= 0.025 && c.iv > 0;
+    const ivAtBucket = (minDte: number, maxDte: number) => {
+      const slice = realContracts.filter((c) => atmBand(c) && c.expiry >= minDte && c.expiry <= maxDte);
+      return slice.length ? (slice.reduce((s, c) => s + c.iv, 0) / slice.length) * 100 : 0;
     };
-  });
+    const short = ivAtBucket(1, 12) || ivAtBucket(1, 20);
+    const med   = ivAtBucket(22, 38) || ivAtBucket(15, 45);
+    const lng   = ivAtBucket(80, 100) || ivAtBucket(60, 120);
+    const s = short || atmIV;
+    const m = med   || atmIV * 1.02;
+    const l = lng   || atmIV * 1.05;
+    vix = {
+      v9d: +s.toFixed(2),
+      vix:  +m.toFixed(2),
+      m3:   +l.toFixed(2),
+      structure: s > m ? "Backwardation" : "Contango",
+    };
+  } else {
+    vix = {
+      v9d: +(atmIV * 1.05).toFixed(2),
+      vix: +(atmIV * 1.18).toFixed(2),
+      m3:  +(atmIV * 1.34).toFixed(2),
+      structure: "Contango" as const,
+    };
+  }
+
+  // Put/Call IV per DTE bucket — real when contracts available, mock fallback
+  let putIvBars: { dte: string; putIv: number; callIv: number; rr: number }[];
+  if (realContracts && realContracts.length > 0) {
+    // Target expiry buckets; match closest available expiries from real chain
+    const uniqExp = Array.from(new Set(realContracts.map((c) => c.expiry))).sort((a, b) => a - b);
+    const targets = [7, 14, 30, 60, 90];
+    const avgIv = (arr: OptionContract[]) =>
+      arr.length ? arr.reduce((s, c) => s + c.iv, 0) / arr.length : 0;
+
+    putIvBars = targets.map((tgt) => {
+      const nearest = uniqExp.reduce((b, e) => Math.abs(e - tgt) < Math.abs(b - tgt) ? e : b, uniqExp[0]);
+      if (Math.abs(nearest - tgt) > tgt * 0.6) return null; // no nearby expiry
+      const slice = realContracts.filter((c) => c.expiry === nearest && c.iv > 0);
+      // 5% OTM puts and calls (±3-8% from spot)
+      const puts5  = slice.filter((c) => c.type === "put"  && (spot - c.strike) / spot >= 0.03 && (spot - c.strike) / spot <= 0.09);
+      const calls5 = slice.filter((c) => c.type === "call" && (c.strike - spot) / spot >= 0.03 && (c.strike - spot) / spot <= 0.09);
+      const putIv  = +(avgIv(puts5)  * 100).toFixed(2);
+      const callIv = +(avgIv(calls5) * 100).toFixed(2);
+      if (putIv === 0 && callIv === 0) return null;
+      return { dte: `${nearest}d`, putIv, callIv, rr: +(putIv - callIv).toFixed(2) };
+    }).filter((b): b is NonNullable<typeof b> => b !== null);
+
+    if (putIvBars.length === 0) {
+      // Fallback: use ATM IV per expiry bucket
+      putIvBars = uniqExp.slice(0, 6).map((exp) => {
+        const atm = realContracts.filter((c) => c.expiry === exp && Math.abs(c.strike - spot) <= spot * 0.04 && c.iv > 0);
+        const puts  = atm.filter((c) => c.type === "put");
+        const calls = atm.filter((c) => c.type === "call");
+        const putIv  = +(avgIv(puts)  * 100).toFixed(2);
+        const callIv = +(avgIv(calls) * 100).toFixed(2);
+        return { dte: `${exp}d`, putIv, callIv, rr: +(putIv - callIv).toFixed(2) };
+      }).filter((b) => b.putIv > 0 || b.callIv > 0);
+    }
+  } else {
+    putIvBars = [1, 3, 5, 7, 9].map((d) => {
+      const sk = generateIVSkew(spot, d, baseIV);
+      const p5 = sk.reduce((b, p) => Math.abs(p.strike - spot * 0.95) < Math.abs(b.strike - spot * 0.95) ? p : b, sk[0]);
+      const c5 = sk.reduce((b, p) => Math.abs(p.strike - spot * 1.05) < Math.abs(b.strike - spot * 1.05) ? p : b, sk[0]);
+      return { dte: `${d}d`, putIv: +(p5.iv * 100).toFixed(2), callIv: +(c5.iv * 100).toFixed(2), rr: +(p5.iv * 100 - c5.iv * 100).toFixed(2) };
+    });
+  }
 
   return {
     symbol, spot,
