@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
-import { formatNumber, DemoTicker, ExposurePoint, KeyLevels, OptionContract, buildIvGrid } from "@/lib/gex";
+import { formatNumber, DemoTicker, ExposurePoint, KeyLevels, OptionContract } from "@/lib/gex";
 import { Panel } from "./Panel";
 import { Info } from "lucide-react";
-import { IvSurface3D } from "./IvSurface3D";
+import { VolRegimeSurface } from "./VolRegimeSurface";
 
 interface Props {
   ticker: DemoTicker;
@@ -559,10 +559,14 @@ export function VolatilityRegimeIndicator({ ticker, exposures, levels, contracts
         </div>
       </div>
 
-      {/* ── IV VOLATILITY SURFACE 3D ─────────────────────────────────────────── */}
-      <Panel title="IV Volatility Surface" subtitle="Strike × Expiry × IV" noPad>
-        <IvSurface3D cells={buildIvGrid(contracts)} spot={ticker.spot} />
-      </Panel>
+      {/* ── VOL REGIME SURFACE ───────────────────────────────────────────────── */}
+      <VolRegimeSurface
+        contracts={contracts}
+        spot={ticker.spot}
+        symbol={ticker.symbol}
+        regime={data.regime}
+        compositeScore={data.compositeScore}
+      />
 
       {/* Footer */}
       <div className="text-[8px] text-slate-700 text-center font-mono pt-1">
