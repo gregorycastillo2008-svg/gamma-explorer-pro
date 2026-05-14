@@ -42,6 +42,8 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
   const [expiryFilter, setExpiryFilter] = useState<string>("all");
   const [selected, setSelected]       = useState<number | null>(null);
   const [hover, setHover]             = useState<number | null>(null);
+  const [expiryOpen, setExpiryOpen]   = useState(false);
+  const [detailOpen, setDetailOpen]   = useState(false);
   const scrollRef                     = useRef<HTMLDivElement>(null);
 
   const expiries = useMemo(() => {
@@ -184,64 +186,86 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
       style={{ background: C.bg, border: `1px solid ${C.border}`, fontFamily: FONT }}>
 
       {/* ─── TOOLBAR ─── */}
-      <div className="flex items-center gap-3 px-4 py-2 shrink-0 flex-wrap"
-        style={{ borderBottom: `1px solid ${C.border}`, background: C.panel }}>
-        <span style={{ color: "#4a5580", fontSize: 10, letterSpacing: "0.2em" }} className="uppercase font-bold">
-          Horizontal GEX · {ticker.symbol}
-        </span>
-
-        <div className="flex rounded overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
-          {(["GEX", "DEX", "VEX"] as Metric[]).map((m) => (
-            <button key={m} onClick={() => setMetric(m)}
-              className="px-2.5 py-1 text-[10px] font-bold tracking-wider transition-colors"
-              style={{ background: metric === m ? C.green : "transparent", color: metric === m ? "#000" : C.muted }}>
-              {m}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider">EXP</span>
-          {[{ v: "all", l: "ALL", sub: "" }, ...expiries.map(e => ({
-            v: String(e), l: `${e}D`,
-            sub: e === 0 ? "HOY" : e === 1 ? "MAÑANA" : e === 2 ? "PASADO MÑN" : e === 7 ? "WEEKLY" : e === 14 ? "2-WEEK" : e === 30 ? "MONTHLY" : "",
-          }))].map(({ v, l, sub }) => (
-            <button key={v} onClick={() => setExpiryFilter(v)}
-              style={{ display: "flex", flexDirection: "column", alignItems: "center",
-                fontSize: 9, padding: "2px 7px", borderRadius: 3, fontFamily: FONT,
-                letterSpacing: "0.08em", cursor: "pointer",
-                background: expiryFilter === v ? C.green : "transparent",
-                color: expiryFilter === v ? "#000" : C.muted,
-                border: `1px solid ${expiryFilter === v ? C.green : C.border}` }}>
-              <span style={{ fontWeight: 700 }}>{l}</span>
-              {sub && <span style={{ fontSize: 7, opacity: 0.75 }}>{sub}</span>}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2 ml-auto">
-          <span style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider">Vista</span>
-          <button onClick={() => setZoom(0)}
-            style={{ fontSize: 9, padding: "2px 8px", borderRadius: 3, fontFamily: FONT,
-              letterSpacing: "0.1em", background: zoom === 0 ? C.green : "transparent",
-              color: zoom === 0 ? "#000" : C.muted,
-              border: `1px solid ${zoom === 0 ? C.green : C.border}`, cursor: "pointer" }}>
-            ALL
-          </button>
-          <input type="range" min={10} max={80} step={2}
-            value={zoom === 0 ? 10 : zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            style={{ accentColor: C.green }} className="w-24" />
-          <span style={{ color: C.text, fontSize: 10 }} className="font-bold w-12 text-right">
-            {zoom === 0 ? `ALL (${rows.length})` : rows.length}
+      <div className="shrink-0" style={{ borderBottom: `1px solid ${C.border}`, background: C.panel }}>
+        {/* Main row */}
+        <div className="flex items-center gap-3 px-4 py-2 flex-wrap">
+          <span style={{ color: "#4a5580", fontSize: 10, letterSpacing: "0.2em" }} className="uppercase font-bold">
+            Horizontal GEX · {ticker.symbol}
           </span>
+
+          <div className="flex rounded overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+            {(["GEX", "DEX", "VEX"] as Metric[]).map((m) => (
+              <button key={m} onClick={() => setMetric(m)}
+                className="px-2.5 py-1 text-[10px] font-bold tracking-wider transition-colors"
+                style={{ background: metric === m ? C.green : "transparent", color: metric === m ? "#000" : C.muted }}>
+                {m}
+              </button>
+            ))}
+          </div>
+
+          {/* EXP compact trigger */}
+          <button
+            onClick={() => setExpiryOpen(o => !o)}
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              fontSize: 9, padding: "2px 9px", borderRadius: 3, fontFamily: FONT,
+              letterSpacing: "0.1em", cursor: "pointer", fontWeight: 700,
+              background: expiryFilter !== "all" ? `${C.green}20` : "transparent",
+              color: expiryFilter !== "all" ? C.green : C.muted,
+              border: `1px solid ${expiryFilter !== "all" ? C.green : C.border}`,
+            }}>
+            <span>EXP: {expiryFilter === "all" ? "ALL" : `${expiryFilter}D`}</span>
+            <span style={{ fontSize: 8, opacity: 0.7 }}>{expiryOpen ? "▲" : "▼"}</span>
+          </button>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <span style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider">Vista</span>
+            <button onClick={() => setZoom(0)}
+              style={{ fontSize: 9, padding: "2px 8px", borderRadius: 3, fontFamily: FONT,
+                letterSpacing: "0.1em", background: zoom === 0 ? C.green : "transparent",
+                color: zoom === 0 ? "#000" : C.muted,
+                border: `1px solid ${zoom === 0 ? C.green : C.border}`, cursor: "pointer" }}>
+              ALL
+            </button>
+            <input type="range" min={10} max={80} step={2}
+              value={zoom === 0 ? 10 : zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              style={{ accentColor: C.green }} className="w-24" />
+            <span style={{ color: C.text, fontSize: 10 }} className="font-bold w-12 text-right">
+              {zoom === 0 ? `ALL (${rows.length})` : rows.length}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded"
+            style={{ background: `${C.yellow}15`, border: `1px solid ${C.yellow}40` }}>
+            <span style={{ background: C.yellow }} className="h-2 w-2 rounded-full" />
+            <span style={{ color: C.yellow, fontSize: 10, fontWeight: 700 }}>SPOT ${ticker.spot.toFixed(2)}</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded"
-          style={{ background: `${C.yellow}15`, border: `1px solid ${C.yellow}40` }}>
-          <span style={{ background: C.yellow }} className="h-2 w-2 rounded-full" />
-          <span style={{ color: C.yellow, fontSize: 10, fontWeight: 700 }}>SPOT ${ticker.spot.toFixed(2)}</span>
-        </div>
+        {/* EXP dropdown row — collapses with arrow */}
+        {expiryOpen && (
+          <div className="flex items-center gap-1.5 flex-wrap px-4 py-2"
+            style={{ borderTop: `1px solid ${C.border}`, background: "#050505" }}>
+            <span style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider mr-1">Expiry</span>
+            {[{ v: "all", l: "ALL", sub: "" }, ...expiries.map(e => ({
+              v: String(e), l: `${e}D`,
+              sub: e === 0 ? "HOY" : e === 1 ? "MAÑANA" : e === 2 ? "PASADO MÑN" : e === 7 ? "WEEKLY" : e === 14 ? "2-WEEK" : e === 30 ? "MONTHLY" : "",
+            }))].map(({ v, l, sub }) => (
+              <button key={v}
+                onClick={() => { setExpiryFilter(v); setExpiryOpen(false); }}
+                style={{ display: "flex", flexDirection: "column", alignItems: "center",
+                  fontSize: 9, padding: "2px 7px", borderRadius: 3, fontFamily: FONT,
+                  letterSpacing: "0.08em", cursor: "pointer",
+                  background: expiryFilter === v ? C.green : "transparent",
+                  color: expiryFilter === v ? "#000" : C.muted,
+                  border: `1px solid ${expiryFilter === v ? C.green : C.border}` }}>
+                <span style={{ fontWeight: 700 }}>{l}</span>
+                {sub && <span style={{ fontSize: 7, opacity: 0.75 }}>{sub}</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ─── BODY ─── */}
@@ -378,60 +402,75 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
         {/* ─── SIDEBAR ─── */}
         <div className="flex flex-col overflow-y-auto" style={{ background: C.panel }}>
           <div className="p-3 flex flex-col gap-2.5">
+
+            {/* Strike Detail — collapsible */}
             <div>
-              <div style={{ color: C.green, fontSize: 10, letterSpacing: "0.2em" }} className="font-bold uppercase">Strike Detail</div>
-              <div style={{ color: C.muted, fontSize: 9 }}>Click a bar to inspect</div>
+              <button
+                onClick={() => setDetailOpen(o => !o)}
+                className="w-full flex items-center justify-between"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <span style={{ color: C.green, fontSize: 10, letterSpacing: "0.2em", fontWeight: 700, fontFamily: FONT }} className="uppercase">
+                  Strike Detail
+                </span>
+                <span style={{ color: C.muted, fontSize: 10, fontFamily: FONT }}>
+                  {detailOpen ? "▲" : "▼"}
+                </span>
+              </button>
+
+              {detailOpen && (
+                <div className="mt-2 flex flex-col gap-2">
+                  {!detail ? (
+                    <div className="rounded p-3 text-center text-[10px]"
+                      style={{ background: "#000", border: `1px dashed ${C.border}`, color: C.muted }}>
+                      Click a bar to inspect
+                    </div>
+                  ) : (
+                    <div className="rounded p-3 flex flex-col gap-2"
+                      style={{ background: "#000", border: `1px solid ${detail.r.shares >= 0 ? C.green : C.red}` }}>
+                      <div className="flex items-center justify-between">
+                        <span style={{ color: C.text, fontSize: 18, fontWeight: 700 }}>${detail.r.strike}</span>
+                        <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
+                          style={{ color: detail.cls.color, background: `${detail.cls.color}15`, border: `1px solid ${detail.cls.color}40` }}>
+                          {detail.cls.label}
+                        </span>
+                      </div>
+                      <DetailRow label="Distance from Spot"
+                        value={`${detail.distPct >= 0 ? "+" : ""}${detail.distPct.toFixed(2)}%`}
+                        color={detail.distPct >= 0 ? C.green : C.red} />
+                      <Divider />
+                      <DetailRow label="Call OI" value={formatNumber(detail.r.callOI, 0)} color={C.green} />
+                      <DetailRow label="Put OI"  value={formatNumber(detail.r.putOI, 0)}  color={C.red} />
+                      <Divider />
+                      <DetailRow label="Total Gamma" value={formatNumber(detail.r.netGex)} color={detail.r.netGex >= 0 ? C.green : C.red} bold />
+                      <DetailRow label="Total Delta" value={formatNumber(detail.r.dex)}    color={detail.r.dex >= 0 ? C.cyan : C.red} bold />
+                      <DetailRow label="Call GEX" value={formatNumber(detail.r.callGex)} color={C.green} dim />
+                      <DetailRow label="Put GEX"  value={formatNumber(detail.r.putGex)}  color={C.red} dim />
+                      <button onClick={() => setSelected(null)}
+                        className="mt-1 text-[9px] uppercase tracking-wider py-1 rounded"
+                        style={{ color: C.muted, border: `1px solid ${C.border}`, fontFamily: FONT, cursor: "pointer", background: "none" }}>
+                        Clear selection
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {!detail && (
-              <div className="rounded p-4 text-center text-[11px]"
-                style={{ background: "#000", border: `1px dashed ${C.border}`, color: C.muted }}>
-                No strike selected
-              </div>
-            )}
-
-            {detail && (
-              <div className="rounded p-3 flex flex-col gap-2"
-                style={{ background: "#000", border: `1px solid ${detail.r.shares >= 0 ? C.green : C.red}` }}>
-                <div className="flex items-center justify-between">
-                  <span style={{ color: C.text, fontSize: 18, fontWeight: 700 }}>${detail.r.strike}</span>
-                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
-                    style={{ color: detail.cls.color, background: `${detail.cls.color}15`, border: `1px solid ${detail.cls.color}40` }}>
-                    {detail.cls.label}
-                  </span>
-                </div>
-                <DetailRow label="Distance from Spot"
-                  value={`${detail.distPct >= 0 ? "+" : ""}${detail.distPct.toFixed(2)}%`}
-                  color={detail.distPct >= 0 ? C.green : C.red} />
-                <Divider />
-                <DetailRow label="Call OI" value={formatNumber(detail.r.callOI, 0)} color={C.green} />
-                <DetailRow label="Put OI"  value={formatNumber(detail.r.putOI, 0)}  color={C.red} />
-                <Divider />
-                <DetailRow label="Total Gamma" value={formatNumber(detail.r.netGex)} color={detail.r.netGex >= 0 ? C.green : C.red} bold />
-                <DetailRow label="Total Delta" value={formatNumber(detail.r.dex)}    color={detail.r.dex >= 0 ? C.cyan : C.red} bold />
-                <DetailRow label="Call GEX" value={formatNumber(detail.r.callGex)} color={C.green} dim />
-                <DetailRow label="Put GEX"  value={formatNumber(detail.r.putGex)}  color={C.red} dim />
-                <button onClick={() => setSelected(null)}
-                  className="mt-1 text-[9px] uppercase tracking-wider py-1 rounded"
-                  style={{ color: C.muted, border: `1px solid ${C.border}` }}>
-                  Clear selection
-                </button>
-              </div>
-            )}
+            <Divider />
 
             <div className="mt-1">
               <div style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider mb-1.5">Top Gamma Nodes</div>
               {maxPosStrike != null && (
                 <button onClick={() => setSelected(maxPosStrike!)}
                   className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
-                  style={{ background: "#001a00", border: `1px solid ${C.greenMax}60`, color: C.greenMax }}>
+                  style={{ background: "#001a00", border: `1px solid ${C.greenMax}60`, color: C.greenMax, fontFamily: FONT, cursor: "pointer" }}>
                   <span>★ Max Positive</span><span className="font-bold">${maxPosStrike}</span>
                 </button>
               )}
               {maxNegStrike != null && (
                 <button onClick={() => setSelected(maxNegStrike!)}
                   className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-2 text-[11px]"
-                  style={{ background: "#1a0000", border: `1px solid ${C.redMax}60`, color: C.redMax }}>
+                  style={{ background: "#1a0000", border: `1px solid ${C.redMax}60`, color: C.redMax, fontFamily: FONT, cursor: "pointer" }}>
                   <span>★ Max Negative</span><span className="font-bold">${maxNegStrike}</span>
                 </button>
               )}
@@ -440,22 +479,22 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
             <div>
               <div style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider mb-1.5">Key Levels</div>
               {[
-                { label: "▲ Major Wall", strike: majorWall,       color: C.orange,                        bg: "#000" },
-                { label: "▲ Call Wall",  strike: callWall,        color: C.green,                         bg: "#000" },
-                { label: "▼ Put Wall",   strike: putWall,         color: C.red,                           bg: "#000" },
-                { label: "★ Max Pain",   strike: maxPain,         color: C.purple,                        bg: "#000" },
-                { label: "⚡ Vol Trigger", strike: volTrigger,    color: C.cyan,                          bg: "#000" },
-                { label: "◈ Delta Zero", strike: deltaZeroStrike, color: "rgba(255,255,255,0.75)",         bg: "#000" },
-              ].filter(l => l.strike != null).map(({ label, strike, color, bg }) => (
+                { label: "▲ Major Wall",   strike: majorWall,       color: C.orange },
+                { label: "▲ Call Wall",    strike: callWall,        color: C.green  },
+                { label: "▼ Put Wall",     strike: putWall,         color: C.red    },
+                { label: "★ Max Pain",     strike: maxPain,         color: C.purple },
+                { label: "⚡ Vol Trigger", strike: volTrigger,      color: C.cyan   },
+                { label: "◈ Delta Zero",   strike: deltaZeroStrike, color: "rgba(255,255,255,0.75)" },
+              ].filter(l => l.strike != null).map(({ label, strike, color }) => (
                 <button key={label} onClick={() => setSelected(strike!)}
                   className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
-                  style={{ background: bg, border: `1px solid ${color}40`, color }}>
+                  style={{ background: "#000", border: `1px solid ${color}40`, color, fontFamily: FONT, cursor: "pointer" }}>
                   <span>{label}</span><span className="font-bold">${strike}</span>
                 </button>
               ))}
               {gammaFlip != null && (
                 <div className="flex justify-between items-center px-2.5 py-1.5 rounded text-[11px]"
-                  style={{ background: "#000", border: `1px solid #ffffff18`, color: C.muted }}>
+                  style={{ background: "#000", border: `1px solid #ffffff18`, color: C.muted, fontFamily: FONT }}>
                   <span>⊘ Gamma Flip</span><span className="font-bold">${gammaFlip}</span>
                 </div>
               )}
