@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { tryAdminLogin } from "@/lib/adminBypass";
@@ -59,11 +59,13 @@ const LANDING_CSS = `
 .lp-nav-links{display:flex;gap:32px;font-size:13px}
 .lp-nav-links a{color:#666;text-decoration:none;cursor:pointer;transition:color .2s;letter-spacing:.04em}
 .lp-nav-links a:hover{color:#f0f0f0}
-.lp-nav-cta{display:flex;align-items:center;gap:10px}
-.lp-nbg{padding:7px 16px;border-radius:7px;background:transparent;border:1px solid #1e1e22;color:#666;font-size:13px;cursor:pointer;transition:all .2s;font-family:'Geist',sans-serif}
-.lp-nbg:hover{border-color:rgba(224,48,48,.4);color:#f0f0f0}
-.lp-nb{padding:7px 18px;border-radius:7px;background:#e03030;color:#fff;font-weight:500;font-size:13px;border:none;cursor:pointer;font-family:'Geist',sans-serif;transition:opacity .2s}
-.lp-nb:hover{opacity:.85}
+.lp-nav-cta{display:flex;align-items:center;gap:12px}
+.lp-nbg{padding:9px 26px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16);color:rgba(240,240,240,.82);font-size:13px;font-weight:500;cursor:pointer;transition:all .22s;font-family:'Geist',sans-serif;letter-spacing:.03em}
+.lp-nbg:hover{border-color:rgba(255,255,255,.3);color:#f0f0f0;background:rgba(255,255,255,.09)}
+.lp-nbg-admin{padding:8px 20px;border-radius:10px;background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.3);color:rgba(45,212,191,.85);font-size:11px;font-weight:600;cursor:pointer;font-family:'Geist',sans-serif;transition:all .22s;letter-spacing:.1em;text-transform:uppercase}
+.lp-nbg-admin:hover{background:rgba(45,212,191,.13);border-color:rgba(45,212,191,.55);color:#2DD4BF;box-shadow:0 0 18px rgba(45,212,191,.18)}
+.lp-nb{padding:10px 28px;border-radius:12px;background:linear-gradient(160deg,#e84040 0%,#c42020 100%);color:#fff;font-weight:700;font-size:13px;border:none;cursor:pointer;font-family:'Geist',sans-serif;transition:all .22s;letter-spacing:.04em;box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 3px 18px rgba(224,48,48,.38)}
+.lp-nb:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 7px 30px rgba(224,48,48,.58)}
 
 /* DISCOUNT BAR */
 #lp-dbar{background:rgba(224,48,48,.07);border-bottom:1px solid rgba(224,48,48,.15);padding:9px 40px;display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;font-size:12px;letter-spacing:.04em;opacity:0;transition:opacity .5s ease}
@@ -87,31 +89,34 @@ const LANDING_CSS = `
 
 /* HERO */
 .lp-hero{padding:90px 40px 70px;text-align:center;position:relative;overflow:hidden;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#lp-bg-cv{position:fixed;inset:0;pointer-events:none;z-index:0;width:100%;height:100%}
 #lp-pcv{position:absolute;inset:0;pointer-events:none;z-index:0;width:100%;height:100%}
 .lp-hero-bg{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 70% 60% at 50% -5%,rgba(224,48,48,.12),transparent 70%);z-index:1}
 .lp-hero-cnt{position:relative;z-index:2;width:100%;max-width:900px;margin:0 auto}
 .lp-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#e03030;background:rgba(224,48,48,.08);border:1px solid rgba(224,48,48,.2);border-radius:20px;padding:5px 14px;margin-bottom:28px}
-.lp-hero h1{font-size:clamp(38px,6.5vw,80px);font-weight:700;line-height:1.04;letter-spacing:-.035em;margin-bottom:22px;color:#f0f0f0}
+.lp-hero h1{font-size:clamp(42px,7vw,86px);font-weight:700;line-height:1.13;letter-spacing:-.03em;margin-bottom:36px;color:#f0f0f0}
 .lp-hero h1 em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
 .lp-shimmer{background:linear-gradient(90deg,rgba(240,240,240,0) 0%,rgba(240,240,240,1) 45%,rgba(240,240,240,0) 100%);background-size:220% 100%;animation:lp-shim 3.5s infinite;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 @keyframes lp-shim{to{background-position:220% 0}}
-.lp-hsub{color:#666;font-size:17px;max-width:580px;margin:0 auto 40px;line-height:1.75}
-.lp-hbtns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:60px}
-.lp-btnp{padding:14px 34px;border-radius:8px;background:#e03030;color:#fff;font-weight:600;font-size:15px;letter-spacing:.03em;border:none;cursor:pointer;font-family:'Geist',sans-serif;transition:box-shadow .25s,transform .15s;position:relative;overflow:hidden}
+.lp-hsub{color:#888;font-size:16px;max-width:480px;margin:0 auto 72px;line-height:1.85;text-align:center;letter-spacing:.01em}
+.lp-hbtns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:88px}
+.lp-btnp{padding:15px 38px;border-radius:10px;background:#e03030;color:#fff;font-weight:600;font-size:15px;letter-spacing:.03em;border:none;cursor:pointer;font-family:'Geist',sans-serif;transition:box-shadow .25s,transform .15s;position:relative;overflow:hidden}
+.lp-btnp::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.08),transparent);pointer-events:none}
 .lp-btnp:hover{box-shadow:0 8px 32px rgba(224,48,48,.45);transform:translateY(-1px)}
-.lp-btno{padding:14px 34px;border-radius:8px;border:1px solid #1e1e22;background:transparent;color:#f0f0f0;font-size:15px;cursor:pointer;font-family:'Geist',sans-serif;transition:border-color .2s,background .2s}
+.lp-btno{padding:15px 38px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03);color:#f0f0f0;font-size:15px;cursor:pointer;font-family:'Geist',sans-serif;transition:border-color .2s,background .2s}
 .lp-btno:hover{border-color:rgba(224,48,48,.35);background:rgba(224,48,48,.04)}
 
 /* STATS */
-.lp-stats{display:flex;justify-content:center;margin-bottom:64px;border:1px solid #1e1e22;border-radius:12px;overflow:hidden;background:#111114;max-width:520px;margin-left:auto;margin-right:auto}
-.lp-si{flex:1;padding:22px 28px;text-align:center}
+.lp-stats{display:flex;justify-content:center;margin-bottom:72px;border:1px solid #1e1e22;border-radius:14px;overflow:hidden;background:#111114;max-width:540px;margin-left:auto;margin-right:auto}
+.lp-si{flex:1;padding:28px 32px;text-align:center}
 .lp-si+.lp-si{border-left:1px solid #1e1e22}
-.lp-sn{font-size:30px;font-weight:700;color:#f0f0f0;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-.lp-sl{font-size:10px;color:#666;margin-top:3px;letter-spacing:.1em;text-transform:uppercase}
-.lp-sa{width:24px;height:2px;background:#e03030;border-radius:2px;margin:6px auto 0}
+.lp-sn{font-size:30px;font-weight:700;color:#f0f0f0;letter-spacing:-.03em;font-variant-numeric:tabular-nums;display:inline-block}
+.lp-sl{font-size:10px;color:#666;margin-top:4px;letter-spacing:.1em;text-transform:uppercase}
+.lp-sa{width:24px;height:2px;background:#e03030;border-radius:2px;margin:8px auto 0}
+@keyframes lp-numflip{0%{opacity:1;transform:translateY(0) scale(1)}30%{opacity:0;transform:translateY(-10px) scale(.95)}31%{opacity:0;transform:translateY(12px) scale(.95)}100%{opacity:1;transform:translateY(0) scale(1)}}
 
 /* CHART */
-.lp-chart{max-width:880px;margin:0 auto;background:#111114;border:1px solid #1e1e22;border-radius:14px;padding:28px;position:relative;overflow:hidden}
+.lp-chart{max-width:880px;margin:0 auto;margin-top:16px;background:#111114;border:1px solid #1e1e22;border-radius:14px;padding:32px;position:relative;overflow:hidden}
 .lp-chart::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(224,48,48,.4),transparent)}
 .lp-ch{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:16px;color:#666;letter-spacing:.06em}
 .lp-chl{display:flex;align-items:center;gap:10px}
@@ -125,19 +130,36 @@ const LANDING_CSS = `
 .lp-ttv{color:#f0f0f0;font-weight:500}
 
 /* SECTIONS */
-.lp-sec{padding:90px 40px}
-.lp-con{max-width:1040px;margin:0 auto}
-.lp-stitle{text-align:center;margin-bottom:56px}
+.lp-sec{padding:110px 0;display:flex;flex-direction:column;align-items:center}
+.lp-con{width:calc(100% - 80px);max-width:1040px}
+.lp-stitle{text-align:center;margin-bottom:68px}
 .lp-slabel{display:inline-flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#e03030;margin-bottom:14px}
 .lp-stitle h2{font-size:clamp(26px,4.5vw,50px);font-weight:700;letter-spacing:-.025em;margin-bottom:14px;color:#f0f0f0}
 .lp-stitle h2 em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
 .lp-stitle p{color:#666;max-width:520px;margin:0 auto;line-height:1.75;font-size:16px}
 .lp-div{width:100%;height:1px;background:linear-gradient(90deg,transparent,#1e1e22,transparent)}
 
+/* TRUST BAR */
+.lp-tbar{display:flex;justify-content:center;background:#0d0d10;border-top:1px solid #1e1e22;border-bottom:1px solid #1e1e22;overflow:hidden}
+.lp-tbi{flex:1;max-width:300px;padding:34px 24px;text-align:center}
+.lp-tbi+.lp-tbi{border-left:1px solid #1e1e22}
+.lp-tbn{font-size:42px;font-weight:700;color:#f0f0f0;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1}
+.lp-tbl{font-size:10px;color:#555;margin-top:6px;letter-spacing:.12em;text-transform:uppercase}
+.lp-tba{width:24px;height:2px;background:#e03030;border-radius:2px;margin:8px auto 0}
+
+/* PRODUCT PREVIEW */
+.lp-prev{padding:80px 40px;background:#0a0a0d}
+.lp-prev-inner{max-width:960px;margin:0 auto}
+.lp-prev-head{text-align:center;margin-bottom:44px}
+.lp-prev-sublabel{display:inline-flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#e03030;margin-bottom:14px}
+.lp-prev-title{font-size:clamp(22px,3vw,36px);font-weight:700;letter-spacing:-.025em;color:#f0f0f0;margin-bottom:10px}
+.lp-prev-title em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
+.lp-prev-desc{font-size:15px;color:#555;line-height:1.7}
+
 /* FEATURES */
-.lp-fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.lp-fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .lp-fc{background:#111114;border:1px solid #1e1e22;border-radius:16px;padding:36px 30px;transition:border-color .3s,transform .3s;position:relative;overflow:hidden}
-.lp-fc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(224,48,48,.3),transparent);opacity:0;transition:opacity .3s}
+.lp-fc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(224,48,48,.3),transparent);opacity:0;transition:opacity .3s;pointer-events:none}
 .lp-fc:hover{border-color:rgba(224,48,48,.25);transform:translateY(-4px)}
 .lp-fc:hover::before{opacity:1}
 .lp-ficon{width:46px;height:46px;border-radius:11px;background:rgba(224,48,48,.08);border:1px solid rgba(224,48,48,.15);display:flex;align-items:center;justify-content:center;margin-bottom:20px}
@@ -147,7 +169,7 @@ const LANDING_CSS = `
 .lp-fc p{color:#666;font-size:13px;line-height:1.8}
 
 /* TESTIMONIALS */
-.lp-tw{overflow:hidden;position:relative;padding:16px 0}
+.lp-tw{overflow:hidden;position:relative;padding:16px 0;width:100%}
 .lp-tw::before,.lp-tw::after{content:'';position:absolute;top:0;bottom:0;width:100px;z-index:2;pointer-events:none}
 .lp-tw::before{left:0;background:linear-gradient(90deg,#0a0a0d,transparent)}
 .lp-tw::after{right:0;background:linear-gradient(-90deg,#0a0a0d,transparent)}
@@ -166,20 +188,20 @@ const LANDING_CSS = `
 @keyframes lp-ts{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 
 /* PLANS */
-.lp-pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
-.lp-pc{background:#111114;border:1px solid #1e1e22;border-radius:14px;padding:32px;position:relative;transition:transform .3s}
+.lp-pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.lp-pc{background:#111114;border:1px solid #1e1e22;border-radius:18px;padding:40px 36px;position:relative;transition:transform .3s;text-align:center}
 .lp-pc.hot{border-color:rgba(224,48,48,.4);background:rgba(224,48,48,.03)}
-.lp-pc.hot::before{content:'';position:absolute;inset:0;border-radius:14px;background:radial-gradient(ellipse at top,rgba(224,48,48,.07),transparent 70%);pointer-events:none}
-.lp-pbadge{display:inline-block;padding:4px 12px;border-radius:20px;background:#e03030;color:#fff;font-size:10px;font-weight:700;letter-spacing:.08em;margin-bottom:12px;text-transform:uppercase}
-.lp-pname{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px;color:#f0f0f0}
-.lp-pdesc{color:#666;font-size:13px;margin-bottom:22px}
-.lp-pprice{display:flex;align-items:baseline;gap:4px;margin-bottom:28px}
-.lp-pamt{font-size:46px;font-weight:700;letter-spacing:-.04em;color:#f0f0f0}
+.lp-pc.hot::before{content:'';position:absolute;inset:0;border-radius:18px;background:radial-gradient(ellipse at top,rgba(224,48,48,.07),transparent 70%);pointer-events:none}
+.lp-pbadge{display:inline-block;padding:5px 14px;border-radius:20px;background:#e03030;color:#fff;font-size:10px;font-weight:700;letter-spacing:.08em;margin-bottom:16px;text-transform:uppercase}
+.lp-pname{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px;color:#f0f0f0}
+.lp-pdesc{color:#666;font-size:13px;margin-bottom:24px;line-height:1.65}
+.lp-pprice{display:flex;align-items:baseline;justify-content:center;gap:4px;margin-bottom:32px}
+.lp-pamt{font-size:48px;font-weight:700;letter-spacing:-.04em;color:#f0f0f0}
 .lp-pper{font-size:14px;color:#666}
-.lp-pfeat{list-style:none;margin-bottom:28px;display:flex;flex-direction:column;gap:10px}
-.lp-pfeat li{font-size:13px;display:flex;align-items:flex-start;gap:10px;color:#666}
+.lp-pfeat{list-style:none;margin-bottom:32px;display:flex;flex-direction:column;gap:11px;text-align:left}
+.lp-pfeat li{font-size:13px;display:flex;align-items:flex-start;gap:10px;color:#666;line-height:1.5}
 .lp-chk{color:#3ecf6e;flex-shrink:0;font-size:14px}
-.lp-pbtn{width:100%;padding:13px;border-radius:8px;font-weight:600;font-size:14px;letter-spacing:.03em;cursor:pointer;font-family:'Geist',sans-serif;transition:all .2s}
+.lp-pbtn{width:100%;padding:14px;border-radius:10px;font-weight:600;font-size:14px;letter-spacing:.03em;cursor:pointer;font-family:'Geist',sans-serif;transition:all .2s}
 .lp-pbtn.pr{background:#e03030;color:#fff;border:none}
 .lp-pbtn.pr:hover{box-shadow:0 6px 24px rgba(224,48,48,.35);transform:translateY(-1px)}
 .lp-pbtn.ou{background:transparent;border:1px solid #1e1e22;color:#f0f0f0}
@@ -196,9 +218,9 @@ const LANDING_CSS = `
 .lp-faqitem.open .lp-faqa{max-height:300px;padding:0 24px 20px}
 
 /* CTA */
-.lp-cta{padding:100px 40px;text-align:center;position:relative;overflow:hidden}
+.lp-cta{padding:100px 0;text-align:center;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center}
 .lp-cta-grid{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(#1e1e22 1px,transparent 1px),linear-gradient(90deg,#1e1e22 1px,transparent 1px);background-size:60px 60px;opacity:.3}
-.lp-ctai{position:relative;max-width:680px;margin:0 auto}
+.lp-ctai{position:relative;width:calc(100% - 80px);max-width:680px}
 .lp-cta h2{font-size:clamp(28px,5vw,56px);font-weight:700;letter-spacing:-.03em;margin-bottom:18px;color:#f0f0f0}
 .lp-cta h2 em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
 .lp-ctap{color:#666;max-width:500px;margin:0 auto 36px;line-height:1.75;font-size:16px}
@@ -214,14 +236,14 @@ const LANDING_CSS = `
 .lp-trd{width:5px;height:5px;border-radius:50%;background:#3ecf6e;flex-shrink:0}
 
 /* FOOTER */
-.lp-footer{border-top:1px solid #1e1e22;padding:56px 40px 32px;background:#0a0a0d}
-.lp-fgr{display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px;max-width:1040px;margin-left:auto;margin-right:auto}
+.lp-footer{border-top:1px solid #1e1e22;padding:56px 0 32px;background:#0a0a0d;display:flex;flex-direction:column;align-items:center}
+.lp-fgr{display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px;width:calc(100% - 80px);max-width:1040px}
 .lp-fbrand p{color:#666;font-size:13px;margin-top:12px;line-height:1.7;max-width:260px}
 .lp-footer h4{font-size:10px;font-weight:700;margin-bottom:16px;letter-spacing:.12em;text-transform:uppercase;color:#444}
 .lp-footer ul{list-style:none;display:flex;flex-direction:column;gap:10px}
 .lp-footer ul li a{color:#666;text-decoration:none;font-size:13px;transition:color .2s;cursor:pointer}
 .lp-footer ul li a:hover{color:#f0f0f0}
-.lp-fcopy{text-align:center;font-size:11px;color:#444;padding-top:28px;border-top:1px solid #1e1e22;max-width:1040px;margin:0 auto;letter-spacing:.04em}
+.lp-fcopy{text-align:center;font-size:11px;color:#444;padding-top:28px;border-top:1px solid #1e1e22;width:calc(100% - 80px);max-width:1040px;margin:0 auto;letter-spacing:.04em}
 .lp-fdisc{display:inline-flex;align-items:center;gap:7px;padding:8px 18px;background:rgba(88,101,242,.12);border:1px solid rgba(88,101,242,.25);border-radius:8px;color:rgba(150,158,255,.9);font-size:13px;font-weight:500;text-decoration:none;margin-top:16px;transition:background .2s}
 .lp-fdisc:hover{background:rgba(88,101,242,.2)}
 
@@ -240,12 +262,20 @@ const LANDING_CSS = `
 .lp-mbtn:hover{opacity:.9}
 .lp-mclose{position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;font-family:'Geist',sans-serif}
 
+@media(max-width:900px){.lp-fgrid{grid-template-columns:repeat(2,1fr)}.lp-pgrid{grid-template-columns:1fr}}
 @media(max-width:768px){
-  .lp-fgr{grid-template-columns:1fr 1fr;gap:28px}
+  .lp-fgr{grid-template-columns:1fr 1fr;gap:28px;width:calc(100% - 40px)}
   #lp-nav .lp-nav-links{display:none}
-  .lp-sec{padding:60px 20px}
+  .lp-sec{padding:60px 0}
+  .lp-con{width:calc(100% - 40px)}
   .lp-hero{padding:60px 20px 40px;min-height:auto}
-  .lp-cta{padding:60px 20px}
+  .lp-cta{padding:60px 0}
+  .lp-ctai{width:calc(100% - 40px)}
+  .lp-fgrid{grid-template-columns:1fr}
+  .lp-tbar{flex-direction:column}
+  .lp-tbi+.lp-tbi{border-left:none;border-top:1px solid #1e1e22}
+  .lp-tbi{max-width:100%;padding:24px}
+  .lp-prev{padding:50px 20px}
 }
 `;
 
@@ -261,19 +291,22 @@ const TICKERS = [
   {s:'QQQ',p:'482.15',c:'+1.05%'},{s:'GLD',p:'214.30',c:'+0.22%'},
 ];
 const TESTIMONIALS = [
-  {name:'Carlos M.',role:'Day Trader · SPX',text:'Llevo 8 meses con GEXSATELIT. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.',extra:'Cliente desde 2024 · +320% portfolio'},
-  {name:'Ana L.',role:'Options Trader · QQQ',text:'Las call/put walls funcionan como imanes. Es la herramienta más precisa que he probado.',extra:'Win rate subió del 54% al 71%'},
   {name:'David R.',role:'Quant · Hedge Fund',text:'La latencia y la calidad de datos son institucionales. El precio es ridículamente bajo para lo que entrega.',extra:'Reemplazó software de $2k/mes'},
   {name:'Sofía P.',role:'Swing Trader',text:'El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.',extra:'Suscriptora Pro Elite'},
-  {name:'Miguel A.',role:'Scalper · Futuros',text:'El regime indicator en tiempo real cambió cómo gestiono riesgo intradiario.',extra:'6 meses activo'},
-  {name:'Laura T.',role:'Gestora · Portafolio',text:'Integré el API en mi modelo. Los datos superan a Bloomberg en GEX.',extra:'Plan Elite'},
+  {name:'Marcos T.',role:'Scalper · SPY',text:'Las alertas push en tiempo real son un game changer. Nunca me pierdo un nivel crítico.',extra:'Suscriptor desde 2024'},
+  {name:'Laura K.',role:'Prop Trader',text:'El GEX Profile es la única herramienta que realmente explica por qué el precio se mueve así.',extra:'+ 180% este año'},
+  {name:'Carlos M.',role:'Day Trader · SPX',text:'Llevo 8 meses con GEXSATELIT. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.',extra:'+320% portfolio'},
+  {name:'Ana L.',role:'Options Trader · QQQ',text:'Las call/put walls funcionan como imanes. Es la herramienta más precisa que he probado.',extra:'Win rate: 54% → 71%'},
+  {name:'Miguel A.',role:'Scalper · Futuros',text:'El regime indicator en tiempo real cambió cómo gestiono riesgo intradiario. 6 meses y no lo cambio.',extra:'Plan Pro activo'},
+  {name:'Laura T.',role:'Gestora · Portafolio',text:'Integré la API en mi modelo propio. Los datos de GEX superan a Bloomberg en este campo.',extra:'Plan Elite · 5 seats'},
 ];
 const FAQ_DATA = [
-  {q:'¿Qué es Gamma Exposure (GEX)?',a:'GEX mide la exposición a gamma de los market makers por strike. Cuando el mercado cotiza por encima del gamma flip, los dealers suavizan movimientos. Por debajo, los amplifican. Es el mapa invisible del mercado.'},
-  {q:'¿Los datos son en tiempo real?',a:'Sí, con latencia menor a 200ms para planes Pro/Elite. El plan Starter recibe actualizaciones cada 15 minutos con datos verificados de CBOE.'},
-  {q:'¿Puedo cancelar en cualquier momento?',a:'Absolutamente. Sin permanencia mínima. Cancelas desde tu perfil y el acceso se mantiene hasta el fin del período pagado.'},
-  {q:'¿Qué diferencia hay entre GEX y DEX?',a:'GEX mide exposición a gamma (velocidad del delta). DEX mide exposición a delta total. Combinados, revelan cómo los dealers deben hacer hedging y qué niveles defienden.'},
-  {q:'¿Tienen plan API?',a:'Sí, disponible en el plan Elite. Acceso completo a todos los endpoints con tu API key personal y documentación completa.'},
+  {q:'¿Qué es Gamma Exposure (GEX)?',a:'GEX mide la exposición a gamma de los market makers por strike. Cuando el mercado cotiza por encima del gamma flip, los dealers compran y venden acciones de forma estabilizadora. Por debajo del gamma flip, amplifican los movimientos. Es el mapa invisible que usan los institucionales para predecir rangos y niveles clave.'},
+  {q:'¿De dónde obtienen los datos?',a:'Todos los datos de opciones provienen directamente de CBOE (Chicago Board Options Exchange) y OCC (Options Clearing Corporation). Los datos del plan Starter tienen 15 minutos de retraso; los planes Pro y Elite reciben datos con latencia menor a 200ms mediante websockets propios.'},
+  {q:'¿Puedo cancelar en cualquier momento?',a:'Sí, absolutamente. Sin permanencia mínima, sin penalizaciones. Cancelas desde tu perfil con un solo clic y el acceso se mantiene activo hasta el fin del período ya pagado. No guardamos tu método de pago sin tu consentimiento explícito.'},
+  {q:'¿Ofrecen periodo de prueba?',a:'El plan Pro incluye 7 días de prueba gratuita completa, sin tarjeta de crédito requerida. Obtienes acceso a todas las funciones Pro durante ese período para evaluar si la plataforma encaja con tu operativa.'},
+  {q:'¿Tienen API para integración propia?',a:'Sí, disponible en el plan Elite. La API REST te da acceso a todos los endpoints (GEX, DEX, IV Surface, niveles clave) con tu API key personal, documentación completa con ejemplos en Python y JavaScript, y hasta 10,000 llamadas por día.'},
+  {q:'¿Qué diferencia hay entre GEX y DEX?',a:'GEX (Gamma Exposure) mide la velocidad a la que los dealers ajustan su cobertura en delta. DEX (Delta Exposure) mide la exposición delta total acumulada. Combinados, revelan los niveles exactos donde los dealers están forzados a defender el precio o a amplificarlo.'},
 ];
 const STRIKES = [5580,5600,5620,5640,5660,5680,5700,5720,5740,5760,5780];
 const GEX_DATA = [-2.1,-1.4,-0.6,0.3,1.1,2.8,3.4,2.1,1.2,0.5,-0.3];
@@ -374,7 +407,42 @@ export default function Landing() {
     }, 40);
     cleanups.push(() => clearInterval(countId));
 
-    /* ── PARTICLES ──────────────────────────── */
+    /* ── BACKGROUND PARTICLES (full page fixed) ── */
+    const bgCv = document.getElementById('lp-bg-cv') as HTMLCanvasElement|null;
+    let rafBg = 0;
+    if (bgCv) {
+      const bgCtx = bgCv.getContext('2d')!;
+      let bW = 0, bH = 0;
+      type Pt = {x:number;y:number;vx:number;vy:number;r:number;a:number};
+      const bPts: Pt[] = [];
+      const bgResize = () => { bW = bgCv.width = window.innerWidth; bH = bgCv.height = window.innerHeight; };
+      const bgInit   = () => { bPts.length=0; for(let i=0;i<120;i++) bPts.push({x:Math.random()*bW,y:Math.random()*bH,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,r:Math.random()*2+.5,a:Math.random()*.5+.5}); };
+      bgResize(); bgInit();
+      const bgOnR = () => { bgResize(); };
+      window.addEventListener('resize', bgOnR);
+      const bgDraw = () => {
+        bgCtx.clearRect(0,0,bW,bH);
+        bPts.forEach(p => {
+          p.x+=p.vx; p.y+=p.vy;
+          if(p.x<0||p.x>bW) p.vx*=-1;
+          if(p.y<0||p.y>bH) p.vy*=-1;
+          bgCtx.beginPath(); bgCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+          bgCtx.fillStyle=`rgba(220,60,60,${p.a*.75})`; bgCtx.fill();
+        });
+        bPts.forEach((p,i) => {
+          for(let j=i+1;j<bPts.length;j++){
+            const dx=p.x-bPts[j].x,dy=p.y-bPts[j].y,d=Math.sqrt(dx*dx+dy*dy);
+            if(d<150){ bgCtx.beginPath(); bgCtx.moveTo(p.x,p.y); bgCtx.lineTo(bPts[j].x,bPts[j].y);
+              bgCtx.strokeStyle=`rgba(200,50,50,${(1-d/150)*.28})`; bgCtx.lineWidth=.6; bgCtx.stroke(); }
+          }
+        });
+        rafBg = requestAnimationFrame(bgDraw);
+      };
+      bgDraw();
+      cleanups.push(() => { window.removeEventListener('resize', bgOnR); cancelAnimationFrame(rafBg); });
+    }
+
+    /* ── PARTICLES (hero only) ──────────────────────────── */
     const canvas = document.getElementById('lp-pcv') as HTMLCanvasElement|null;
     let rafP = 0;
     if (canvas) {
@@ -481,7 +549,10 @@ export default function Landing() {
 
     /* ── SCROLL OBSERVER ────────────────────── */
     const obs = new IntersectionObserver(entries=>{
-      entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); obs.unobserve(e.target); }});
+      entries.forEach(e=>{
+        if(e.isIntersecting) e.target.classList.add('in');
+        else e.target.classList.remove('in');
+      });
     },{threshold:.08});
     document.querySelectorAll('[data-obs]').forEach(e=>obs.observe(e));
     cleanups.push(()=>obs.disconnect());
@@ -503,6 +574,25 @@ export default function Landing() {
     },{threshold:.5});
     const sEl=document.getElementById('lp-hstats'); if(sEl) sObs.observe(sEl);
     cleanups.push(()=>sObs.disconnect());
+
+    /* live trader increment: +1 every 2s with flip animation */
+    let traderLiveIv: ReturnType<typeof setInterval>|null = null;
+    const liveObs = new IntersectionObserver(entries=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting && !traderLiveIv){
+          traderLiveIv = setInterval(()=>{
+            const el = document.getElementById('lp-ct'); if(!el) return;
+            const c = parseInt(el.textContent?.replace(/[^0-9]/g,'')||'2408')||2408;
+            el.style.animation='none'; void el.offsetWidth;
+            el.textContent='+'+(c+1).toLocaleString();
+            el.style.animation='lp-numflip .5s cubic-bezier(.22,1,.36,1) forwards';
+          }, 2000);
+          cleanups.push(()=>{ if(traderLiveIv) clearInterval(traderLiveIv); });
+        }
+      });
+    },{threshold:.5});
+    if(sEl) liveObs.observe(sEl);
+    cleanups.push(()=>liveObs.disconnect());
 
     return ()=>{ cleanups.forEach(fn=>fn()); };
   }, []);
@@ -558,6 +648,7 @@ export default function Landing() {
 
       {/* ROOT */}
       <div id="lp-root">
+        <canvas id="lp-bg-cv"/>
 
         {/* NAV */}
         <nav id="lp-nav">
@@ -570,7 +661,7 @@ export default function Landing() {
           </div>
           <div className="lp-nav-cta">
             <button className="lp-nbg" onClick={()=>scrollTo('lp-precios')}>Ver planes</button>
-            <button className="lp-nbg" style={{borderColor:'rgba(45,212,191,.3)',color:'rgba(45,212,191,.8)',fontSize:12,letterSpacing:'.06em'}} onClick={()=>setAdminOpen(true)}>⬡ Admin</button>
+            <button className="lp-nbg-admin" onClick={()=>setAdminOpen(true)}>⬡ Admin</button>
             <button className="lp-nb" onClick={()=>user?navigate('/dashboard'):setAuthOpen(true)}>Acceder →</button>
           </div>
         </nav>
@@ -616,7 +707,7 @@ export default function Landing() {
             </p>
             <div className="lp-hbtns lp-fu d2" data-obs="1">
               <button className="lp-btnp" onClick={()=>scrollTo('lp-precios')}>Empezar ahora →</button>
-              <button className="lp-btno" onClick={()=>scrollTo('lp-hchart')}>Ver demo</button>
+              <button className="lp-btno" onClick={()=>scrollTo('lp-hchart')}>Ver demo en vivo</button>
             </div>
 
             {/* STATS */}
@@ -661,8 +752,9 @@ export default function Landing() {
               {FEATURES.map((f,i)=>(
                 <div key={f.title} className={`lp-fc lp-fu ${DELAYS[i]}`} data-obs="1">
                   <div className="lp-ficon"><svg viewBox="0 0 24 24">{f.svg}</svg></div>
-                  <div className="lp-ftag">{f.tag}</div>
-                  <h3>{f.title}</h3><p>{f.desc}</p>
+                  <span className="lp-ftag">{f.tag}</span>
+                  <h3>{f.title}</h3>
+                  <p>{f.desc}</p>
                 </div>
               ))}
             </div>
@@ -712,28 +804,82 @@ export default function Landing() {
             <div className="lp-pgrid">
               {/* Starter */}
               <div className="lp-pc lp-fu" data-obs="1">
-                <div className="lp-pname">Starter</div><div className="lp-pdesc">Para traders que empiezan</div>
+                <div className="lp-pname">Starter</div>
+                <div className="lp-pdesc">Para traders que empiezan a explorar el flujo de opciones</div>
                 <div className="lp-pprice"><span className="lp-pamt">$29</span><span className="lp-pper">/mes</span></div>
-                <ul className="lp-pfeat">{['Datos con 15min delay','3 tickers','Perfil GEX básico','Call/Put Walls'].map(f=><li key={f}><span className="lp-chk">✓</span>{f}</li>)}</ul>
-                <button className="lp-pbtn ou" onClick={()=>user?navigate('/dashboard'):setAuthOpen(true)}>Empezar</button>
+                <ul className="lp-pfeat">
+                  <li><span className="lp-chk">✓</span>Datos con 15 min delay (CBOE)</li>
+                  <li><span className="lp-chk">✓</span>3 tickers simultáneos</li>
+                  <li><span className="lp-chk">✓</span>Perfil GEX diario</li>
+                  <li><span className="lp-chk">✓</span>Call Wall · Put Wall intradiarios</li>
+                  <li><span className="lp-chk">✓</span>Gamma Flip level</li>
+                  <li><span className="lp-chk">✓</span>Historial 30 días</li>
+                  <li style={{opacity:.35}}><span style={{color:'#555',flexShrink:0}}>✕</span>Alertas en tiempo real</li>
+                  <li style={{opacity:.35}}><span style={{color:'#555',flexShrink:0}}>✕</span>Griegas avanzadas</li>
+                </ul>
+                <button className="lp-pbtn ou" onClick={()=>user?navigate('/dashboard'):setAuthOpen(true)}>Empezar gratis →</button>
+                <div style={{textAlign:'center',fontSize:11,color:'#444',marginTop:12,letterSpacing:'.03em'}}>Sin tarjeta · Cancela cuando quieras</div>
               </div>
               {/* Pro */}
               <div className="lp-pc hot lp-fu d1" data-obs="1">
                 <div className="lp-pbadge">🔥 Más popular · −62% OFF</div>
-                <div className="lp-pname">Pro</div><div className="lp-pdesc">Para traders activos</div>
+                <div className="lp-pname">Pro</div>
+                <div className="lp-pdesc">Para traders activos que necesitan ventaja real sobre el mercado</div>
                 <div className="lp-pprice" style={{flexDirection:'column',alignItems:'flex-start',gap:4}}>
                   <span style={{fontSize:14,color:'#666',textDecoration:'line-through',fontWeight:400}}>$130/mes</span>
                   <div style={{display:'flex',alignItems:'baseline',gap:4}}><span className="lp-pamt">$49</span><span className="lp-pper">/mes</span></div>
                 </div>
-                <ul className="lp-pfeat">{['Tiempo real (1s)','25 tickers','Alertas ilimitadas','Griegas avanzadas','AI Bias diario'].map(f=><li key={f}><span className="lp-chk">✓</span>{f}</li>)}</ul>
-                <button className="lp-pbtn pr" onClick={()=>user?navigate('/dashboard'):setAuthOpen(true)}>Empezar prueba gratis</button>
+                <ul className="lp-pfeat">
+                  <li><span className="lp-chk">✓</span>Todo lo de Starter incluido</li>
+                  <li><span className="lp-chk">✓</span><strong style={{color:'#e03030'}}>Datos en tiempo real</strong> (latencia &lt;200ms)</li>
+                  <li><span className="lp-chk">✓</span>25 tickers simultáneos</li>
+                  <li><span className="lp-chk">✓</span>Alertas push ilimitadas (precio + régimen)</li>
+                  <li><span className="lp-chk">✓</span>Delta Exposure (DEX) agregado</li>
+                  <li><span className="lp-chk">✓</span>Griegas 2º orden: Vanna, Charm</li>
+                  <li><span className="lp-chk">✓</span>AI Bias diario con régimen gamma</li>
+                  <li><span className="lp-chk">✓</span>Historial 12 meses + exportación CSV</li>
+                  <li><span className="lp-chk">✓</span>Soporte prioritario (respuesta 24h)</li>
+                </ul>
+                <button className="lp-pbtn pr" onClick={()=>user?navigate('/dashboard'):setAuthOpen(true)}>Empezar prueba 7 días gratis →</button>
+                <div style={{textAlign:'center',fontSize:11,color:'#3ecf6e',marginTop:12,letterSpacing:'.03em'}}>✓ 7 días gratis · Sin compromiso</div>
               </div>
               {/* Elite */}
               <div className="lp-pc lp-fu d2" data-obs="1">
-                <div className="lp-pname">Elite</div><div className="lp-pdesc">Para fondos y prop firms</div>
+                <div className="lp-pname">Elite</div>
+                <div className="lp-pdesc">Para fondos, prop firms y traders con necesidades institucionales</div>
                 <div className="lp-pprice"><span className="lp-pamt">$159</span><span className="lp-pper">/mes</span></div>
-                <ul className="lp-pfeat">{['Todo en Pro +','API access','IV Surface 3D','SLA 99.99%','Soporte dedicado'].map(f=><li key={f}><span className="lp-chk">✓</span>{f}</li>)}</ul>
-                <button className="lp-pbtn ou" onClick={()=>user?navigate('/dashboard'):setAuthOpen(true)}>Contactar</button>
+                <ul className="lp-pfeat">
+                  <li><span className="lp-chk">✓</span>Todo lo de Pro incluido</li>
+                  <li><span className="lp-chk">✓</span><strong style={{color:'#e03030'}}>API REST</strong> completa (10k calls/día)</li>
+                  <li><span className="lp-chk">✓</span>IV Surface 3D interactiva (tiempo real)</li>
+                  <li><span className="lp-chk">✓</span>Put/Call Skew surface 3D</li>
+                  <li><span className="lp-chk">✓</span>Market Topology view</li>
+                  <li><span className="lp-chk">✓</span>Tickers ilimitados</li>
+                  <li><span className="lp-chk">✓</span>SLA 99.99% garantizado contractualmente</li>
+                  <li><span className="lp-chk">✓</span>Soporte dedicado 24/7 con account manager</li>
+                  <li><span className="lp-chk">✓</span>Onboarding personalizado + 5 seats</li>
+                </ul>
+                <button className="lp-pbtn ou" onClick={()=>user?navigate('/dashboard'):setAuthOpen(true)}>Hablar con ventas →</button>
+                <div style={{textAlign:'center',fontSize:11,color:'#444',marginTop:12,letterSpacing:'.03em'}}>Facturación mensual o anual</div>
+              </div>
+            </div>
+            {/* Pricing guarantee row */}
+            <div className="lp-fu d3" data-obs="1" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:32,flexWrap:'wrap',marginTop:36,padding:'20px 0',borderTop:'1px solid #1e1e22'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#555'}}>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#3ecf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Pago seguro SSL
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#555'}}>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#3ecf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                Cancela en 1 clic
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#555'}}>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#3ecf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Datos verificados CBOE
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#555'}}>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#3ecf6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                30 días garantía de satisfacción
               </div>
             </div>
           </div>

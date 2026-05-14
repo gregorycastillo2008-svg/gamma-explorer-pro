@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GEX SATELIT · Gamma Exposure en tiempo real</title>
+  <meta name="description" content="Visualiza Gamma Exposure, Call/Put Walls y Gamma Flip del SPX en tiempo real. La plataforma profesional de opciones para traders serios."/>
+  <meta property="og:title" content="GEX SATELIT · Gamma Exposure en tiempo real"/>
+  <meta property="og:description" content="Datos institucionales de opciones. GEX, DEX, Vanna, Charm y más."/>
+  <meta property="og:type" content="website"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Instrument+Serif:ital@0;1&display=swap');
+
+:root{--bg:#0a0a0d;--text:#f0f0f0;--dim:#666;--dim2:#444;--pri:#e03030;--bor:#1e1e22;--card:#111114;--grn:#3ecf6e;--glow:0 0 60px rgba(224,48,48,0.25);--cursor-size:12px}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Geist',sans-serif;font-size:15px;line-height:1.6;overflow-x:hidden;cursor:none}
+
+/* CURSOR */
+#cursor{position:fixed;width:var(--cursor-size);height:var(--cursor-size);border-radius:50%;background:var(--pri);pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s,background .2s,opacity .2s;mix-blend-mode:difference}
+#cursor-ring{position:fixed;width:36px;height:36px;border-radius:50%;border:1px solid rgba(224,48,48,.5);pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:all .12s ease;mix-blend-mode:normal}
+body:has(a:hover) #cursor,body:has(button:hover) #cursor{width:20px;height:20px;background:rgba(224,48,48,.6)}
+body:has(a:hover) #cursor-ring,body:has(button:hover) #cursor-ring{width:52px;height:52px;border-color:rgba(224,48,48,.3)}
+
+/* INTRO */
+#intro{position:fixed;inset:0;z-index:500;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
+#intro.out{animation:iout .8s cubic-bezier(.4,0,.2,1) forwards;pointer-events:none}
+@keyframes iout{0%{opacity:1;clip-path:inset(0 0 0 0)}100%{opacity:0;clip-path:inset(0 0 100% 0)}}
+#intro-logo-wrap{opacity:0;transition:opacity .4s ease}
+#intro-logo-wrap.in{opacity:1}
+.il-track{fill:none;stroke:#1a1a1a;stroke-width:2}
+.il-spin{fill:none;stroke:#e03030;stroke-width:2;stroke-linecap:round;stroke-dasharray:260;stroke-dashoffset:260;transform-origin:60px 60px;animation:ilspin 1.8s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes ilspin{0%{stroke-dashoffset:260;transform:rotate(-90deg)}65%{stroke-dashoffset:0;transform:rotate(200deg)}100%{stroke-dashoffset:0;transform:rotate(290deg)}}
+.il-pulse{fill:none;stroke:rgba(224,48,48,.15);stroke-width:8;transform-origin:60px 60px;animation:ilpulse 1.8s ease-out forwards}
+@keyframes ilpulse{0%{stroke-width:8;opacity:.5}100%{stroke-width:28;opacity:0}}
+.il-dot{fill:#e03030;transform-origin:60px 60px;animation:ildot .35s ease forwards 1s;opacity:0;transform:scale(0)}
+@keyframes ildot{to{opacity:1;transform:scale(1)}}
+.il-gex{font-family:'Instrument Serif',serif;font-size:13px;letter-spacing:.15em;fill:#555;text-anchor:middle;animation:illogo .5s ease forwards 1.1s;opacity:0}
+@keyframes illogo{to{opacity:1}}
+#intro-lines{display:flex;flex-direction:column;gap:6px;opacity:0;transition:opacity .5s ease .5s}
+#intro-lines.in{opacity:1}
+.intro-line{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#2a2a2a}
+.intro-line .il-bar{width:0;height:1px;background:linear-gradient(90deg,#e03030,transparent);transition:width .7s ease}
+#intro-lines.in .intro-line.a .il-bar{width:40px;transition-delay:.7s}
+#intro-lines.in .intro-line.b .il-bar{width:60px;transition-delay:.9s}
+#intro-lines.in .intro-line.c .il-bar{width:30px;transition-delay:1.1s}
+#intro-pct{font-size:11px;letter-spacing:.12em;color:#2a2a2a;font-variant-numeric:tabular-nums;transition:color .3s}
+#intro-pct.done{color:#e03030}
+
+/* SCROLL FX */
+.fu{opacity:0;transform:translateY(36px);filter:blur(6px);transition:opacity .9s cubic-bezier(.22,1,.36,1),transform .9s cubic-bezier(.22,1,.36,1),filter .8s ease}
+.fu.in{opacity:1;transform:translateY(0);filter:blur(0)}
+.fu.d1{transition-delay:.07s}.fu.d2{transition-delay:.14s}.fu.d3{transition-delay:.21s}.fu.d4{transition-delay:.28s}.fu.d5{transition-delay:.35s}
+.mr{clip-path:inset(0 100% 0 0);transition:clip-path 1.3s cubic-bezier(.16,1,.3,1)}
+.mr.in{clip-path:inset(0 0% 0 0)}
+.lh{display:inline-block;transition:color .12s,transform .12s}
+.lh:hover{color:var(--pri);transform:translateY(-2px)}
+.lh-word{display:inline-flex}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:100;background:rgba(10,10,13,.88);backdrop-filter:blur(28px);border-bottom:1px solid var(--bor);padding:13px 40px;display:flex;align-items:center;justify-content:space-between;transform:translateY(-100%);opacity:0;transition:transform .7s cubic-bezier(.22,1,.36,1),opacity .5s ease}
+nav.in{transform:translateY(0);opacity:1}
+.logo{font-weight:700;font-size:17px;letter-spacing:.05em;display:flex;align-items:center;gap:9px;color:var(--text)}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--pri);display:inline-block;animation:pu 2.2s infinite;flex-shrink:0}
+@keyframes pu{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.5)}}
+.nav-links{display:flex;gap:32px;font-size:13px}
+.nav-links a{color:var(--dim);text-decoration:none;cursor:none;transition:color .2s;letter-spacing:.04em}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{display:flex;align-items:center;gap:10px}
+.nav-btn-ghost{padding:8px 20px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16);color:rgba(240,240,240,.82);font-size:13px;font-weight:500;cursor:none;font-family:'Geist',sans-serif;transition:all .22s;letter-spacing:.03em}
+.nav-btn-ghost:hover{border-color:rgba(255,255,255,.3);color:#f0f0f0;background:rgba(255,255,255,.09)}
+.nav-btn-admin{padding:7px 14px;border-radius:7px;background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.3);color:rgba(45,212,191,.85);font-size:11px;font-weight:600;cursor:none;font-family:'Geist',sans-serif;transition:all .22s;letter-spacing:.1em;text-transform:uppercase}
+.nav-btn-admin:hover{background:rgba(45,212,191,.13);border-color:rgba(45,212,191,.55);color:#2DD4BF;box-shadow:0 0 18px rgba(45,212,191,.18)}
+.nav-btn{padding:9px 24px;border-radius:8px;background:linear-gradient(160deg,#e84040 0%,#c42020 100%);color:#fff;font-weight:700;font-size:13px;border:none;cursor:none;font-family:'Geist',sans-serif;transition:all .22s;letter-spacing:.04em;box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 3px 18px rgba(224,48,48,.38)}
+.nav-btn:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 7px 30px rgba(224,48,48,.58)}
+
+/* DISCOUNT BAR */
+#discount-bar{background:rgba(224,48,48,.07);border-bottom:1px solid rgba(224,48,48,.15);padding:9px 40px;display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;font-size:12px;letter-spacing:.04em;opacity:0;transition:opacity .5s ease}
+#discount-bar.in{opacity:1}
+.dc-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(224,48,48,.1);border:1px solid rgba(224,48,48,.25);border-radius:20px;padding:4px 12px}
+.dc-code{font-weight:700;letter-spacing:.12em;font-size:11px;color:#e05050}
+.dc-off{color:var(--dim);font-size:11px}
+.dc-copy{background:none;border:none;color:var(--pri);font-size:10px;font-weight:600;cursor:none;padding:0 4px;font-family:'Geist',sans-serif;letter-spacing:.08em}
+.dc-copy:hover{text-decoration:underline}
+.dc-label{color:var(--dim);letter-spacing:.12em;text-transform:uppercase;font-size:10px}
+
+/* TICKER */
+.ticker-wrap{border-bottom:1px solid var(--bor);background:var(--card);overflow:hidden;opacity:0;transition:opacity .6s ease}
+.ticker-wrap.in{opacity:1}
+.ticker-inner{display:flex;white-space:nowrap;animation:tick 50s linear infinite}
+.ti{display:inline-flex;align-items:center;gap:10px;padding:10px 28px;font-size:12px;border-right:1px solid var(--bor);flex-shrink:0}
+.ts{font-weight:600;letter-spacing:.07em;font-size:11px}
+.tp{color:var(--dim)}
+.up{color:var(--grn)}.dn{color:var(--pri)}
+@keyframes tick{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* HERO */
+.hero{padding:90px 40px 70px;text-align:center;position:relative;overflow:hidden;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#particles-canvas{position:absolute;inset:0;pointer-events:none;z-index:0;width:100%;height:100%}
+.hero-bg{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 70% 60% at 50% -5%,rgba(224,48,48,.12),transparent 70%);z-index:1}
+.hero-content{position:relative;z-index:2;width:100%;max-width:900px;margin:0 auto}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--pri);background:rgba(224,48,48,.08);border:1px solid rgba(224,48,48,.2);border-radius:20px;padding:5px 14px;margin-bottom:28px}
+.hero h1{font-size:clamp(42px,7vw,86px);font-weight:700;line-height:1.13;letter-spacing:-.03em;margin-bottom:36px;color:var(--text)}
+.hero h1 em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
+.shimmer{background:linear-gradient(90deg,rgba(240,240,240,0) 0%,rgba(240,240,240,1) 45%,rgba(240,240,240,0) 100%);background-size:220% 100%;animation:shim 3.5s infinite;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+@keyframes shim{to{background-position:220% 0}}
+.hero-sub{color:#888;font-size:16px;max-width:480px;margin:0 auto 52px;line-height:1.85;text-align:center;letter-spacing:.01em}
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:60px}
+.btn-p{padding:14px 34px;border-radius:8px;background:var(--pri);color:#fff;font-weight:600;font-size:15px;letter-spacing:.03em;border:none;cursor:none;font-family:'Geist',sans-serif;transition:box-shadow .25s,transform .15s;position:relative;overflow:hidden}
+.btn-p::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.08),transparent);pointer-events:none}
+.btn-p:hover{box-shadow:0 8px 32px rgba(224,48,48,.45);transform:translateY(-1px)}
+.btn-o{padding:14px 34px;border-radius:8px;border:1px solid var(--bor);background:transparent;color:var(--text);font-size:15px;cursor:none;font-family:'Geist',sans-serif;transition:border-color .2s,background .2s}
+.btn-o:hover{border-color:rgba(224,48,48,.35);background:rgba(224,48,48,.04)}
+
+/* STATS */
+.stats{display:flex;justify-content:center;margin-bottom:64px;border:1px solid var(--bor);border-radius:12px;overflow:hidden;background:var(--card);max-width:520px;margin-left:auto;margin-right:auto}
+.stat-item{flex:1;padding:22px 28px;text-align:center}
+.stat-item+.stat-item{border-left:1px solid var(--bor)}
+.sn{font-size:30px;font-weight:700;color:var(--text);letter-spacing:-.03em;font-variant-numeric:tabular-nums;display:inline-block}
+.sl{font-size:10px;color:var(--dim);margin-top:3px;letter-spacing:.1em;text-transform:uppercase}
+.stat-accent{width:24px;height:2px;background:var(--pri);border-radius:2px;margin:6px auto 0}
+@keyframes numflip{0%{opacity:1;transform:translateY(0) scale(1)}30%{opacity:0;transform:translateY(-10px) scale(.95)}31%{opacity:0;transform:translateY(12px) scale(.95)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+/* CHART */
+.chart-wrap{max-width:880px;margin:0 auto;background:var(--card);border:1px solid var(--bor);border-radius:14px;padding:28px;position:relative;overflow:hidden}
+.chart-wrap::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(224,48,48,.4),transparent)}
+.chart-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:16px;color:var(--dim);letter-spacing:.06em}
+.chart-head-left{display:flex;align-items:center;gap:10px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--pri);animation:pu 1.5s infinite;flex-shrink:0}
+.live-label{color:var(--pri);font-weight:600;font-size:11px;letter-spacing:.1em}
+.chart-badge{font-size:10px;background:rgba(224,48,48,.1);border:1px solid rgba(224,48,48,.2);color:rgba(224,80,80,.9);padding:2px 8px;border-radius:4px;letter-spacing:.06em}
+#chart-axes-y{position:absolute;left:28px;top:44px;display:flex;flex-direction:column;justify-content:space-between;height:220px;font-size:10px;color:var(--dim2);letter-spacing:.04em;pointer-events:none;font-variant-numeric:tabular-nums}
+#tooltip{position:absolute;pointer-events:none;z-index:20;background:rgba(10,10,13,.95);border:1px solid rgba(224,48,48,.35);border-radius:10px;padding:12px 16px;font-size:12px;display:none;white-space:nowrap;backdrop-filter:blur(12px)}
+.tt-strike{font-weight:700;margin-bottom:6px;font-size:13px;letter-spacing:.04em}
+.tt-row{color:var(--dim);margin-bottom:2px;display:flex;justify-content:space-between;gap:16px}
+.tt-val{color:var(--text);font-weight:500}
+.tt-bar{height:3px;border-radius:2px;margin-top:8px;transition:width .2s}
+
+/* DIVIDER */
+.divider{width:100%;height:1px;background:linear-gradient(90deg,transparent,var(--bor),transparent)}
+
+/* SECTIONS */
+.section{padding:90px 0;display:flex;flex-direction:column;align-items:center}
+.container{width:calc(100% - 80px);max-width:1040px}
+.sec-title{text-align:center;margin-bottom:56px}
+.sec-label{display:inline-flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--pri);margin-bottom:14px}
+.sec-title h2{font-size:clamp(26px,4.5vw,50px);font-weight:700;letter-spacing:-.025em;margin-bottom:14px;color:var(--text)}
+.sec-title h2 em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
+.sec-title p{color:var(--dim);max-width:520px;margin:0 auto;line-height:1.75;font-size:16px}
+
+/* FEATURES */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.feat-card{background:var(--card);border:1px solid var(--bor);border-radius:16px;padding:36px 30px;transition:border-color .3s,transform .3s;position:relative;overflow:hidden}
+.feat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(224,48,48,.3),transparent);opacity:0;transition:opacity .3s}
+.feat-card:hover{border-color:rgba(224,48,48,.25);transform:translateY(-4px)}
+.feat-card:hover::before{opacity:1}
+.feat-icon{width:46px;height:46px;border-radius:11px;background:rgba(224,48,48,.08);border:1px solid rgba(224,48,48,.15);display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.feat-icon svg{width:20px;height:20px;stroke:rgba(200,70,70,.95);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.feat-tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--pri);background:rgba(224,48,48,.08);border:1px solid rgba(224,48,48,.18);border-radius:4px;padding:2px 8px;margin-bottom:12px}
+.feat-card h3{font-size:16px;font-weight:600;letter-spacing:-.02em;margin-bottom:9px;color:var(--text)}
+.feat-card p{color:var(--dim);font-size:13px;line-height:1.8}
+
+/* TESTIMONIALS */
+.testi-track-wrap{overflow:hidden;position:relative;padding:16px 0;width:100%}
+.testi-track-wrap::before,.testi-track-wrap::after{content:'';position:absolute;top:0;bottom:0;width:100px;z-index:2;pointer-events:none}
+.testi-track-wrap::before{left:0;background:linear-gradient(90deg,var(--bg),transparent)}
+.testi-track-wrap::after{right:0;background:linear-gradient(-90deg,var(--bg),transparent)}
+.testi-track{display:flex;gap:16px;animation:tscroll 40s linear infinite;width:max-content;padding:0 16px}
+.testi-track:hover{animation-play-state:paused}
+@keyframes tscroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.testi-card{background:var(--card);border:1px solid var(--bor);border-radius:14px;padding:24px 26px;width:300px;flex-shrink:0}
+.testi-stars{display:flex;gap:3px;margin-bottom:12px}
+.star{width:12px;height:12px;background:var(--pri);flex-shrink:0;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+.testi-text{font-size:13px;color:var(--dim);line-height:1.75;margin-bottom:16px;font-style:italic}
+.testi-text::before{content:'"';color:var(--pri);font-size:18px;font-family:'Instrument Serif',serif;margin-right:2px}
+.testi-author{display:flex;align-items:center;gap:10px}
+.testi-avatar{width:32px;height:32px;border-radius:50%;background:rgba(224,48,48,.15);border:1px solid rgba(224,48,48,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:rgba(224,100,100,.9);flex-shrink:0}
+.testi-name{font-size:13px;font-weight:600;color:var(--text)}
+.testi-role{font-size:11px;color:var(--dim)}
+.testi-extra{font-size:10px;color:var(--grn);margin-top:2px;letter-spacing:.04em}
+
+/* PLANS */
+.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.plan-card{background:var(--card);border:1px solid var(--bor);border-radius:14px;padding:32px;position:relative;transition:transform .3s;overflow:hidden}
+.plan-card.hot{border-color:rgba(224,48,48,.4);background:rgba(224,48,48,.03)}
+.plan-card.hot::before{content:'';position:absolute;inset:0;border-radius:14px;background:radial-gradient(ellipse at top,rgba(224,48,48,.07),transparent 70%);pointer-events:none}
+.plan-badge{display:inline-block;padding:4px 12px;border-radius:20px;background:var(--pri);color:#fff;font-size:10px;font-weight:700;letter-spacing:.08em;margin-bottom:12px;text-transform:uppercase}
+.plan-name{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px;color:var(--text)}
+.plan-desc{color:var(--dim);font-size:13px;margin-bottom:22px}
+.plan-price{display:flex;align-items:baseline;gap:4px;margin-bottom:28px}
+.amount{font-size:46px;font-weight:700;letter-spacing:-.04em;color:var(--text)}
+.per{font-size:14px;color:var(--dim)}
+.plan-feat{list-style:none;margin-bottom:28px;display:flex;flex-direction:column;gap:10px}
+.plan-feat li{font-size:13px;display:flex;align-items:flex-start;gap:10px;color:var(--dim)}
+.chk{color:var(--grn);flex-shrink:0;font-size:14px}
+.pbtn{width:100%;padding:13px;border-radius:8px;font-weight:600;font-size:14px;letter-spacing:.03em;cursor:none;font-family:'Geist',sans-serif;transition:all .2s}
+.pbtn.pr{background:var(--pri);color:#fff;border:none}
+.pbtn.pr:hover{box-shadow:0 6px 24px rgba(224,48,48,.35);transform:translateY(-1px)}
+.pbtn.ou{background:transparent;border:1px solid var(--bor);color:var(--text)}
+.pbtn.ou:hover{border-color:rgba(224,48,48,.3)}
+
+/* PRICING GUARANTEE */
+.price-guarantee{display:flex;align-items:center;justify-content:center;gap:32px;flex-wrap:wrap;margin-top:36px;padding:20px 0;border-top:1px solid var(--bor)}
+.pg-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim)}
+.pg-item svg{flex-shrink:0}
+
+/* FAQ */
+.faq-inner{max-width:700px;margin:0 auto}
+.faq-item{background:var(--card);border:1px solid var(--bor);border-radius:11px;margin-bottom:10px;overflow:hidden;transition:border-color .25s}
+.faq-item.open-item{border-color:rgba(224,48,48,.25)}
+.faq-q{width:100%;text-align:left;background:transparent;border:none;color:var(--text);font-size:14px;font-weight:500;padding:20px 24px;cursor:none;display:flex;justify-content:space-between;align-items:center;font-family:'Geist',sans-serif;letter-spacing:.01em}
+.faq-arr{transition:transform .35s cubic-bezier(.22,1,.36,1);color:var(--dim);font-size:16px;flex-shrink:0}
+.faq-arr.open{transform:rotate(45deg);color:var(--pri)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.22,1,.36,1);font-size:13px;color:var(--dim);line-height:1.8;padding:0 24px}
+.faq-a.open{max-height:220px;padding:0 24px 20px}
+
+/* CTA */
+.cta-sec{padding:100px 0;text-align:center;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center}
+.cta-grid{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(var(--bor) 1px,transparent 1px),linear-gradient(90deg,var(--bor) 1px,transparent 1px);background-size:60px 60px;opacity:.3}
+.cta-inner{position:relative;width:calc(100% - 80px);max-width:680px}
+.cta-sec h2{font-size:clamp(28px,5vw,56px);font-weight:700;letter-spacing:-.03em;margin-bottom:18px;color:var(--text)}
+.cta-sec h2 em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
+.cta-p{color:var(--dim);max-width:500px;margin:0 auto 36px;line-height:1.75;font-size:16px}
+.cta-form{display:flex;gap:10px;max-width:460px;margin:0 auto;flex-wrap:wrap;justify-content:center}
+.cta-in{flex:1;min-width:210px;padding:13px 18px;background:var(--card);border:1px solid var(--bor);border-radius:8px;color:var(--text);font-size:14px;outline:none;font-family:'Geist',sans-serif;transition:border-color .2s}
+.cta-in:focus{border-color:rgba(224,48,48,.4)}
+.cta-in::placeholder{color:#444}
+.cta-sub{padding:13px 26px;background:var(--pri);color:#fff;font-weight:600;font-size:14px;border:none;border-radius:8px;cursor:none;font-family:'Geist',sans-serif;transition:box-shadow .2s,transform .15s;white-space:nowrap}
+.cta-sub:hover{box-shadow:0 6px 24px rgba(224,48,48,.35);transform:translateY(-1px)}
+#cta-ok{margin-top:16px;font-size:13px;color:var(--grn);letter-spacing:.03em;display:none}
+.cta-trust{margin-top:24px;display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap}
+.trust-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#444}
+.trust-dot{width:5px;height:5px;border-radius:50%;background:var(--grn);flex-shrink:0}
+
+/* FOOTER */
+footer{border-top:1px solid var(--bor);padding:56px 0 32px;background:var(--bg);display:flex;flex-direction:column;align-items:center}
+.footer-grid{display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px;width:calc(100% - 80px);max-width:1040px}
+.footer-brand p{color:var(--dim);font-size:13px;margin-top:12px;line-height:1.7;max-width:260px}
+footer h4{font-size:10px;font-weight:700;margin-bottom:16px;letter-spacing:.12em;text-transform:uppercase;color:#444}
+footer ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+footer ul li a{color:var(--dim);text-decoration:none;font-size:13px;cursor:none;transition:color .2s}
+footer ul li a:hover{color:var(--text)}
+.footer-copy{text-align:center;font-size:11px;color:#444;padding-top:28px;border-top:1px solid var(--bor);width:calc(100% - 80px);max-width:1040px;margin:0 auto;letter-spacing:.04em}
+.discord-link{display:inline-flex;align-items:center;gap:7px;padding:8px 18px;background:rgba(88,101,242,.12);border:1px solid rgba(88,101,242,.25);border-radius:8px;color:rgba(150,158,255,.9);font-size:13px;font-weight:500;text-decoration:none;margin-top:16px;transition:background .2s;cursor:none}
+.discord-link:hover{background:rgba(88,101,242,.2)}
+
+/* MODALS */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.85);backdrop-filter:blur(12px);align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:#0d0d10;border:1px solid var(--bor);border-radius:18px;padding:36px 32px;width:100%;max-width:400px;position:relative;margin:20px}
+.modal-close{position:absolute;top:14px;right:16px;background:none;border:none;color:#555;font-size:22px;cursor:none;font-family:'Geist',sans-serif}
+.auth-tabs{display:flex;border:1px solid var(--bor);border-radius:10px;overflow:hidden;margin-bottom:28px}
+.auth-tab{flex:1;padding:11px;background:transparent;border:none;color:#555;font-size:13px;font-weight:600;cursor:none;font-family:'Geist',sans-serif;transition:all .2s;position:relative}
+.auth-tab.active{background:var(--pri);color:#fff}
+.pro-badge{position:absolute;top:50%;right:12px;transform:translateY(-50%);font-size:10px;background:rgba(224,48,48,.15);border:1px solid rgba(224,48,48,.3);color:var(--pri);padding:2px 7px;border-radius:4px;letter-spacing:.06em}
+.form-label{font-size:12px;color:#555;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:7px}
+.form-input{width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--bor);border-radius:8px;color:var(--text);font-size:14px;outline:none;font-family:'Geist',sans-serif;box-sizing:border-box;transition:border-color .2s}
+.form-input:focus{border-color:rgba(224,48,48,.4)}
+.modal-btn{width:100%;padding:14px;background:var(--pri);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:none;font-family:'Geist',sans-serif}
+.modal-btn:hover{opacity:.9}
+.admin-box{background:linear-gradient(180deg,#081e1c,#041212);border:1.5px solid #2DD4BF;border-radius:18px;padding:36px 32px;width:100%;max-width:380px;position:relative;margin:20px;box-shadow:0 0 60px -10px rgba(45,212,191,.3);font-family:'Geist',sans-serif}
+.admin-input{width:100%;padding:12px 14px;background:rgba(0,0,0,.5);border:1px solid rgba(45,212,191,.3);border-radius:8px;color:var(--text);font-size:14px;outline:none;font-family:'Geist',sans-serif;box-sizing:border-box}
+.admin-btn{width:100%;padding:14px;background:linear-gradient(180deg,#2DD4BF,#14b8a6);color:#021a18;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:none;font-family:'Geist',sans-serif;letter-spacing:.04em}
+
+/* TOAST */
+#copy-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:rgba(10,10,13,.95);border:1px solid rgba(62,207,110,.4);border-radius:8px;padding:10px 20px;font-size:13px;color:var(--grn);z-index:9999;transition:transform .3s cubic-bezier(.22,1,.36,1),opacity .3s;opacity:0;pointer-events:none;backdrop-filter:blur(12px)}
+
+/* RESPONSIVE */
+@media(max-width:900px){.features-grid{grid-template-columns:repeat(2,1fr)}.plans-grid{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr 1fr;gap:28px}}
+@media(max-width:768px){nav .nav-links{display:none}.section{padding:60px 0}.container{width:calc(100% - 40px)}.hero{padding:60px 20px 40px;min-height:auto}.cta-sec{padding:60px 0}.cta-inner{width:calc(100% - 40px)}.features-grid{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr;width:calc(100% - 40px)}.footer-copy{width:calc(100% - 40px)}}
+  </style>
+</head>
+<body>
+
+<!-- CURSOR -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- INTRO -->
+<div id="intro">
+  <div id="intro-logo-wrap">
+    <svg viewBox="0 0 120 120" width="120" height="120" xmlns="http://www.w3.org/2000/svg">
+      <circle class="il-pulse" cx="60" cy="60" r="50"/>
+      <circle class="il-track" cx="60" cy="60" r="50"/>
+      <circle class="il-spin" cx="60" cy="60" r="50"/>
+      <circle class="il-dot" cx="60" cy="60" r="5"/>
+      <text class="il-gex" x="60" y="64">GEX</text>
+    </svg>
+  </div>
+  <div id="intro-lines">
+    <div class="intro-line a"><div class="il-bar"></div><span>Gamma Exposure</span></div>
+    <div class="intro-line b"><div class="il-bar"></div><span>Real Time Data</span></div>
+    <div class="intro-line c"><div class="il-bar"></div><span>Pro Platform</span></div>
+  </div>
+  <div id="intro-pct">0%</div>
+</div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="logo">GEX SATELIT <span class="pulse"></span></div>
+  <div class="nav-links">
+    <a onclick="goTo('producto')">Producto</a>
+    <a onclick="goTo('testimonios')">Traders</a>
+    <a onclick="goTo('precios')">Precios</a>
+    <a onclick="goTo('faq')">FAQ</a>
+  </div>
+  <div class="nav-cta">
+    <button class="nav-btn-ghost" onclick="goTo('precios')">Ver planes</button>
+    <button class="nav-btn-admin" onclick="openAdmin()">⬡ Admin</button>
+    <button class="nav-btn" onclick="openAuth()">Acceder →</button>
+  </div>
+</nav>
+
+<!-- DISCOUNT BAR -->
+<div id="discount-bar">
+  <span class="dc-label">Códigos activos</span>
+  <div class="dc-badge"><span class="dc-code">GAMMA30</span><span class="dc-off">−30% primer mes</span><button class="dc-copy" onclick="copyCode('GAMMA30')">COPIAR</button></div>
+  <div class="dc-badge"><span class="dc-code">ELITE50</span><span class="dc-off">−50% Elite anual</span><button class="dc-copy" onclick="copyCode('ELITE50')">COPIAR</button></div>
+  <div class="dc-badge"><span class="dc-code">FLIP15</span><span class="dc-off">−15% todos</span><button class="dc-copy" onclick="copyCode('FLIP15')">COPIAR</button></div>
+</div>
+
+<!-- TICKER -->
+<div class="ticker-wrap" id="ticker-wrap">
+  <div class="ticker-inner" id="ticker"></div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <canvas id="particles-canvas"></canvas>
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-eyebrow fu" id="h0" data-obs>
+      <span class="pulse" style="width:5px;height:5px"></span>
+      Plataforma de opciones profesional
+    </div>
+    <h1 class="fu" id="h1" data-obs>
+      Gamma <span class="shimmer">Exposure</span><br>en <em>tiempo real</em>
+    </h1>
+    <p class="hero-sub fu d1" id="hsub" data-obs>
+      Visualiza GEX, Call/Put Walls y Gamma Flip del SPX antes que el resto del mercado.
+    </p>
+    <div class="hero-btns fu d2" id="hbtns" data-obs>
+      <button class="btn-p" onclick="goTo('precios')">Empezar ahora →</button>
+      <button class="btn-o" onclick="goTo('hchart')">Ver demo</button>
+    </div>
+    <div class="stats fu d3" id="hstats" data-obs>
+      <div class="stat-item"><div class="sn" id="c-t">+0</div><div class="sl">Traders</div><div class="stat-accent"></div></div>
+      <div class="stat-item"><div class="sn" id="c-a">0M+</div><div class="sl">Análisis</div><div class="stat-accent"></div></div>
+      <div class="stat-item"><div class="sn" id="c-u">0%</div><div class="sl">Uptime</div><div class="stat-accent"></div></div>
+    </div>
+    <div class="chart-wrap fu d4" id="hchart" data-obs>
+      <div class="chart-head">
+        <div class="chart-head-left">
+          <div class="live-dot"></div>
+          <span class="live-label">LIVE</span>
+          <span class="chart-badge">SPX GEX Profile</span>
+        </div>
+        <span style="font-size:11px">May 13, 2026 · ~15min delay</span>
+      </div>
+      <div style="position:relative;padding-left:36px">
+        <div id="chart-axes-y"></div>
+        <div id="tooltip">
+          <div class="tt-strike" id="tt-strike"></div>
+          <div class="tt-row"><span>GEX Exposure</span><span class="tt-val" id="tt-gex"></span></div>
+          <div class="tt-row"><span>Gamma share</span><span class="tt-val" id="tt-pct"></span></div>
+          <div class="tt-row"><span>Tipo</span><span class="tt-val" id="tt-type"></span></div>
+          <div id="tt-bar" class="tt-bar"></div>
+        </div>
+        <svg id="chart-svg" viewBox="0 0 760 280" style="width:100%;height:auto;display:block"></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FEATURES -->
+<section class="section" id="producto">
+  <div class="container">
+    <div class="sec-title">
+      <div class="sec-label mr" data-obs>✦ Funcionalidades</div>
+      <h2 class="fu" data-obs>Todo lo que necesitas para operar<br>con <em>ventaja institucional</em></h2>
+      <p class="fu d1" data-obs>Datos de calidad institucional, visualizaciones claras y alertas precisas en una sola plataforma.</p>
+    </div>
+    <div class="features-grid" id="features-grid"></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- TESTIMONIALS -->
+<section class="section" id="testimonios" style="padding-top:70px;padding-bottom:70px">
+  <div class="container">
+    <div class="sec-title">
+      <div class="sec-label mr" data-obs>✦ Testimonios</div>
+      <h2 class="fu" data-obs>Lo que dicen los <em>traders</em></h2>
+    </div>
+  </div>
+  <div class="testi-track-wrap fu" data-obs>
+    <div class="testi-track" id="testi-track"></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PRICING -->
+<section class="section" id="precios">
+  <div class="container">
+    <div class="sec-title">
+      <div class="sec-label mr" data-obs>✦ Precios</div>
+      <h2 class="fu" data-obs>Planes <em>transparentes</em></h2>
+      <p class="fu d1" data-obs>Sin contratos. Sin permanencia. Cancela cuando quieras.</p>
+    </div>
+    <div class="plans-grid">
+      <!-- Starter -->
+      <div class="plan-card fu" data-obs>
+        <div class="plan-name">Starter</div>
+        <div class="plan-desc">Para traders que empiezan a explorar el flujo de opciones</div>
+        <div class="plan-price"><span class="amount">$29</span><span class="per">/mes</span></div>
+        <ul class="plan-feat">
+          <li><span class="chk">✓</span>Datos con 15 min delay (CBOE)</li>
+          <li><span class="chk">✓</span>3 tickers simultáneos</li>
+          <li><span class="chk">✓</span>Perfil GEX diario</li>
+          <li><span class="chk">✓</span>Call Wall · Put Wall intradiarios</li>
+          <li><span class="chk">✓</span>Gamma Flip level</li>
+          <li><span class="chk">✓</span>Historial 30 días</li>
+          <li style="opacity:.35"><span style="color:#555;flex-shrink:0">✕</span>Alertas en tiempo real</li>
+          <li style="opacity:.35"><span style="color:#555;flex-shrink:0">✕</span>Griegas avanzadas</li>
+        </ul>
+        <button class="pbtn ou" onclick="openAuth()">Empezar gratis →</button>
+        <div style="text-align:center;font-size:11px;color:#444;margin-top:12px;letter-spacing:.03em">Sin tarjeta · Cancela cuando quieras</div>
+      </div>
+      <!-- Pro -->
+      <div class="plan-card hot fu d1" data-obs>
+        <div class="plan-badge">🔥 Más popular · −62% OFF</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-desc">Para traders activos que necesitan ventaja real sobre el mercado</div>
+        <div class="plan-price" style="flex-direction:column;align-items:flex-start;gap:4px">
+          <span style="font-size:14px;color:var(--dim);text-decoration:line-through;font-weight:400">$130/mes</span>
+          <div style="display:flex;align-items:baseline;gap:4px"><span class="amount">$49</span><span class="per">/mes</span></div>
+        </div>
+        <ul class="plan-feat">
+          <li><span class="chk">✓</span>Todo lo de Starter incluido</li>
+          <li><span class="chk">✓</span><strong style="color:var(--pri)">Datos en tiempo real</strong> (latencia &lt;200ms)</li>
+          <li><span class="chk">✓</span>25 tickers simultáneos</li>
+          <li><span class="chk">✓</span>Alertas push ilimitadas (precio + régimen)</li>
+          <li><span class="chk">✓</span>Delta Exposure (DEX) agregado</li>
+          <li><span class="chk">✓</span>Griegas 2º orden: Vanna, Charm</li>
+          <li><span class="chk">✓</span>AI Bias diario con régimen gamma</li>
+          <li><span class="chk">✓</span>Historial 12 meses + exportación CSV</li>
+          <li><span class="chk">✓</span>Soporte prioritario (respuesta 24h)</li>
+        </ul>
+        <button class="pbtn pr" onclick="openAuth()">Empezar prueba 7 días gratis →</button>
+        <div style="text-align:center;font-size:11px;color:var(--grn);margin-top:12px;letter-spacing:.03em">✓ 7 días gratis · Sin compromiso</div>
+      </div>
+      <!-- Elite -->
+      <div class="plan-card fu d2" data-obs>
+        <div class="plan-name">Elite</div>
+        <div class="plan-desc">Para fondos, prop firms y traders con necesidades institucionales</div>
+        <div class="plan-price"><span class="amount">$159</span><span class="per">/mes</span></div>
+        <ul class="plan-feat">
+          <li><span class="chk">✓</span>Todo lo de Pro incluido</li>
+          <li><span class="chk">✓</span><strong style="color:var(--pri)">API REST</strong> completa (10k calls/día)</li>
+          <li><span class="chk">✓</span>IV Surface 3D interactiva (tiempo real)</li>
+          <li><span class="chk">✓</span>Put/Call Skew surface 3D</li>
+          <li><span class="chk">✓</span>Market Topology view</li>
+          <li><span class="chk">✓</span>Tickers ilimitados</li>
+          <li><span class="chk">✓</span>SLA 99.99% garantizado contractualmente</li>
+          <li><span class="chk">✓</span>Soporte dedicado 24/7 con account manager</li>
+          <li><span class="chk">✓</span>Onboarding personalizado + 5 seats</li>
+        </ul>
+        <button class="pbtn ou" onclick="openAuth()">Hablar con ventas →</button>
+        <div style="text-align:center;font-size:11px;color:#444;margin-top:12px;letter-spacing:.03em">Facturación mensual o anual</div>
+      </div>
+    </div>
+    <div class="price-guarantee fu d3" data-obs>
+      <div class="pg-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--grn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Pago seguro SSL</div>
+      <div class="pg-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--grn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Cancela en 1 clic</div>
+      <div class="pg-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--grn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Datos verificados CBOE</div>
+      <div class="pg-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--grn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>30 días garantía</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FAQ -->
+<section class="section" id="faq">
+  <div class="container">
+    <div class="sec-title">
+      <div class="sec-label mr" data-obs>✦ FAQ</div>
+      <h2 class="fu" data-obs>Preguntas <em>frecuentes</em></h2>
+    </div>
+    <div class="faq-inner" id="faq-list"></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CTA -->
+<section class="cta-sec" id="contacto">
+  <div class="cta-grid"></div>
+  <div class="cta-inner">
+    <div class="sec-label mr" data-obs style="justify-content:center;margin-bottom:18px">✦ Empieza hoy</div>
+    <h2 class="fu" data-obs>Opera con <span class="shimmer"><em>ventaja real</em></span></h2>
+    <p class="cta-p fu d1" data-obs>Únete a más de 2,400 traders que ya usan GEX SATELIT para identificar niveles clave antes que el mercado.</p>
+    <div class="cta-form fu d2" data-obs id="cta-form">
+      <input class="cta-in" type="email" id="email-in" placeholder="tu@email.com"/>
+      <button class="cta-sub" onclick="handleCTA()">Solicitar acceso →</button>
+    </div>
+    <div id="cta-ok"></div>
+    <div class="cta-trust fu d3" data-obs>
+      <div class="trust-item"><div class="trust-dot"></div>Sin tarjeta requerida</div>
+      <div class="trust-item"><div class="trust-dot"></div>Cancela cuando quieras</div>
+      <div class="trust-item"><div class="trust-dot"></div>Datos verificados CBOE</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand fu" data-obs>
+      <div class="logo" style="font-size:15px">GEX SATELIT <span class="pulse"></span></div>
+      <p>Gamma Exposure en tiempo real para traders profesionales. Datos verificados, plataforma segura.</p>
+      <a href="https://discord.gg/f7UpW2Kx8" target="_blank" rel="noopener noreferrer" class="discord-link">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20.317 4.369A19.79 19.79 0 0 0 16.558 3.2a.075.075 0 0 0-.079.037c-.34.607-.719 1.4-.984 2.025a18.27 18.27 0 0 0-5.487 0 12.51 12.51 0 0 0-1-2.025.077.077 0 0 0-.079-.037c-1.32.227-2.586.62-3.76 1.169a.07.07 0 0 0-.032.027C2.07 8.046 1.36 11.62 1.71 15.144a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.027c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.041-.105 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.927 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.128 12.3 12.3 0 0 1-1.873.891.077.077 0 0 0-.041.106c.36.699.772 1.364 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-4.177-.838-7.72-3.549-10.748a.061.061 0 0 0-.031-.028z"/></svg>
+        Únete al Discord
+      </a>
+    </div>
+    <div class="fu d1" data-obs><h4>Producto</h4><ul><li><a href="#">Features</a></li><li><a href="#">Precios</a></li><li><a href="#">API</a></li><li><a href="#">Changelog</a></li></ul></div>
+    <div class="fu d2" data-obs><h4>Empresa</h4><ul><li><a href="#">Sobre nosotros</a></li><li><a href="#">Blog</a></li><li><a href="#">Careers</a></li><li><a href="#">Contacto</a></li></ul></div>
+    <div class="fu d3" data-obs><h4>Legal</h4><ul><li><a href="#">Privacidad</a></li><li><a href="#">Términos</a></li><li><a href="#">Disclaimer</a></li><li><a href="#">Cookies</a></li></ul></div>
+  </div>
+  <div class="footer-copy fu" data-obs>© 2026 GEX Satelit · Plataforma verificada · Datos en tiempo real · Retraso ~15 min (CBOE) · Trading de opciones implica riesgo de pérdida</div>
+</footer>
+
+<!-- AUTH MODAL -->
+<div id="auth-modal" class="modal-overlay" onclick="closeAuth()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeAuth()">×</button>
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-weight:700;font-size:20px;letter-spacing:-.02em;color:#f0f0f0;margin-bottom:6px">GEX SATELIT</div>
+      <div style="font-size:13px;color:#555">Accede a tu cuenta</div>
+    </div>
+    <div class="auth-tabs">
+      <button id="tab-login" class="auth-tab active" onclick="switchTab('login')">Iniciar sesión</button>
+      <button id="tab-register" class="auth-tab" onclick="switchTab('register')">Crear cuenta<span class="pro-badge">🔒 PRO</span></button>
+    </div>
+    <div id="login-form">
+      <div style="margin-bottom:16px"><label class="form-label">Email</label><input type="email" id="login-email" class="form-input" placeholder="tu@email.com"/></div>
+      <div style="margin-bottom:24px"><label class="form-label">Contraseña</label><input type="password" id="login-pwd" class="form-input" placeholder="••••••••"/></div>
+      <button class="modal-btn" style="margin-bottom:12px" onclick="handleLogin()">Iniciar sesión →</button>
+      <div style="text-align:center;font-size:12px;color:#444">¿Olvidaste tu contraseña? <span style="color:#e03030;cursor:none">Recuperar</span></div>
+    </div>
+    <div id="register-form" style="display:none">
+      <div style="background:rgba(224,48,48,.06);border:1px solid rgba(224,48,48,.2);border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
+        <div style="font-size:28px;margin-bottom:10px">🔒</div>
+        <div style="font-size:14px;font-weight:600;color:#f0f0f0;margin-bottom:6px">Requiere suscripción activa</div>
+        <div style="font-size:13px;color:#555;line-height:1.6">Para crear una cuenta necesitas un plan Pro o Elite. Elige tu plan y recibirás acceso inmediato.</div>
+      </div>
+      <button class="modal-btn" onclick="closeAuth();goTo('precios')">Ver planes →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div id="admin-modal" class="modal-overlay" onclick="closeAdmin()">
+  <div class="admin-box" onclick="event.stopPropagation()">
+    <button onclick="closeAdmin()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#2DD4BF;font-size:22px;cursor:none">×</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <span style="font-size:18px">⬡</span>
+      <div style="font-weight:700;font-size:18px;color:#f0f0f0;letter-spacing:-.02em">Acceso Admin</div>
+    </div>
+    <div style="font-size:13px;color:#2DD4BF;opacity:.6;margin-bottom:24px;letter-spacing:.04em">Terminal de control · Acceso restringido</div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;color:#2DD4BF;opacity:.7;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:7px">Usuario</label>
+      <input type="text" id="admin-user" placeholder="admin" class="admin-input"/>
+    </div>
+    <div style="margin-bottom:24px">
+      <label style="font-size:11px;color:#2DD4BF;opacity:.7;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:7px">Contraseña</label>
+      <input type="password" id="admin-pwd" placeholder="••••••••" class="admin-input"/>
+    </div>
+    <button class="admin-btn" onclick="handleAdmin()">Entrar al terminal →</button>
+    <div id="admin-err" style="margin-top:12px;text-align:center;font-size:13px;color:#e03030;display:none">Credenciales incorrectas</div>
+  </div>
+</div>
+
+<!-- COPY TOAST -->
+<div id="copy-toast">✓ Código copiado</div>
+
+<script>
+/* ── CURSOR ── */
+const cur = document.getElementById('cursor');
+const curR = document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px';});
+(function animCursor(){rx+=(mx-rx)*.12;ry+=(my-ry)*.12;curR.style.left=rx+'px';curR.style.top=ry+'px';requestAnimationFrame(animCursor);})();
+
+/* ── UTILS ── */
+function goTo(id){const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth'});}
+
+/* ── TICKER ── */
+const tickers=[{s:'SPX',p:'5,680.50',c:'+0.85%'},{s:'NDX',p:'19,842.30',c:'+1.12%'},{s:'RUT',p:'2,234.80',c:'-0.34%'},{s:'AAPL',p:'234.56',c:'+0.92%'},{s:'NVDA',p:'138.45',c:'+2.41%'},{s:'TSLA',p:'248.90',c:'-1.23%'},{s:'META',p:'582.10',c:'+0.67%'},{s:'MSFT',p:'445.32',c:'+0.45%'},{s:'VIX',p:'14.25',c:'-3.45%'},{s:'SPY',p:'567.20',c:'+0.81%'},{s:'QQQ',p:'482.15',c:'+1.05%'},{s:'GLD',p:'214.30',c:'+0.22%'}];
+document.getElementById('ticker').innerHTML=[...tickers,...tickers].map(t=>`<div class="ti"><span class="ts">${t.s}</span><span class="tp">${t.p}</span><span class="${t.c[0]==='+'?'up':'dn'}">${t.c}</span></div>`).join('');
+
+/* ── FEATURES ── */
+const features=[
+  {delay:'',tag:'Real-time',title:'Perfil GEX en vivo',desc:'Actualizado cada segundo con datos de opciones de todas las exchanges principales de EEUU.',icon:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>'},
+  {delay:'d1',tag:'Automático',title:'Niveles intradiarios',desc:'Call walls, put walls, gamma flip y zero gamma calculados automáticamente sin intervención manual.',icon:'<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>'},
+  {delay:'d2',tag:'Avanzado',title:'Griegas de segundo orden',desc:'Delta, Vega, Vanna y Charm exposure agregados para entender el posicionamiento dealer profundo.',icon:'<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>'},
+  {delay:'d3',tag:'Inteligente',title:'Alertas instantáneas',desc:'Notificaciones push cuando el precio toca niveles clave o el régimen gamma cambia de signo.',icon:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'},
+  {delay:'d4',tag:'Multi-ticker',title:'Watchlist personalizada',desc:'Sigue SPX, SPY, QQQ, NDX y tus tickers favoritos en un solo panel centralizado.',icon:'<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'},
+  {delay:'d5',tag:'Seguro',title:'Acceso protegido',desc:'Tu cuenta y watchlist protegidas con autenticación moderna y cifrado de extremo a extremo.',icon:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'},
+];
+document.getElementById('features-grid').innerHTML=features.map(f=>`<div class="feat-card fu ${f.delay}" data-obs><div class="feat-icon"><svg viewBox="0 0 24 24">${f.icon}</svg></div><div class="feat-tag">${f.tag}</div><h3>${f.title}</h3><p>${f.desc}</p></div>`).join('');
+
+/* ── TESTIMONIALS ── */
+const testimonials=[
+  {n:'Carlos M.',r:'Day Trader · SPX',t:'Llevo 8 meses con GEXSATELIT. El gamma flip me salvó de varios drawdowns brutales. Imprescindible.',e:'+320% portfolio'},
+  {n:'Ana L.',r:'Options Trader · QQQ',t:'Las call/put walls funcionan como imanes. Es la herramienta más precisa que he probado.',e:'Win rate: 54% → 71%'},
+  {n:'David R.',r:'Quant · Hedge Fund',t:'La latencia y calidad de datos son institucionales. El precio es ridículamente bajo para lo que entrega.',e:'Reemplazó software de $2k/mes'},
+  {n:'Sofía P.',r:'Swing Trader',t:'El AI Bias me dice exactamente cuándo el régimen cambia. Operar contra dealers ya no me pasa.',e:'Suscriptora Pro Elite'},
+  {n:'Marcos T.',r:'Scalper · SPY',t:'Las alertas push en tiempo real son un game changer. Nunca me pierdo un nivel crítico.',e:'Suscriptor desde 2024'},
+  {n:'Laura K.',r:'Prop Trader',t:'El GEX Profile es la única herramienta que realmente explica por qué el precio se mueve así.',e:'+ 180% este año'},
+];
+const doubled=[...testimonials,...testimonials];
+document.getElementById('testi-track').innerHTML=doubled.map(t=>`<div class="testi-card"><div class="testi-stars">${'<div class="star"></div>'.repeat(5)}</div><p class="testi-text">${t.t}</p><div class="testi-author"><div class="testi-avatar">${t.n.split(' ').map(x=>x[0]).join('')}</div><div><div class="testi-name">${t.n}</div><div class="testi-role">${t.r}</div><div class="testi-extra">${t.e}</div></div></div></div>`).join('');
+
+/* ── FAQ ── */
+const faqs=[
+  {q:'¿Qué es Gamma Exposure (GEX)?',a:'Gamma Exposure mide cuántas acciones tienen que comprar/vender los market makers para cubrir sus posiciones en opciones. Cuando el GEX es positivo actúan como estabilizadores del mercado. Es el mapa invisible que usan los institucionales para predecir rangos y niveles clave.'},
+  {q:'¿De dónde obtienen los datos?',a:'Agregamos datos de opciones en tiempo real de CBOE, NYSE Arca, NASDAQ, ISE y más. El feed se actualiza cada segundo. El plan Starter recibe datos con 15 min de retraso; Pro y Elite con latencia menor a 200ms.'},
+  {q:'¿Qué es el Gamma Flip?',a:'El Gamma Flip es el nivel de precio donde el régimen cambia de gamma positivo (mercado estable) a gamma negativo (mercado volátil, los dealers amplifican movimientos). Es uno de los niveles más importantes para cualquier trader de opciones.'},
+  {q:'¿Puedo cancelar en cualquier momento?',a:'Sí. Sin contratos ni permanencia. Cancela desde tu dashboard con un clic y mantienes acceso hasta el fin del periodo ya pagado. No guardamos tu método de pago sin consentimiento explícito.'},
+  {q:'¿Ofrecen periodo de prueba?',a:'El plan Pro incluye 7 días de prueba gratuita completa, sin tarjeta de crédito requerida. Obtienes acceso a todas las funciones Pro durante ese período.'},
+  {q:'¿Tienen API para integración propia?',a:'Sí, el plan Elite incluye acceso completo a la API REST (10k calls/día) con documentación completa, ejemplos en Python y JavaScript, y soporte dedicado para integración.'},
+];
+document.getElementById('faq-list').innerHTML=faqs.map((f,i)=>`<div class="faq-item fu" data-obs style="transition-delay:${i*.06}s"><button class="faq-q" onclick="toggleFaq(${i},this)"><span>${f.q}</span><span class="faq-arr" id="arr-${i}">+</span></button><div class="faq-a" id="ans-${i}">${f.a}</div></div>`).join('');
+function toggleFaq(i,btn){const a=document.getElementById('ans-'+i),ar=document.getElementById('arr-'+i),open=a.classList.toggle('open');ar.classList.toggle('open',open);btn.closest('.faq-item').classList.toggle('open-item',open);}
+
+/* ── SCROLL OBSERVER ── */
+const obs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    const el=e.target;
+    if(e.isIntersecting){
+      el.classList.add('in');
+      if(el.id==='hstats')startCounters();
+      if(el.id==='hchart')setTimeout(()=>requestAnimationFrame(animBars),300);
+    }else{
+      el.classList.remove('in');
+      if(el.id==='hstats'){document.getElementById('c-t').textContent='+0';document.getElementById('c-a').textContent='0M+';document.getElementById('c-u').textContent='0%';}
+      if(el.id==='hchart'){animatedBars.forEach(b=>{b.currentH=0;b.bar.setAttribute('height',0);b.bar.setAttribute('y',b.baseY);});}
+    }
+  });
+},{threshold:.1});
+
+/* ── STAT COUNTERS ── */
+let traderIv=null;
+function startCounters(){
+  if(traderIv)clearInterval(traderIv);
+  let step=0,steps=70;
+  const iv=setInterval(()=>{step++;const p=step/steps;document.getElementById('c-a').textContent=Math.floor(12*p)+'M+';document.getElementById('c-u').textContent=parseFloat((99.9*p).toFixed(1))+'%';if(step>=steps)clearInterval(iv);},25);
+  let tc=0;
+  const tiv=setInterval(()=>{tc+=40;if(tc>=2400){clearInterval(tiv);document.getElementById('c-t').textContent='+2,400';}else{document.getElementById('c-t').textContent='+'+tc.toLocaleString();}},18);
+  traderIv=setInterval(()=>{
+    const el=document.getElementById('c-t');
+    const c=parseInt(el.textContent.replace(/[^0-9]/g,''))||2400;
+    el.style.animation='none';
+    void el.offsetWidth;
+    el.textContent='+'+(c+1).toLocaleString();
+    el.style.animation='numflip .5s cubic-bezier(.22,1,.36,1) forwards';
+  },2000);
+}
+
+/* ── CHART SVG ── */
+const strikes=[5580,5600,5620,5640,5660,5680,5700,5720,5740,5760,5780];
+const gexData=[-2.1,-1.4,-0.6,0.3,1.1,2.8,3.4,2.1,1.2,0.5,-0.3];
+const totalGex=gexData.reduce((s,g)=>s+Math.abs(g),0);
+const svg=document.getElementById('chart-svg');
+const tooltip=document.getElementById('tooltip');
+const ns='http://www.w3.org/2000/svg';
+function svgEl(tag,attrs){const el=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));return el;}
+const maxG=Math.max(...gexData.map(Math.abs));
+const baseY=155,bw=46,gap=24,maxH=110;
+const totalW=strikes.length*(bw+gap)-gap;
+const startX=(760-totalW)/2;
+[40,100,155,210,260].forEach(y=>svg.appendChild(svgEl('line',{x1:0,y1:y,x2:760,y2:y,stroke:'#1a1a1e','stroke-width':y===155?'1.2':'0.8'})));
+document.getElementById('chart-axes-y').innerHTML='<span>+3B</span><span>+1.5B</span><span>0</span><span>−1.5B</span><span>−3B</span>';
+let animatedBars=[];
+strikes.forEach((strike,i)=>{
+  const gex=gexData[i],x=startX+i*(bw+gap);
+  const col=gex>0?'#3ecf6e':'#e03030',colDim=gex>0?'rgba(62,207,110,0.3)':'rgba(224,48,48,0.3)';
+  const pct=((Math.abs(gex)/totalGex)*100).toFixed(1);
+  const bg=svgEl('rect',{x,y:gex>0?baseY-maxH:baseY,width:bw,height:maxH,fill:colDim,rx:4,opacity:'0'});
+  svg.appendChild(bg);
+  const bar=svgEl('rect',{x,y:baseY,width:bw,height:0,fill:col,rx:4,opacity:'.88'});
+  svg.appendChild(bar);
+  const lbl=svgEl('text',{x:x+bw/2,y:270,'text-anchor':'middle',fill:'#444','font-size':10,'font-family':'Geist,sans-serif'});
+  lbl.textContent=String(strike);svg.appendChild(lbl);
+  const hitbox=svgEl('rect',{x,y:Math.min(baseY,baseY-(Math.abs(gex)/maxG)*maxH),width:bw,height:(Math.abs(gex)/maxG)*maxH+1,fill:'transparent',style:'cursor:crosshair'});
+  svg.appendChild(hitbox);
+  const b={bar,bg,gex,baseY,col,colDim,pct,strike,targetH:(Math.abs(gex)/maxG)*maxH,currentH:0};
+  animatedBars.push(b);
+  hitbox.addEventListener('mouseenter',()=>{
+    animatedBars.forEach(bb=>bb.bar.setAttribute('opacity','.25'));
+    bar.setAttribute('opacity','1');bg.setAttribute('opacity','1');
+    document.getElementById('tt-strike').textContent='Strike '+strike;
+    document.getElementById('tt-gex').textContent=(gex>0?'+':'')+gex.toFixed(2)+'B';
+    document.getElementById('tt-pct').textContent=pct+'%';
+    document.getElementById('tt-type').textContent=gex>0?'Gamma Positivo ↑':'Gamma Negativo ↓';
+    document.getElementById('tt-bar').style.cssText=`width:${pct}%;background:${col};height:3px;border-radius:2px;margin-top:8px`;
+    tooltip.style.display='block';
+  });
+  hitbox.addEventListener('mousemove',e=>{
+    const wrap=document.getElementById('hchart'),r=wrap.getBoundingClientRect();
+    tooltip.style.left=Math.min(e.clientX-r.left+14,r.width-180)+'px';
+    tooltip.style.top=Math.max(e.clientY-r.top-70,4)+'px';
+  });
+  hitbox.addEventListener('mouseleave',()=>{
+    animatedBars.forEach(bb=>{bb.bar.setAttribute('opacity','.88');bb.bg.setAttribute('opacity','0');});
+    tooltip.style.display='none';
+  });
+});
+const priceX=startX+5*(bw+gap)+bw/2;
+svg.appendChild(svgEl('line',{x1:priceX,y1:15,x2:priceX,y2:265,stroke:'rgba(240,240,240,.5)','stroke-width':1,'stroke-dasharray':'4 3'}));
+const cpl=svgEl('text',{x:priceX,y:11,'text-anchor':'middle',fill:'rgba(240,240,240,.7)','font-size':10,'font-family':'Geist,sans-serif','font-weight':600});
+cpl.textContent='5680 ▾';svg.appendChild(cpl);
+function animBars(){
+  animatedBars.forEach(b=>{
+    if(b.currentH<b.targetH){b.currentH=Math.min(b.currentH+b.targetH*.04,b.targetH);const h=b.currentH;
+      if(b.gex>0){b.bar.setAttribute('y',b.baseY-h);b.bar.setAttribute('height',h);}
+      else{b.bar.setAttribute('y',b.baseY);b.bar.setAttribute('height',h);}}
+  });
+  if(animatedBars.some(b=>b.currentH<b.targetH))requestAnimationFrame(animBars);
+}
+
+/* ── PARTICLES ── */
+const canvas=document.getElementById('particles-canvas');
+const ctx=canvas.getContext('2d');
+let W,H,pts=[];
+function resizeCanvas(){W=canvas.width=canvas.offsetWidth;H=canvas.height=canvas.offsetHeight;}
+resizeCanvas();
+window.addEventListener('resize',()=>{resizeCanvas();pts=[];initPts();});
+function initPts(){for(let i=0;i<80;i++)pts.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+.3,a:Math.random()});}
+initPts();
+function drawParticles(){
+  ctx.clearRect(0,0,W,H);
+  pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(224,48,48,${p.a*.35})`;ctx.fill();});
+  pts.forEach((p,i)=>{for(let j=i+1;j<pts.length;j++){const dx=p.x-pts[j].x,dy=p.y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<120){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(pts[j].x,pts[j].y);ctx.strokeStyle=`rgba(224,48,48,${(1-d/120)*.08})`;ctx.lineWidth=.5;ctx.stroke();}}});
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+/* ── COPY CODE ── */
+function copyCode(code){
+  navigator.clipboard.writeText(code).catch(()=>{});
+  const t=document.getElementById('copy-toast');
+  t.textContent='✓ Código '+code+' copiado';
+  t.style.transform='translateX(-50%) translateY(0)';t.style.opacity='1';
+  setTimeout(()=>{t.style.transform='translateX(-50%) translateY(80px)';t.style.opacity='0';},2200);
+}
+
+/* ── CTA ── */
+function handleCTA(){
+  const email=document.getElementById('email-in').value;
+  if(!email||!email.includes('@'))return;
+  document.getElementById('cta-form').style.display='none';
+  const ok=document.getElementById('cta-ok');
+  ok.textContent='✓ ¡Listo! Te contactaremos pronto.';ok.style.display='block';
+}
+
+/* ── AUTH MODAL ── */
+function openAuth(){document.getElementById('auth-modal').classList.add('open');}
+function closeAuth(){document.getElementById('auth-modal').classList.remove('open');}
+function switchTab(tab){
+  const isLogin=tab==='login';
+  document.getElementById('login-form').style.display=isLogin?'block':'none';
+  document.getElementById('register-form').style.display=isLogin?'none':'block';
+  document.getElementById('tab-login').classList.toggle('active',isLogin);
+  document.getElementById('tab-register').classList.toggle('active',!isLogin);
+}
+function handleLogin(){
+  const email=document.getElementById('login-email').value;
+  const pwd=document.getElementById('login-pwd').value;
+  if(!email||!pwd)return;
+  alert('Función de login conectada al backend. Demo standalone no disponible.');
+}
+
+/* ── ADMIN MODAL ── */
+function openAdmin(){document.getElementById('admin-modal').classList.add('open');}
+function closeAdmin(){document.getElementById('admin-modal').classList.remove('open');document.getElementById('admin-err').style.display='none';document.getElementById('admin-user').value='';document.getElementById('admin-pwd').value='';}
+function handleAdmin(){
+  const pwd=document.getElementById('admin-pwd').value;
+  if(pwd==='gexsatelit2008'){
+    localStorage.setItem('gexsatelit_admin_bypass','1');
+    localStorage.setItem('gexsatelit_admin_name',document.getElementById('admin-user').value||'admin');
+    closeAdmin();window.location.href='/dashboard';
+  }else{document.getElementById('admin-err').style.display='block';}
+}
+
+/* ── LETTER HOVER WRAP ── */
+function wrapLetters(el){
+  el.childNodes.forEach(node=>{
+    if(node.nodeType===3&&node.textContent.trim()){
+      const frag=document.createDocumentFragment();
+      node.textContent.split(/(\s+)/).forEach(w=>{
+        if(/^\s+$/.test(w)){frag.appendChild(document.createTextNode(w));}
+        else{const sp=document.createElement('span');sp.className='lh-word';[...w].forEach(ch=>{const s=document.createElement('span');s.className='lh';s.textContent=ch;sp.appendChild(s);});frag.appendChild(sp);}
+      });
+      node.parentNode.replaceChild(frag,node);
+    }
+  });
+}
+['.hero-sub','.sec-title p','.feat-card p','.plan-desc','.footer-brand p','.footer-copy','.cta-p'].forEach(sel=>document.querySelectorAll(sel).forEach(el=>wrapLetters(el)));
+
+/* ── INTRO SEQUENCE ── */
+const introEl=document.getElementById('intro');
+const loaderEl=document.getElementById('intro-logo-wrap');
+const linesEl=document.getElementById('intro-lines');
+const pctEl=document.getElementById('intro-pct');
+let pct=0;
+setTimeout(()=>{loaderEl.classList.add('in');linesEl.classList.add('in');},80);
+const pctIv=setInterval(()=>{pct+=2;pctEl.textContent=Math.min(pct,100)+'%';if(pct>=100){pctEl.classList.add('done');clearInterval(pctIv);}},30);
+setTimeout(()=>{
+  introEl.classList.add('out');
+  setTimeout(()=>{introEl.style.display='none';},800);
+  setTimeout(()=>document.getElementById('nav').classList.add('in'),600);
+  setTimeout(()=>document.getElementById('discount-bar').classList.add('in'),720);
+  setTimeout(()=>document.getElementById('ticker-wrap').classList.add('in'),840);
+  ['h0','h1','hsub','hbtns','hstats','hchart'].forEach((id,i)=>
+    setTimeout(()=>{const el=document.getElementById(id);if(el)el.classList.add('in');},680+i*120)
+  );
+  setTimeout(startCounters,900);
+  setTimeout(()=>requestAnimationFrame(animBars),1100);
+},2800);
+
+/* ── OBSERVE ALL [data-obs] ── */
+document.querySelectorAll('[data-obs]').forEach(el=>obs.observe(el));
+</script>
+</body>
+</html>
