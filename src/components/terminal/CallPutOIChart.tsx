@@ -84,7 +84,7 @@ export function CallPutOIChart({ exposures, spot }: Props) {
   return (
     <div
       style={{
-        background: "#1f1f1f",
+        background: "#111111",
         border: "1px solid #2a2a2a",
         borderRadius: 4,
         padding: "10px 8px 8px",

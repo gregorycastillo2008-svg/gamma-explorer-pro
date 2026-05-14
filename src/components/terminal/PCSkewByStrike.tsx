@@ -50,7 +50,7 @@ export function PCSkewByStrike({ contracts, spot, strikeStep }: Props) {
 
   return (
     <div style={{
-      background: "#1f1f1f",
+      background: "#111111",
       border: "1px solid #2a2a2a",
       borderRadius: 6,
       overflow: "hidden",
