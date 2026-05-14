@@ -9,7 +9,7 @@ export function useIsAdmin(userId?: string | null) {
     let mounted = true;
     const failSafe = window.setTimeout(() => {
       if (mounted) setLoading(false);
-    }, 4000);
+    }, 1500);
 
     const checkRole = async () => {
       if (!userId) {

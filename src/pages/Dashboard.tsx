@@ -240,29 +240,28 @@ export default function Dashboard() {
     }
   };
 
-  // Mientras carga el estado de admin/sub, no decidimos nada (evita parpadeo del paywall).
-  // El bypass admin (contraseña maestra) salta toda la verificación.
-  const checking = adminBypass ? false : (adminLoading || subLoading);
-  const showPaywall = !checking && !hasAccess;
+  // Block UI only while we don't have any auth or access decision yet.
+  // subLoading alone does NOT block — we use cached subscription state for instant render.
+  const checking = adminBypass ? false : (adminLoading && subLoading);
+  const showPaywall = !checking && !hasAccess && !subLoading;
 
-  // Si el usuario no ha pagado (y no es admin) → SOLO el paywall, sin dashboard detrás.
-  if (showPaywall) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
-        <Paywall email={user?.email ?? undefined} />
-      </div>
-    );
-  }
-
-  // Pantalla de carga mientras verificamos suscripción/admin (evita flash del dashboard).
-  // Si está en bypass admin, NO esperamos a `user` (no hay sesión real).
-  if (checking || (!user && !adminBypass)) {
+  // Si no hay sesión confirmada y no es bypass, esperar un máximo de un tick.
+  if (!adminBypass && !user && loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
           <p className="text-sm text-muted-foreground">Cargando…</p>
         </div>
+      </div>
+    );
+  }
+
+  // Si el usuario no ha pagado (y no es admin) → SOLO el paywall, sin dashboard detrás.
+  if (showPaywall) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+        <Paywall email={user?.email ?? undefined} />
       </div>
     );
   }

@@ -6,11 +6,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "./pages/NotFound.tsx";
 
-const Index = lazy(() => import("./pages/Index.tsx"));
-const Auth = lazy(() => import("./pages/Auth.tsx"));
-const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
-const Admin = lazy(() => import("./pages/Admin.tsx"));
-const Pricing = lazy(() => import("./pages/Pricing.tsx"));
+// Pre-fetch the two most-used chunks immediately — they're in the browser cache
+// by the time the route activates, eliminating the lazy-load wait.
+const _dashPrefetch = import("./pages/Dashboard.tsx");
+const _authPrefetch = import("./pages/Auth.tsx");
+
+const Index     = lazy(() => import("./pages/Index.tsx"));
+const Auth      = lazy(() => _authPrefetch);
+const Dashboard = lazy(() => _dashPrefetch);
+const Admin     = lazy(() => import("./pages/Admin.tsx"));
+const Pricing   = lazy(() => import("./pages/Pricing.tsx"));
 
 const queryClient = new QueryClient();
 

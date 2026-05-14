@@ -2,42 +2,31 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Ejecutar protecciones de seguridad
 if (import.meta.env.PROD) {
-  // Deshabilitar acceso a window.React
   Object.defineProperty(window, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
-    value: undefined,
-    writable: false,
-    configurable: false
+    value: undefined, writable: false, configurable: false,
   });
+}
 
-  // Proteger contra acceso a variables sensibles
-  const sensitivePatterns = ['password', 'token', 'key', 'secret', 'api'];
-  const handler = {
-    get(target, prop) {
-      if (typeof prop === 'string' && sensitivePatterns.some(p => prop.toLowerCase().includes(p))) {
-        console.warn('Acceso a información sensible denegado');
-        return undefined;
-      }
-      return target[prop];
-    }
-  };
+const rootEl = document.getElementById("root")!;
+createRoot(rootEl).render(<App />);
 
-  // Proxy del objeto window para desarrollo
-  if (window && typeof Proxy !== 'undefined') {
-    Object.freeze(window);
+// Keep the boot-loader visible until React has actually painted content.
+// One rAF fires before paint; two rAFs guarantee we're past the first paint.
+function fadeLoader() {
+  const loader = document.getElementById("allgex-loader");
+  if (!loader) return;
+  loader.style.transition = "opacity 0.25s ease";
+  loader.style.opacity = "0";
+  setTimeout(() => loader.remove(), 260);
+}
+
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  // If root has rendered meaningful children, remove loader.
+  if (rootEl.children.length > 0) {
+    fadeLoader();
+  } else {
+    // Fallback: remove after 300ms regardless
+    setTimeout(fadeLoader, 300);
   }
-}
-
-const rootEl = document.getElementById("root");
-if (rootEl) {
-  createRoot(rootEl).render(<App />);
-  // Remove the boot loader once React has mounted
-  requestAnimationFrame(() => {
-    const loader = document.getElementById("allgex-loader");
-    if (loader) {
-      loader.style.opacity = "0";
-      setTimeout(() => loader.remove(), 400);
-    }
-  });
-}
+}));
