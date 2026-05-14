@@ -109,30 +109,43 @@ function parseRawJson(json: any, requestedSymbol: string): CboeChain {
 
 export async function fetchCboeChain(symbol: string): Promise<CboeChain> {
   const urlSym = toUrlSymbol(symbol);
-  const directUrl = `https://cdn.cboe.com/api/global/delayed_quotes/options/${urlSym}.json`;
-  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
+  const cboePathSuffix = `/api/global/delayed_quotes/options/${urlSym}.json`;
+  const directUrl = `https://cdn.cboe.com${cboePathSuffix}`;
 
-  // Race direct + proxy simultaneously — resolves with whichever succeeds first.
-  // Direct is capped at 5 s; proxy at 10 s. If both fail, Promise.any throws AggregateError.
-  const tryDirect = fetch(directUrl, { mode: "cors", signal: AbortSignal.timeout(5000) })
+  // In local dev, Vite proxies /cboe-proxy → cdn.cboe.com (no CORS issues)
+  const isDev = import.meta.env.DEV;
+  const devProxyUrl = isDev ? `/cboe-proxy${cboePathSuffix}` : null;
+
+  // Build proxy attempts — multiple free CORS proxies for redundancy
+  const proxyUrls = [
+    `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`,
+    `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
+  ];
+
+  // Dev proxy bypasses CORS; in prod we try the direct URL
+  const primaryUrl = devProxyUrl ?? directUrl;
+  const tryDirect = fetch(primaryUrl, { signal: AbortSignal.timeout(5000) })
     .then((r) => { if (!r.ok) throw new Error(`CBOE HTTP ${r.status}`); return r.json(); })
     .then((j) => {
       if (!j?.data?.options?.length && !j?.options?.length) throw new Error("empty");
       return parseRawJson(j, symbol);
     });
 
-  const tryProxy = fetch(proxyUrl, { signal: AbortSignal.timeout(10_000) })
-    .then((r) => { if (!r.ok) throw new Error(`proxy HTTP ${r.status}`); return r.json(); })
-    .then((w) => {
-      const j = JSON.parse(w.contents);
-      if (!j?.data?.options?.length && !j?.options?.length) throw new Error("empty proxy");
-      const chain = parseRawJson(j, symbol);
-      chain.source = "CBOE Delayed (15m, proxy)";
-      return chain;
-    });
+  const proxyAttempts = proxyUrls.map((proxyUrl, idx) =>
+    fetch(proxyUrl, { signal: AbortSignal.timeout(10_000) })
+      .then((r) => { if (!r.ok) throw new Error(`proxy${idx} HTTP ${r.status}`); return r.json(); })
+      .then((w) => {
+        // allorigins wraps in {contents: "..."}; corsproxy returns the raw JSON directly
+        const j = typeof w?.contents === "string" ? JSON.parse(w.contents) : w;
+        if (!j?.data?.options?.length && !j?.options?.length) throw new Error("empty proxy");
+        const chain = parseRawJson(j, symbol);
+        chain.source = `CBOE Delayed (15m, proxy${idx + 1})`;
+        return chain;
+      })
+  );
 
   try {
-    return await Promise.any([tryDirect, tryProxy]);
+    return await Promise.any([tryDirect, ...proxyAttempts]);
   } catch {
     throw new Error(`All CBOE sources failed for ${symbol}`);
   }

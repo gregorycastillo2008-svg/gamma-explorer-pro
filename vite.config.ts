@@ -10,6 +10,14 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      // Bypass CORS for CBOE delayed data in local dev
+      "/cboe-proxy": {
+        target: "https://cdn.cboe.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/cboe-proxy/, ""),
+      },
+    },
   },
   plugins: [react()],
   resolve: {

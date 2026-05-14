@@ -109,8 +109,10 @@ Deno.serve(async (req) => {
       if (days <= 0 || days > 400) continue;
       const oi = Number(o.open_interest) || 0;
       if (oi <= 0) continue; // drop dead contracts
-      const iv = Number(o.iv) || 0;
-      if (iv <= 0) continue;
+      const rawIv = Number(o.iv) || 0;
+      if (rawIv <= 0) continue;
+      // Normalize: CBOE sometimes sends percentage form (e.g. 14.23 vs 0.1423)
+      const iv = rawIv > 2 ? rawIv / 100 : rawIv;
       contracts.push({
         strike: parsed.strike,
         expiry: days,
