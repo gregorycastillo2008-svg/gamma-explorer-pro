@@ -35,11 +35,15 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * Math.min(1, Math.max(0, t));
 }
 
-// Smoke color — more intense opacity range so both green + red are clearly visible
+// Only show top concentrations — threshold 20%, cubic power curve so peaks dominate
+const SMOKE_THRESHOLD = 0.20;
+
 function smokeColor(normalized: number): string | null {
   const a = Math.abs(normalized);
-  if (a < 0.02) return null;
-  const opacity = lerp(0.07, 0.40, a);
+  if (a < SMOKE_THRESHOLD) return null;
+  // remap [SMOKE_THRESHOLD, 1] → [0, 1], then cube for peak emphasis
+  const t = (a - SMOKE_THRESHOLD) / (1 - SMOKE_THRESHOLD);
+  const opacity = lerp(0.05, 0.62, t * t * t + t * 0.3);
   return normalized > 0
     ? `rgba(74,222,128,${opacity.toFixed(3)})`
     : `rgba(248,113,113,${opacity.toFixed(3)})`;
@@ -80,19 +84,22 @@ export function GammaHeatmapOverlay({
       cur.putOI   += e.putOI;
       map.set(key, cur);
     }
-    const vals   = Array.from(map.values()).map(v => Math.abs(v.netGex));
-    const maxAbs = Math.max(1, ...vals);
+    const allVals = Array.from(map.values());
+    const maxPos  = Math.max(1, ...allVals.filter(v => v.netGex > 0).map(v => v.netGex));
+    const maxNeg  = Math.max(1, ...allVals.filter(v => v.netGex < 0).map(v => Math.abs(v.netGex)));
+    const maxAbs  = Math.max(maxPos, maxNeg);  // for pct display only
     return Array.from(map.entries()).map(([price, data]) => ({
       price,
       ...data,
-      normalized: data.netGex / maxAbs,
+      // separate normalization: positive vs max-positive, negative vs max-negative
+      normalized: data.netGex >= 0 ? data.netGex / maxPos : -(Math.abs(data.netGex) / maxNeg),
       pct: Math.abs(data.netGex / maxAbs * 100),
     }));
   }, [exposures, bucketSize]);
 
-  // Drawing buckets — filter out near-zero
+  // Drawing buckets — only real concentration zones
   const drawBuckets = useMemo(
-    () => allBuckets.filter(b => Math.abs(b.normalized) >= 0.02),
+    () => allBuckets.filter(b => Math.abs(b.normalized) >= SMOKE_THRESHOLD),
     [allBuckets],
   );
 
