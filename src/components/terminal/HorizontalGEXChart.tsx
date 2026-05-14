@@ -43,7 +43,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
   const [selected, setSelected]       = useState<number | null>(null);
   const [hover, setHover]             = useState<number | null>(null);
   const [expiryOpen, setExpiryOpen]   = useState(false);
-  const [detailOpen, setDetailOpen]   = useState(false);
+  const [detailOpen, setDetailOpen]   = useState(true);
   const scrollRef                     = useRef<HTMLDivElement>(null);
 
   const expiries = useMemo(() => {

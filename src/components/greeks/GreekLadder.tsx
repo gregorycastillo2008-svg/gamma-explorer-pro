@@ -459,9 +459,6 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
           ) : (
             <>
               <GexGreekSurface3D chain={chain} symbol={symbol} />
-              {dealerRows.length > 0 && (
-                <DeltaStrikerPanel rows={dealerRows} spot={chain.spot} symbol={symbol} updatedAt={now} />
-              )}
             </>
           )}
         </div>
