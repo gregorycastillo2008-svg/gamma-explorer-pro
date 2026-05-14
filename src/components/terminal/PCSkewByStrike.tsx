@@ -51,7 +51,7 @@ export function PCSkewByStrike({ contracts, spot, strikeStep }: Props) {
   return (
     <div style={{
       background: "#111111",
-      border: "1px solid #2a2a2a",
+      border: "1px solid #111111",
       borderRadius: 6,
       overflow: "hidden",
       height: "100%",
@@ -61,7 +61,7 @@ export function PCSkewByStrike({ contracts, spot, strikeStep }: Props) {
       {/* Header */}
       <div style={{
         background: "#161616",
-        borderBottom: "1px solid #2a2a2a",
+        borderBottom: "1px solid #111111",
         padding: "6px 12px",
         display: "flex",
         alignItems: "center",
@@ -89,11 +89,11 @@ export function PCSkewByStrike({ contracts, spot, strikeStep }: Props) {
       <div style={{ flex: 1, minHeight: 260 }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, bottom: 18, left: 8 }}>
-            <CartesianGrid stroke="#2a2a2a" strokeDasharray="2 4" vertical={false} />
+            <CartesianGrid stroke="#111111" strokeDasharray="2 4" vertical={false} />
             <XAxis
               dataKey="strike"
               tick={TICK}
-              axisLine={{ stroke: "#2a2a2a" }}
+              axisLine={{ stroke: "#111111" }}
               tickLine={false}
               tickFormatter={(v) => String(v)}
             />
@@ -105,7 +105,7 @@ export function PCSkewByStrike({ contracts, spot, strikeStep }: Props) {
               label={{ value: "Put/Call", angle: -90, position: "insideLeft", fill: "#6b7280", fontSize: 9, fontFamily: MONO }}
             />
             <Tooltip
-              contentStyle={{ background: "#1e1e1e", border: "1px solid #2a2a2a", borderRadius: 4, fontFamily: MONO, fontSize: 11 }}
+              contentStyle={{ background: "#1e1e1e", border: "1px solid #111111", borderRadius: 4, fontFamily: MONO, fontSize: 11 }}
               labelStyle={{ color: "#a0a0a0" }}
               itemStyle={{ color: "#e0e0e0" }}
               formatter={(value: any, _name, p: any) => [

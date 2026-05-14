@@ -85,7 +85,7 @@ export function CallPutOIChart({ exposures, spot }: Props) {
     <div
       style={{
         background: "#111111",
-        border: "1px solid #2a2a2a",
+        border: "1px solid #111111",
         borderRadius: 4,
         padding: "10px 8px 8px",
         height: "100%",
@@ -126,11 +126,11 @@ export function CallPutOIChart({ exposures, spot }: Props) {
       <div style={{ flex: 1, minHeight: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 4 }} barCategoryGap={18} barGap={3}>
-            <CartesianGrid strokeDasharray="0" vertical={false} stroke="#0d0d0d" />
+            <CartesianGrid strokeDasharray="0" vertical={false} stroke="#111111" />
             <XAxis
               dataKey="strike"
               tick={{ fill: "#444", fontSize: 9, fontFamily: "'Courier New', monospace" }}
-              axisLine={{ stroke: "#1a1a1a" }}
+              axisLine={{ stroke: "#111111" }}
               tickLine={false}
               interval="preserveStartEnd"
               minTickGap={22}
