@@ -13,18 +13,39 @@ interface Props {
   metric?: string;
 }
 
+// Jet-style colorscale: deep blue → cyan → yellow → orange → red (matches reference image)
+const JET_SCALE = [
+  [0.00, "#00007f"],
+  [0.12, "#0000ff"],
+  [0.25, "#007fff"],
+  [0.38, "#00ffff"],
+  [0.50, "#7fff7f"],
+  [0.62, "#ffff00"],
+  [0.75, "#ff7f00"],
+  [0.88, "#ff0000"],
+  [1.00, "#7f0000"],
+];
+
 export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
 
   const { strikeAxis, dteAxis, zMatrix } = useMemo(() => {
+    if (!points.length) return { strikeAxis: [], dteAxis: [], zMatrix: [] };
+
     const strikesSet = new Set(points.map((p) => p.strike));
     const dtesSet    = new Set(points.map((p) => p.dte));
     const strikes    = Array.from(strikesSet).sort((a, b) => a - b);
     const dtes       = Array.from(dtesSet).sort((a, b) => a - b);
-    const map        = new Map<string, number>();
+
+    const map = new Map<string, number>();
     points.forEach((p) => map.set(`${p.strike}|${p.dte}`, p.value));
+
     // z[dte_i][strike_i] — Plotly convention: outer = y-axis rows
-    const z = dtes.map((d) => strikes.map((s) => map.get(`${s}|${d}`) ?? 0));
+    // null for missing cells so Plotly can interpolate / leave gaps
+    const z = dtes.map((d) =>
+      strikes.map((s) => map.get(`${s}|${d}`) ?? null)
+    );
+
     return { strikeAxis: strikes, dteAxis: dtes, zMatrix: z };
   }, [points]);
 
@@ -38,18 +59,38 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
         x: strikeAxis,
         y: dteAxis,
         z: zMatrix,
-        colorscale: "RdYlGn" as const,
+        colorscale: JET_SCALE,
         showscale: true,
+        connectgaps: true,
         colorbar: {
           title: { text: metric, font: { color: "#a0a0a0", size: 10 }, side: "right" as const },
           tickfont: { color: "#a0a0a0", size: 9 },
-          len: 0.65, thickness: 12, x: 0.97,
-          bgcolor: "rgba(0,0,0,0)", bordercolor: "#2a2a2a",
+          len: 0.70, thickness: 14, x: 0.97,
+          bgcolor: "rgba(0,0,0,0)", bordercolor: "#1f1f1f",
         },
-        lighting: { ambient: 0.65, diffuse: 0.90, specular: 0.25, roughness: 0.40, fresnel: 0.20 },
-        lightposition: { x: 800, y: -600, z: 1400 },
+        lighting: {
+          ambient:   0.75,
+          diffuse:   0.95,
+          specular:  0.35,
+          roughness: 0.45,
+          fresnel:   0.15,
+        },
+        lightposition: { x: 1200, y: -800, z: 2000 },
         opacity: 1.0,
-        hovertemplate: `<b>Strike</b> $%{x:.0f}<br><b>DTE</b> %{y}D<br><b>${metric}</b> %{z:.2f}<extra></extra>`,
+        // Surface contours — shows horizontal terrain isolines like the reference image
+        contours: {
+          z: {
+            show: true,
+            usecolormap: true,
+            highlightcolor: "rgba(255,255,255,0.4)",
+            project: { z: false },
+            width: 1,
+          },
+        },
+        hovertemplate:
+          `<b>Strike</b> $%{x:.0f}<br>` +
+          `<b>DTE</b> %{y}d<br>` +
+          `<b>${metric}</b> %{z:.4f}<extra></extra>`,
       },
     ];
 
@@ -57,7 +98,7 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
       gridcolor: "#1f1f1f",
       zerolinecolor: "#2a2a2a",
       tickfont: { size: 8, color: "#a0a0a0" },
-      backgroundcolor: "#0a0a0a",
+      backgroundcolor: "#050505",
       showbackground: true,
       showgrid: true,
       showspikes: false,
@@ -66,23 +107,37 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
     const layout = {
       autosize: true,
       scene: {
-        xaxis: { ...axStyle, title: { text: "Strike", font: { size: 10, color: "#a0a0a0" } } },
-        yaxis: { ...axStyle, title: { text: "DTE",    font: { size: 10, color: "#a0a0a0" } } },
-        zaxis: { ...axStyle, title: { text: metric,   font: { size: 10, color: "#a0a0a0" } } },
-        bgcolor: "#0a0a0a",
-        camera: {
-          eye: { x: 1.5, y: -1.8, z: 0.9 },
-          up: { x: 0, y: 0, z: 1 },
-          center: { x: 0, y: 0, z: 0 },
+        xaxis: {
+          ...axStyle,
+          title: { text: "Strike ($)", font: { size: 9, color: "#6b7280" } },
+          tickprefix: "$",
         },
-        dragmode: "orbit",
+        yaxis: {
+          ...axStyle,
+          title: { text: "DTE (days)", font: { size: 9, color: "#6b7280" } },
+        },
+        zaxis: {
+          ...axStyle,
+          title: { text: metric, font: { size: 9, color: "#6b7280" } },
+        },
+        bgcolor: "#050505",
+        camera: {
+          eye: { x: 1.6, y: -1.9, z: 1.1 },
+          up:  { x: 0, y: 0, z: 1 },
+          center: { x: 0, y: 0, z: -0.1 },
+        },
+        dragmode: "turntable",
         aspectmode: "manual",
-        aspectratio: { x: 1.6, y: 0.8, z: 0.55 },
+        aspectratio: { x: 1.8, y: 0.9, z: 0.65 },
       },
-      margin: { l: 0, r: 24, b: 0, t: 8 },
-      paper_bgcolor: "#0a0a0a",
-      plot_bgcolor:  "#0a0a0a",
-      font: { color: "#a0a0a0", family: "JetBrains Mono, ui-monospace, monospace", size: 10 },
+      margin: { l: 0, r: 20, b: 0, t: 4 },
+      paper_bgcolor: "#050505",
+      plot_bgcolor:  "#050505",
+      font: {
+        color: "#a0a0a0",
+        family: "JetBrains Mono, ui-monospace, monospace",
+        size: 10,
+      },
       hoverlabel: {
         bgcolor: "#1e1e1e",
         bordercolor: "#2a2a2a",
@@ -94,7 +149,9 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
     };
 
     (Plotly as any).newPlot(div, data, layout, {
-      displayModeBar: false,
+      displayModeBar: true,
+      modeBarButtonsToRemove: ["toImage", "sendDataToCloud", "editInChartStudio"],
+      displaylogo: false,
       responsive: true,
       scrollZoom: true,
     });
@@ -109,23 +166,31 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
   }, [strikeAxis, dteAxis, zMatrix, metric]);
 
   return (
-    <div style={{ width: "100%", background: "#0a0a0a", borderRadius: 6, overflow: "hidden" }}>
+    <div style={{ width: "100%", background: "#050505", borderRadius: 6, overflow: "hidden" }}>
       <div style={{
         padding: "6px 14px 4px",
         fontSize: 10,
         fontFamily: "JetBrains Mono, ui-monospace, monospace",
-        color: "#6b7280",
         letterSpacing: "0.12em",
         textTransform: "uppercase",
-        borderBottom: "1px solid #1a1a1a",
+        borderBottom: "1px solid #111111",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <span>Δ SURFACE 3D · {symbol} · Strike × DTE × {metric}</span>
-        <span style={{ color: "#374151", fontSize: 9 }}>DRAG · SCROLL · ROTATE</span>
+        <span style={{ color: "#6b7280" }}>Δ SURFACE 3D · {symbol} · Strike × DTE × {metric}</span>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <span style={{ color: "#374151", fontSize: 9 }}>DRAG · SCROLL · ROTATE</span>
+          <span style={{
+            fontSize: 8, padding: "1px 6px", borderRadius: 2,
+            background: "#0a1a0a", border: "1px solid #22c55e33", color: "#22c55e",
+            letterSpacing: "0.15em",
+          }}>
+            {points.length} pts
+          </span>
+        </div>
       </div>
-      <div ref={divRef} style={{ width: "100%", height: 340 }} />
+      <div ref={divRef} style={{ width: "100%", height: 360 }} />
     </div>
   );
 }

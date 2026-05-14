@@ -186,16 +186,28 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
     return arr.sort((a, b) => b.strike - a.strike);
   }, [chain]);
 
-  // Delta Exposure surface: real DEX values grouped by (strike, DTE) from actual contracts
+  // Delta Exposure surface: |delta| × OI × 100 per (strike, DTE) node
+  // Using absolute values so Z is always positive → creates terrain spikes at high-OI strikes.
+  // Falls back to Black-Scholes delta when real greek is missing.
   const dexSurfacePoints: SurfacePoint[] = useMemo(() => {
     if (!chain) return [];
     const spot = chain.spot;
     const m = new Map<string, number>();
     for (const c of chain.contracts) {
-      const dte  = Math.max(0, Math.round(daysBetween(c.expiration)));
-      const sign = c.side === "call" ? 1 : -1;
-      const dex  = c.delta * c.oi * 100 * spot * sign;
-      const key  = `${c.strike}|${dte}`;
+      if (!c.oi) continue;
+      const dte = Math.max(0, Math.round(daysBetween(c.expiration)));
+      let delta = c.delta;
+      if (!delta && c.iv > 0) {
+        try {
+          const T  = Math.max(dte, 1) / 365;
+          const bs = calculateAllGreeks(spot, c.strike, T, 0.05, c.iv);
+          delta = bs.delta;
+        } catch { delta = 0; }
+      }
+      if (!delta) continue;
+      // |delta| × OI × 100 — absolute exposure per (strike, DTE) node
+      const dex = Math.abs(delta) * c.oi * 100;
+      const key = `${c.strike}|${dte}`;
       m.set(key, (m.get(key) ?? 0) + dex);
     }
     const pts: SurfacePoint[] = [];
@@ -442,7 +454,7 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
             </div>
           ) : (
             <>
-              <GreeksSurface3D symbol={symbol} points={dexSurfacePoints} metric="DELTA" />
+              <GreeksSurface3D symbol={symbol} points={dexSurfacePoints} metric="DEX" />
               {dealerRows.length > 0 && (
                 <DeltaStrikerPanel rows={dealerRows} spot={chain.spot} symbol={symbol} updatedAt={now} />
               )}
