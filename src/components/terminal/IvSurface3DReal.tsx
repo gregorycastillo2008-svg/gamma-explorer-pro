@@ -236,7 +236,7 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
         },
         aspectmode: "manual",
         aspectratio: { x: 1.6, y: 0.80, z: 0.52 },
-        dragmode: "orbit",
+        dragmode: "turntable",
       },
       margin: { l: 0, r: 24, b: 0, t: 8 },
       paper_bgcolor: "#06080f",
@@ -267,7 +267,10 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
       const newElev = Math.round(Math.asin(Math.max(-1, Math.min(1, eye.z / r))) * 180 / Math.PI);
       const newAzim = (Math.round(Math.atan2(eye.y, eye.x) * 180 / Math.PI) + 360) % 360;
       clearTimeout(syncTimerRef.current);
-      syncTimerRef.current = setTimeout(() => { setElev(newElev); setAzim(newAzim); }, 80);
+      syncTimerRef.current = setTimeout(() => {
+        setElev(Math.max(5, Math.min(80, newElev)));
+        setAzim(newAzim);
+      }, 80);
     });
 
     const ro = new ResizeObserver(() => Plotly.Plots.resize(div));
@@ -285,7 +288,8 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
   useEffect(() => {
     const div = plotDivRef.current;
     if (!div) return;
-    const el = elev * Math.PI / 180;
+    const clampedElev = Math.max(5, Math.min(80, elev));
+    const el = clampedElev * Math.PI / 180;
     const az = azim * Math.PI / 180;
     const d = 2.5;
     sliderApplyingRef.current = true;
@@ -296,7 +300,6 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
         z: d * Math.sin(el),
       },
     });
-    // Clear flag after Plotly fires its relayout event (~150 ms)
     setTimeout(() => { sliderApplyingRef.current = false; }, 200);
   }, [elev, azim]);
 
@@ -333,7 +336,7 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
         <span style={{ color: "#555", fontSize: 11, fontFamily: "monospace" }}>🖱 drag: rotar &nbsp;|&nbsp; scroll: zoom</span>
         <label style={CTL}>
           Elev
-          <input type="range" min={-89} max={89} value={elev} onChange={e => setElev(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} />
+          <input type="range" min={5} max={80} value={elev} onChange={e => setElev(+e.target.value)} style={{ width: 80, verticalAlign: "middle" }} />
           <span style={{ color: "#aaa", minWidth: 32 }}>{elev}°</span>
         </label>
         <label style={CTL}>
