@@ -194,19 +194,22 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
     const spot = chain.spot;
     const m = new Map<string, number>();
     for (const c of chain.contracts) {
-      if (!c.oi) continue;
+      if (!c.oi || c.oi <= 0) continue;
       const dte = Math.max(0, Math.round(daysBetween(c.expiration)));
       let delta = c.delta;
       if (!delta && c.iv > 0) {
         try {
-          const T  = Math.max(dte, 1) / 365;
-          const bs = calculateAllGreeks(spot, c.strike, T, 0.05, c.iv);
+          const bs = calculateAllGreeks({
+            spot, strike: c.strike, dte: Math.max(dte, 1),
+            iv: c.iv, rate: 0.05, isCall: c.side === "call",
+          });
           delta = bs.delta;
         } catch { delta = 0; }
       }
-      if (!delta) continue;
+      // Last resort: use OI as weight (always available) so surface is never empty
+      const weight = delta ? Math.abs(delta) : 0.5;
       // |delta| × OI × 100 — absolute exposure per (strike, DTE) node
-      const dex = Math.abs(delta) * c.oi * 100;
+      const dex = weight * c.oi * 100;
       const key = `${c.strike}|${dte}`;
       m.set(key, (m.get(key) ?? 0) + dex);
     }
