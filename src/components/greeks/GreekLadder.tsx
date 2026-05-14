@@ -6,7 +6,8 @@ import { GreekTooltip, type GreekType } from "./GreekTooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeftRight, RefreshCw, Activity } from "lucide-react";
 import { type DealerStrikeRow } from "./DealerExposureBars";
-import { GreeksSurface3D, type SurfacePoint } from "./GreeksSurface3D";
+import { GexGreekSurface3D } from "./GexGreekSurface3D";
+import type { SurfacePoint } from "./GreeksSurface3D";
 import { StrikerDeltaGrid } from "./StrikerDeltaGrid";
 import { DeltaStrikerPanel } from "./DeltaStrikerPanel";
 
@@ -451,13 +452,13 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
       {/* ═════ DELTA EXPOSURE TAB ═════ */}
       {activeTab === "delta" && (
         <div style={{ isolation: "isolate", overflow: "hidden", background: "#000", padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>
-          {!chain || dexSurfacePoints.length === 0 ? (
+          {!chain ? (
             <div className="p-8 text-center text-[11px] text-muted-foreground" style={{ fontFamily: MONO }}>
-              {loading ? "Loading delta exposure data…" : "No data available"}
+              {loading ? "Loading greek surface data…" : "No data available"}
             </div>
           ) : (
             <>
-              <GreeksSurface3D symbol={symbol} points={dexSurfacePoints} metric="DEX" />
+              <GexGreekSurface3D chain={chain} symbol={symbol} />
               {dealerRows.length > 0 && (
                 <DeltaStrikerPanel rows={dealerRows} spot={chain.spot} symbol={symbol} updatedAt={now} />
               )}
