@@ -201,11 +201,15 @@ function HeatmapPanel({
   );
   const max = Math.max(...grid.map((g) => Math.abs(g.value)), 1);
   const cellMap = new Map(grid.map((g) => [`${g.strike}|${g.expiry}`, g.value]));
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to top (highest strike) whenever data loads
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0, behavior: "instant" }); }, [strikes]);
 
   return (
     <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ background: "#000000", border: `1px solid ${BORDER}` }}>
       <div className="px-3 py-2 text-[11px] uppercase tracking-wider" style={{ color: TEXT, borderBottom: `1px solid ${BORDER}`, background: PANEL_BG }}>{title}</div>
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollRef} className="flex-1 overflow-auto">
         <table className="w-full text-[11px] font-mono border-collapse">
           <thead className="sticky top-0 z-10" style={{ background: "#000000" }}>
             <tr>

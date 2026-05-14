@@ -1,125 +1,131 @@
-import { useMemo, useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import * as THREE from "three";
+import { useEffect, useMemo, useRef } from "react";
+import Plotly from "plotly.js/dist/plotly";
 
 export interface SurfacePoint {
   strike: number;
   dte: number;
-  value: number; // gamma, vega, etc
+  value: number;
 }
 
 interface Props {
   symbol: string;
-  /** Grid of surface points: rows = strikes, cols = expirations */
   points: SurfacePoint[];
-  metric?: "GAMMA" | "VEGA" | "DELTA" | "THETA";
+  metric?: string;
 }
 
-/**
- * 3D Greek Surface (strike × dte × value) rendered as a deformed mesh.
- * Self-contained inside its own card.
- */
-export function GreeksSurface3D({ symbol, points, metric: metricProp }: Props) {
-  const [metric] = useState<"GAMMA" | "VEGA" | "DELTA" | "THETA">(metricProp ?? "GAMMA");
+export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
+  const divRef = useRef<HTMLDivElement>(null);
 
-  // Build grid
-  const grid = useMemo(() => buildGrid(points), [points]);
+  const { strikeAxis, dteAxis, zMatrix } = useMemo(() => {
+    const strikesSet = new Set(points.map((p) => p.strike));
+    const dtesSet    = new Set(points.map((p) => p.dte));
+    const strikes    = Array.from(strikesSet).sort((a, b) => a - b);
+    const dtes       = Array.from(dtesSet).sort((a, b) => a - b);
+    const map        = new Map<string, number>();
+    points.forEach((p) => map.set(`${p.strike}|${p.dte}`, p.value));
+    // z[dte_i][strike_i] — Plotly convention: outer = y-axis rows
+    const z = dtes.map((d) => strikes.map((s) => map.get(`${s}|${d}`) ?? 0));
+    return { strikeAxis: strikes, dteAxis: dtes, zMatrix: z };
+  }, [points]);
+
+  useEffect(() => {
+    const div = divRef.current;
+    if (!div || !zMatrix.length || !strikeAxis.length) return;
+
+    const data = [
+      {
+        type: "surface" as const,
+        x: strikeAxis,
+        y: dteAxis,
+        z: zMatrix,
+        colorscale: "RdYlGn" as const,
+        showscale: true,
+        colorbar: {
+          title: { text: metric, font: { color: "#a0a0a0", size: 10 }, side: "right" as const },
+          tickfont: { color: "#a0a0a0", size: 9 },
+          len: 0.65, thickness: 12, x: 0.97,
+          bgcolor: "rgba(0,0,0,0)", bordercolor: "#2a2a2a",
+        },
+        lighting: { ambient: 0.65, diffuse: 0.90, specular: 0.25, roughness: 0.40, fresnel: 0.20 },
+        lightposition: { x: 800, y: -600, z: 1400 },
+        opacity: 1.0,
+        hovertemplate: `<b>Strike</b> $%{x:.0f}<br><b>DTE</b> %{y}D<br><b>${metric}</b> %{z:.2f}<extra></extra>`,
+      },
+    ];
+
+    const axStyle = {
+      gridcolor: "#1f1f1f",
+      zerolinecolor: "#2a2a2a",
+      tickfont: { size: 8, color: "#a0a0a0" },
+      backgroundcolor: "#0a0a0a",
+      showbackground: true,
+      showgrid: true,
+      showspikes: false,
+    };
+
+    const layout = {
+      autosize: true,
+      scene: {
+        xaxis: { ...axStyle, title: { text: "Strike", font: { size: 10, color: "#a0a0a0" } } },
+        yaxis: { ...axStyle, title: { text: "DTE",    font: { size: 10, color: "#a0a0a0" } } },
+        zaxis: { ...axStyle, title: { text: metric,   font: { size: 10, color: "#a0a0a0" } } },
+        bgcolor: "#0a0a0a",
+        camera: {
+          eye: { x: 1.5, y: -1.8, z: 0.9 },
+          up: { x: 0, y: 0, z: 1 },
+          center: { x: 0, y: 0, z: 0 },
+        },
+        dragmode: "orbit",
+        aspectmode: "manual",
+        aspectratio: { x: 1.6, y: 0.8, z: 0.55 },
+      },
+      margin: { l: 0, r: 24, b: 0, t: 8 },
+      paper_bgcolor: "#0a0a0a",
+      plot_bgcolor:  "#0a0a0a",
+      font: { color: "#a0a0a0", family: "JetBrains Mono, ui-monospace, monospace", size: 10 },
+      hoverlabel: {
+        bgcolor: "#1e1e1e",
+        bordercolor: "#2a2a2a",
+        font: { color: "#e0e0e0", family: "JetBrains Mono, ui-monospace, monospace", size: 11 },
+        namelength: -1,
+      },
+      showlegend: false,
+      uirevision: "camera",
+    };
+
+    (Plotly as any).newPlot(div, data, layout, {
+      displayModeBar: false,
+      responsive: true,
+      scrollZoom: true,
+    });
+
+    const ro = new ResizeObserver(() => (Plotly as any).Plots.resize(div));
+    ro.observe(div);
+
+    return () => {
+      ro.disconnect();
+      try { (Plotly as any).purge(div); } catch (_) {}
+    };
+  }, [strikeAxis, dteAxis, zMatrix, metric]);
 
   return (
-    <div className="font-mono" style={{ background: "#000", border: "1px solid #1f1f1f", borderRadius: 6 }}>
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#1f1f1f]" style={{ background: "#0a0a0a" }}>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold tracking-[0.2em] text-white">{metric} SURFACE 3D</span>
-          <span className="text-[9px] text-muted-foreground">·</span>
-          <span className="text-[10px] font-bold text-foreground">{symbol}</span>
-        </div>
-        <span className="text-[8px] text-muted-foreground tracking-widest">DRAG · SCROLL · ROTATE</span>
+    <div style={{ width: "100%", background: "#0a0a0a", borderRadius: 6, overflow: "hidden" }}>
+      <div style={{
+        padding: "6px 14px 4px",
+        fontSize: 10,
+        fontFamily: "JetBrains Mono, ui-monospace, monospace",
+        color: "#6b7280",
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        borderBottom: "1px solid #1a1a1a",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}>
+        <span>Δ SURFACE 3D · {symbol} · Strike × DTE × {metric}</span>
+        <span style={{ color: "#374151", fontSize: 9 }}>DRAG · SCROLL · ROTATE</span>
       </div>
-
-      <div style={{ height: 300, background: "radial-gradient(circle at 50% 40%, #050a14, #000)" }}>
-        {grid.strikes.length < 2 || grid.dtes.length < 2 ? (
-          <div className="h-full flex items-center justify-center text-[10px] text-muted-foreground">
-            Awaiting surface data…
-          </div>
-        ) : (
-          <Canvas camera={{ position: [3.2, 2.6, 3.6], fov: 45 }}>
-            <ambientLight intensity={0.45} />
-            <pointLight position={[5, 6, 5]} intensity={1.2} color="#06b6d4" />
-            <pointLight position={[-5, 4, -3]} intensity={0.8} color="#a855f7" />
-            <Surface grid={grid} />
-            <Axes />
-            <OrbitControls enablePan={false} autoRotate autoRotateSpeed={0.5} minDistance={3} maxDistance={8} />
-          </Canvas>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between px-3 py-1 text-[8px] text-muted-foreground border-t border-[#1f1f1f]">
-        <span>X: STRIKE</span>
-        <span>Y: {metric}</span>
-        <span>Z: DTE</span>
-      </div>
+      <div ref={divRef} style={{ width: "100%", height: 340 }} />
     </div>
-  );
-}
-
-function buildGrid(points: SurfacePoint[]) {
-  const strikes = Array.from(new Set(points.map((p) => p.strike))).sort((a, b) => a - b);
-  const dtes = Array.from(new Set(points.map((p) => p.dte))).sort((a, b) => a - b);
-  const map = new Map<string, number>();
-  points.forEach((p) => map.set(`${p.strike}-${p.dte}`, p.value));
-  return { strikes, dtes, map };
-}
-
-function Surface({ grid }: { grid: ReturnType<typeof buildGrid> }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  const geometry = useMemo(() => {
-    const { strikes, dtes, map } = grid;
-    const w = strikes.length;
-    const h = dtes.length;
-    const geo = new THREE.PlaneGeometry(3, 3, w - 1, h - 1);
-    const pos = geo.attributes.position;
-    const colors: number[] = [];
-
-    let maxV = 1e-9;
-    for (const v of map.values()) maxV = Math.max(maxV, Math.abs(v));
-
-    for (let j = 0; j < h; j++) {
-      for (let i = 0; i < w; i++) {
-        const s = strikes[i];
-        const d = dtes[j];
-        const v = map.get(`${s}-${d}`) ?? 0;
-        const idx = j * w + i;
-        const norm = v / maxV;
-        const y = norm * 1.2;
-        pos.setZ(idx, y);
-        // Colour ramp: cool (low) -> hot (high)
-        const t = (norm + 1) / 2;
-        const c = new THREE.Color().setHSL(0.6 - t * 0.6, 0.9, 0.4 + t * 0.2);
-        colors.push(c.r, c.g, c.b);
-      }
-    }
-    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-    geo.computeVertexNormals();
-    return geo;
-  }, [grid]);
-
-  useFrame((_, dt) => {
-    if (meshRef.current) meshRef.current.rotation.z += dt * 0.05;
-  });
-
-  return (
-    <mesh ref={meshRef} geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
-      <meshStandardMaterial vertexColors side={THREE.DoubleSide} wireframe={false} flatShading={false} />
-    </mesh>
-  );
-}
-
-function Axes() {
-  return (
-    <group>
-      <gridHelper args={[3, 12, "#1f2937", "#111827"]} position={[0, -0.01, 0]} />
-    </group>
   );
 }

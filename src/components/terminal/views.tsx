@@ -2237,6 +2237,10 @@ function HorizontalBars({ exposures, metric, max, spot, maxPain }: {
 // ─────── GEX 3D SURFACE (Strike × DTE × Net GEX) ───────
 function GexSurface3D({ contracts, spot, symbol }: { contracts: OptionContract[]; spot: number; symbol: string }) {
   const divRef = useRef<HTMLDivElement>(null);
+  const [elev, setElev] = useState(28);
+  const [azim, setAzim] = useState(215);
+  const sliderApplyingRef = useRef(false);
+  const syncTimerRef      = useRef<ReturnType<typeof setTimeout>>();
 
   const { strikeAxis, dteAxis, zGex } = useMemo(() => {
     const strikeSet = new Set<number>();
@@ -2300,6 +2304,10 @@ function GexSurface3D({ contracts, spot, symbol }: { contracts: OptionContract[]
       hovertemplate: "<b>Strike</b> $%{x:.0f}<br><b>DTE</b> %{y}D<br><b>GEX</b> %{z:.2f}M<extra></extra>",
     }];
 
+    const el0 = elev * Math.PI / 180;
+    const az0 = azim * Math.PI / 180;
+    const d = 2.5;
+
     const layout = {
       autosize: true,
       scene: {
@@ -2307,7 +2315,11 @@ function GexSurface3D({ contracts, spot, symbol }: { contracts: OptionContract[]
         yaxis: { title: { text: "DTE",    font: { size: 10, color: "#6a7a9a" } }, color: "#2a3a58", gridcolor: "#111d30", linecolor: "#0e1828", tickfont: { size: 8, color: "#4a5a78" }, backgroundcolor: "#060a14", showbackground: true, showgrid: true, showspikes: false },
         zaxis: { title: { text: "GEX $M", font: { size: 10, color: "#6a7a9a" } }, color: "#2a3a58", gridcolor: "#111d30", linecolor: "#0e1828", tickfont: { size: 8, color: "#4a5a78" }, backgroundcolor: "#060a14", showbackground: true, showgrid: true, showspikes: false },
         bgcolor: "#06080f",
-        camera: { eye: { x: 2.2, y: -1.8, z: 1.2 }, up: { x: 0, y: 0, z: 1 }, center: { x: 0, y: 0, z: -0.05 } },
+        camera: {
+          eye: { x: d * Math.cos(el0) * Math.cos(az0), y: d * Math.cos(el0) * Math.sin(az0), z: d * Math.sin(el0) },
+          up: { x: 0, y: 0, z: 1 },
+          center: { x: 0, y: 0, z: -0.05 },
+        },
         aspectmode: "manual",
         aspectratio: { x: 1.6, y: 0.8, z: 0.55 },
         dragmode: "orbit",
@@ -2321,10 +2333,44 @@ function GexSurface3D({ contracts, spot, symbol }: { contracts: OptionContract[]
     };
 
     (Plotly as any).newPlot(div, data, layout, { displayModeBar: false, responsive: true, scrollZoom: true });
+
+    // Sync slider state back from Plotly's camera after user drag
+    (div as any).on("plotly_relayout", (evtData: Record<string, any>) => {
+      if (sliderApplyingRef.current) return;
+      const eye = evtData?.["scene.camera"]?.eye ?? evtData?.["scene.camera.eye"];
+      if (!eye || typeof eye.x !== "number") return;
+      const r = Math.sqrt(eye.x ** 2 + eye.y ** 2 + eye.z ** 2);
+      if (r < 0.1) return;
+      const newElev = Math.round(Math.asin(Math.max(-1, Math.min(1, eye.z / r))) * 180 / Math.PI);
+      const newAzim = (Math.round(Math.atan2(eye.y, eye.x) * 180 / Math.PI) + 360) % 360;
+      clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = setTimeout(() => { setElev(newElev); setAzim(newAzim); }, 80);
+    });
+
     const ro = new ResizeObserver(() => (Plotly as any).Plots.resize(div));
     ro.observe(div);
-    return () => { ro.disconnect(); try { (Plotly as any).purge(div); } catch (_) {} };
+    return () => { clearTimeout(syncTimerRef.current); ro.disconnect(); try { (Plotly as any).purge(div); } catch (_) {} };
   }, [strikeAxis, dteAxis, zGex]);
+
+  // Apply slider-driven camera updates without re-plotting
+  useEffect(() => {
+    const div = divRef.current;
+    if (!div) return;
+    const el = elev * Math.PI / 180;
+    const az = azim * Math.PI / 180;
+    const d = 2.5;
+    sliderApplyingRef.current = true;
+    (Plotly as any).relayout(div, {
+      "scene.camera.eye": {
+        x: d * Math.cos(el) * Math.cos(az),
+        y: d * Math.cos(el) * Math.sin(az),
+        z: d * Math.sin(el),
+      },
+    });
+    setTimeout(() => { sliderApplyingRef.current = false; }, 200);
+  }, [elev, azim]);
+
+  const CTL3D: React.CSSProperties = { color: "#6a7a9a", fontSize: 11, fontFamily: "monospace", display: "inline-flex", alignItems: "center", gap: 4 };
 
   return (
     <div style={{ width: "100%", background: "#06080f", borderRadius: 10, overflow: "hidden" }}>
@@ -2332,7 +2378,21 @@ function GexSurface3D({ contracts, spot, symbol }: { contracts: OptionContract[]
         GEX 3D Surface · {symbol} · Net $ Gamma Exposure · rojo=short/put · verde=long/call
       </div>
       <div ref={divRef} style={{ width: "100%", height: 440 }} />
-      <div style={{ padding: "4px 14px 8px", display: "flex", justifyContent: "center" }}>
+      {/* Camera controls */}
+      <div style={{ display: "flex", gap: 16, padding: "6px 12px", flexWrap: "wrap", alignItems: "center", justifyContent: "center", background: "#06080f" }}>
+        <span style={{ color: "#333", fontSize: 11, fontFamily: "monospace" }}>🖱 drag: rotar | scroll: zoom</span>
+        <label style={CTL3D}>
+          Elev
+          <input type="range" min={-89} max={89} value={elev} onChange={e => setElev(+e.target.value)} style={{ width: 80 }} />
+          <span style={{ minWidth: 32 }}>{elev}°</span>
+        </label>
+        <label style={CTL3D}>
+          Az
+          <input type="range" min={0} max={360} value={azim} onChange={e => setAzim(+e.target.value)} style={{ width: 80 }} />
+          <span style={{ minWidth: 32 }}>{azim}°</span>
+        </label>
+      </div>
+      <div style={{ padding: "2px 14px 8px", display: "flex", justifyContent: "center" }}>
         <div>
           <div style={{ width: 220, height: 12, background: "linear-gradient(to right, #b00030, #e83030, #f07040, #111828, #40a060, #20c870, #10e880)", borderRadius: 3, border: "1px solid #1a2a40" }} />
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#3a4a60", fontFamily: "monospace", marginTop: 2 }}>
@@ -2359,6 +2419,7 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
   const today = new Date();
   const DAYS  = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
   const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
   const { gexMap, expiries, strikes, absMax } = useMemo(() => {
     const gexMap   = new Map<string, number>();
@@ -2383,6 +2444,9 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
     const absMax   = Math.max(1, ...vals.map(Math.abs));
     return { gexMap, strikes, expiries, absMax };
   }, [contracts, ticker.spot]);
+
+  // Auto-scroll to the top (highest strike) whenever data loads
+  useEffect(() => { tableScrollRef.current?.scrollTo({ top: 0, behavior: "instant" }); }, [strikes]);
 
   // Cell background + text color based on normalized GEX
   const cellStyle = (gex: number | undefined): { bg: string; color: string } => {
@@ -2428,7 +2492,7 @@ export function HeatmapView({ ticker, contracts }: Ctx) {
           </div>
 
           {/* Scrollable table */}
-          <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 440 }}>
+          <div ref={tableScrollRef} style={{ overflowX: "auto", overflowY: "auto", maxHeight: 440 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 320, fontFamily: "monospace" }}>
               <thead style={{ position: "sticky", top: 0, zIndex: 2, background: "#07040d" }}>
                 <tr>

@@ -116,6 +116,9 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
 
   const [elev, setElev] = useState(17);
   const [azim, setAzim] = useState(320);
+  // Prevent feedback loop: true while a slider is driving a relayout
+  const sliderApplyingRef = useRef(false);
+  const syncTimerRef      = useRef<ReturnType<typeof setTimeout>>();
   const [showDataPts,  setShowDataPts]  = useState(false);
   const [showRefPlane, setShowRefPlane] = useState(true);
   const [showGrid,     setShowGrid]     = useState(true);
@@ -252,10 +255,26 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
 
     Plotly.newPlot(div, data, layout, config);
 
+    // After user drags the surface, Plotly updates the camera internally.
+    // Sync the slider state back so subsequent slider moves continue from
+    // the current visual position instead of jumping.
+    (div as any).on("plotly_relayout", (evtData: Record<string, any>) => {
+      if (sliderApplyingRef.current) return;
+      const eye = evtData?.["scene.camera"]?.eye ?? evtData?.["scene.camera.eye"];
+      if (!eye || typeof eye.x !== "number") return;
+      const r = Math.sqrt(eye.x ** 2 + eye.y ** 2 + eye.z ** 2);
+      if (r < 0.1) return;
+      const newElev = Math.round(Math.asin(Math.max(-1, Math.min(1, eye.z / r))) * 180 / Math.PI);
+      const newAzim = (Math.round(Math.atan2(eye.y, eye.x) * 180 / Math.PI) + 360) % 360;
+      clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = setTimeout(() => { setElev(newElev); setAzim(newAzim); }, 80);
+    });
+
     const ro = new ResizeObserver(() => Plotly.Plots.resize(div));
     ro.observe(div);
 
     return () => {
+      clearTimeout(syncTimerRef.current);
       ro.disconnect();
       try { Plotly.purge(div); } catch (_) { /* ignore */ }
     };
@@ -269,6 +288,7 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
     const el = elev * Math.PI / 180;
     const az = azim * Math.PI / 180;
     const d = 2.5;
+    sliderApplyingRef.current = true;
     Plotly.relayout(div, {
       "scene.camera.eye": {
         x: d * Math.cos(el) * Math.cos(az),
@@ -276,6 +296,8 @@ export function IvSurface3DReal({ strikes, expiries, cellMap, spot, min, max }: 
         z: d * Math.sin(el),
       },
     });
+    // Clear flag after Plotly fires its relayout event (~150 ms)
+    setTimeout(() => { sliderApplyingRef.current = false; }, 200);
   }, [elev, azim]);
 
   // ── Grid toggle ────────────────────────────────────────────────────────────
