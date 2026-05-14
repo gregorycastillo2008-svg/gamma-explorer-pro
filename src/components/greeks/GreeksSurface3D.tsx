@@ -41,9 +41,9 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
     points.forEach((p) => map.set(`${p.strike}|${p.dte}`, p.value));
 
     // z[dte_i][strike_i] — Plotly convention: outer = y-axis rows
-    // null for missing cells so Plotly can interpolate / leave gaps
+    // 0 for missing cells (connectgaps fills them); never null so the mesh renders
     const z = dtes.map((d) =>
-      strikes.map((s) => map.get(`${s}|${d}`) ?? null)
+      strikes.map((s) => map.get(`${s}|${d}`) ?? 0)
     );
 
     return { strikeAxis: strikes, dteAxis: dtes, zMatrix: z };
@@ -63,10 +63,10 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
         showscale: true,
         connectgaps: true,
         colorbar: {
-          title: { text: metric, font: { color: "#a0a0a0", size: 10 }, side: "right" as const },
-          tickfont: { color: "#a0a0a0", size: 9 },
+          title: { text: metric, font: { color: "#333333", size: 10 }, side: "right" as const },
+          tickfont: { color: "#333333", size: 9 },
           len: 0.70, thickness: 14, x: 0.97,
-          bgcolor: "rgba(0,0,0,0)", bordercolor: "#1f1f1f",
+          bgcolor: "rgba(255,255,255,0.8)", bordercolor: "#cccccc",
         },
         lighting: {
           ambient:   0.75,
@@ -95,10 +95,10 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
     ];
 
     const axStyle = {
-      gridcolor: "#1f1f1f",
-      zerolinecolor: "#2a2a2a",
-      tickfont: { size: 8, color: "#a0a0a0" },
-      backgroundcolor: "#050505",
+      gridcolor: "#cccccc",
+      zerolinecolor: "#aaaaaa",
+      tickfont: { size: 8, color: "#444444" },
+      backgroundcolor: "#f4f4f4",
       showbackground: true,
       showgrid: true,
       showspikes: false,
@@ -109,18 +109,18 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
       scene: {
         xaxis: {
           ...axStyle,
-          title: { text: "Strike ($)", font: { size: 9, color: "#6b7280" } },
+          title: { text: "Strike ($)", font: { size: 9, color: "#555555" } },
           tickprefix: "$",
         },
         yaxis: {
           ...axStyle,
-          title: { text: "DTE (days)", font: { size: 9, color: "#6b7280" } },
+          title: { text: "DTE (days)", font: { size: 9, color: "#555555" } },
         },
         zaxis: {
           ...axStyle,
-          title: { text: metric, font: { size: 9, color: "#6b7280" } },
+          title: { text: metric, font: { size: 9, color: "#555555" } },
         },
-        bgcolor: "#050505",
+        bgcolor: "#ffffff",
         camera: {
           eye: { x: 1.6, y: -1.9, z: 1.1 },
           up:  { x: 0, y: 0, z: 1 },
@@ -131,16 +131,16 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
         aspectratio: { x: 1.8, y: 0.9, z: 0.65 },
       },
       margin: { l: 0, r: 20, b: 0, t: 4 },
-      paper_bgcolor: "#050505",
-      plot_bgcolor:  "#050505",
+      paper_bgcolor: "#ffffff",
+      plot_bgcolor:  "#ffffff",
       font: {
-        color: "#a0a0a0",
+        color: "#333333",
         family: "JetBrains Mono, ui-monospace, monospace",
         size: 10,
       },
       hoverlabel: {
         bgcolor: "#1e1e1e",
-        bordercolor: "#2a2a2a",
+        bordercolor: "#444444",
         font: { color: "#e0e0e0", family: "JetBrains Mono, ui-monospace, monospace", size: 11 },
         namelength: -1,
       },
@@ -166,14 +166,15 @@ export function GreeksSurface3D({ symbol, points, metric = "DELTA" }: Props) {
   }, [strikeAxis, dteAxis, zMatrix, metric]);
 
   return (
-    <div style={{ width: "100%", background: "#050505", borderRadius: 6, overflow: "hidden" }}>
+    <div style={{ width: "100%", background: "#111111", borderRadius: 6, overflow: "hidden", border: "1px solid #1f1f1f" }}>
       <div style={{
         padding: "6px 14px 4px",
         fontSize: 10,
         fontFamily: "JetBrains Mono, ui-monospace, monospace",
         letterSpacing: "0.12em",
         textTransform: "uppercase",
-        borderBottom: "1px solid #111111",
+        borderBottom: "1px solid #1f1f1f",
+        background: "#111111",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
