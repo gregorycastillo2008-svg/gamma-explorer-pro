@@ -50,7 +50,7 @@ function Wall({ label, value, tone }: WallProps) {
   };
   return (
     <div className="flex items-center gap-1.5 shrink-0">
-      <span className={`text-[10px] tracking-[0.15em] uppercase ${toneCls[tone]}/80 font-mono font-bold border-8 bg-black border-black/0`}>{label}</span>
+      <span className={`text-[10px] tracking-[0.15em] uppercase ${toneCls[tone]}/80 font-mono font-bold`}>{label}</span>
       <span className={`font-mono font-bold text-sm tabular-nums ${toneCls[tone]}`}>
         ${typeof value === "number" ? value.toLocaleString() : value}
       </span>
@@ -78,7 +78,7 @@ export function Topbar({
   const dexTone = (netDex ?? 0) >= 0 ? "call" : "put";
 
   return (
-    <header className="border-b border-border bg-black shrink-0 flex flex-col">
+    <header className="shrink-0 flex flex-col" style={{ background: "#1f1f1f", borderBottom: "1px solid #2a2a2a" }}>
       {/* ROW 1 — original walls */}
       <div className="flex items-center px-4 gap-4 h-14 overflow-x-auto">
         <div className="flex items-center gap-3 shrink-0">
@@ -141,7 +141,7 @@ export function Topbar({
 
       {/* ROW 2 — Vol Trigger %, P/C Ratio, Net DEX (live calculations from real options data) */}
       {(atmIv !== undefined || pcr !== undefined || netDex !== undefined) && (
-        <div className="flex items-center px-4 gap-5 h-9 border-t border-border/50 overflow-x-auto bg-black/60">
+        <div className="flex items-center px-4 gap-5 h-9 overflow-x-auto" style={{ background: "#1a1a1a", borderTop: "1px solid #2a2a2a" }}>
           {atmIv !== undefined && (
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-[10px] tracking-[0.15em] uppercase text-primary/80 font-mono font-bold">Vol Tr</span>

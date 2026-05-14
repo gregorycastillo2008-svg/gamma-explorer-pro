@@ -53,11 +53,12 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200 shrink-0",
+        "flex flex-col transition-all duration-200 shrink-0",
         collapsed ? "w-16" : "w-60"
       )}
+      style={{ background: "#111111", borderRight: "1px solid #1f1f1f" }}
     >
-      <div className="h-14 flex items-center px-3 border-b border-sidebar-border">
+      <div className="h-14 flex items-center px-3" style={{ background: "#1f1f1f", borderBottom: "1px solid #2a2a2a" }}>
         <div className="h-8 w-8 flex items-center justify-center shrink-0 text-base" title="GEXSATELIT">
           ​
         </div>
@@ -71,7 +72,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3 bg-black">
+      <nav className="flex-1 overflow-y-auto py-3" style={{ background: "#111111" }}>
         {groups.map((g) => (
           <div key={g} className="mb-3">
             {!collapsed && <div className="px-3 mb-1 text-[10px] font-bold tracking-widest text-sidebar-foreground/50">{g}</div>}
@@ -114,7 +115,7 @@ export function Sidebar({ active, onSelect, collapsed, onToggle, isAdmin, email,
         )}
       </nav>
 
-      <div className="border-t border-sidebar-border p-2 bg-black">
+      <div className="p-2" style={{ background: "#111111", borderTop: "1px solid #1f1f1f" }}>
         {!collapsed && (
           <div className="px-2 py-1.5 text-[10px] text-sidebar-foreground/70 truncate">
             {tier ? `Plan: ${tier.toUpperCase()}` : "No plan"}
