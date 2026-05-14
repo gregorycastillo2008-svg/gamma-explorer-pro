@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,7 +32,6 @@ import { ProbabilityWorkspace } from "@/components/terminal/ProbabilityWorkspace
 import { AiBiasView } from "@/components/terminal/AiBiasView";
 import { EconomyView } from "@/components/terminal/EconomyView";
 import { OptionsSentimentScore } from "@/components/terminal/OptionsSentimentScore";
-import { useMemo } from "react";
 import { SectionTransition } from "@/components/terminal/SectionTransition";
 import { Paywall } from "@/components/Paywall";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -56,6 +55,7 @@ export default function Dashboard() {
   const allowed = isAdmin ? undefined : allowedSections(tier);
 
   const [section, setSection] = useState<Section>("overview");
+  const [, startTransition] = useTransition();
   const [collapsed, setCollapsed] = useState(false);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [active, setActive] = useState("QQQ");
@@ -118,10 +118,13 @@ export default function Dashboard() {
 
   const { ticker, contracts: liveContracts, status, source, fetchedAt, priceChangePct, reload } = useOptionsData(active);
 
-  const filtered = expiry === "all" ? liveContracts : liveContracts.filter((c) => String(c.expiry) === expiry);
-  const exposures = computeExposures(ticker.spot, filtered);
-  const levels = computeKeyLevels(exposures);
-  const ctx = { ticker, exposures, levels, contracts: filtered };
+  const filtered  = useMemo(
+    () => expiry === "all" ? liveContracts : liveContracts.filter(c => String(c.expiry) === expiry),
+    [expiry, liveContracts],
+  );
+  const exposures = useMemo(() => computeExposures(ticker.spot, filtered), [ticker.spot, filtered]);
+  const levels    = useMemo(() => computeKeyLevels(exposures), [exposures]);
+  const ctx       = useMemo(() => ({ ticker, exposures, levels, contracts: filtered }), [ticker, exposures, levels, filtered]);
 
   // Calculate Sentiment Score metrics
   const sentimentMetrics = useMemo(() => {
@@ -140,47 +143,45 @@ export default function Dashboard() {
     return { netGex, pcRatio, ivRank, volSkew, vanna, charm, score, regime };
   }, [levels, liveContracts, filtered, ticker.spot, ticker.strikeStep, ticker.baseIV, exposures]);
 
-  // Persistent global stats (shown across every section).
-  // These are MARKET-WIDE indicators → always computed from the FULL chain
-  // (all expiries), regardless of the UI expiry filter, to match industry
-  // conventions used by SpotGamma / MenthorQ / CBOE.
-  // ── P/C Ratio: standard is Volume-based, fallback to OI when volume missing
-  let pcCallVol = 0, pcPutVol = 0, pcCallOI = 0, pcPutOI = 0;
-  for (const c of liveContracts) {
-    const v = (c as any).volume ?? 0;
-    if (c.type === "call") { pcCallVol += v; pcCallOI += c.oi; }
-    else { pcPutVol += v; pcPutOI += c.oi; }
-  }
-  const pcr = pcCallVol + pcPutVol > 0
-    ? pcPutVol / Math.max(pcCallVol, 1)
-    : pcPutOI / Math.max(pcCallOI, 1);
+  // Persistent global stats — memoized so they don't recompute on every render
+  const { pcr, netDex, atmIv } = useMemo(() => {
+    let pcCallVol = 0, pcPutVol = 0, pcCallOI = 0, pcPutOI = 0;
+    for (const c of liveContracts) {
+      const v = (c as any).volume ?? 0;
+      if (c.type === "call") { pcCallVol += v; pcCallOI += c.oi; }
+      else { pcPutVol += v; pcPutOI += c.oi; }
+    }
+    const pcr = pcCallVol + pcPutVol > 0
+      ? pcPutVol / Math.max(pcCallVol, 1)
+      : pcPutOI / Math.max(pcCallOI, 1);
 
-  // ── Net DEX: full-chain dealer delta exposure in $
-  const fullExposures = computeExposures(ticker.spot, liveContracts);
-  const netDex = fullExposures.reduce((s, p) => s + p.dex, 0);
+    const fullExposures = computeExposures(ticker.spot, liveContracts);
+    const netDex = fullExposures.reduce((s, p) => s + p.dex, 0);
 
-  // ── ATM IV: OI-weighted across the NEAREST expiry, ±1 strike step from spot
-  const nearestExpiry = liveContracts.reduce(
-    (min, c) => (c.expiry < min ? c.expiry : min),
-    Number.POSITIVE_INFINITY,
-  );
-  const atmContracts = liveContracts.filter(
-    (c) => c.expiry === nearestExpiry && Math.abs(c.strike - ticker.spot) <= ticker.strikeStep * 1.5,
-  );
-  const atmOiSum = atmContracts.reduce((s, c) => s + c.oi, 0);
-  const atmIv = atmOiSum > 0
-    ? (atmContracts.reduce((s, c) => s + c.iv * c.oi, 0) / atmOiSum) * 100
-    : atmContracts.length
-      ? (atmContracts.reduce((s, c) => s + c.iv, 0) / atmContracts.length) * 100
-      : ticker.baseIV * 100;
-  const globalStats: import("@/components/terminal/FloatingStatBar").FloatingStat[] = [
+    const nearestExpiry = liveContracts.reduce(
+      (min, c) => (c.expiry < min ? c.expiry : min),
+      Number.POSITIVE_INFINITY,
+    );
+    const atm = liveContracts.filter(
+      c => c.expiry === nearestExpiry && Math.abs(c.strike - ticker.spot) <= ticker.strikeStep * 1.5,
+    );
+    const atmOiSum = atm.reduce((s, c) => s + c.oi, 0);
+    const atmIv = atmOiSum > 0
+      ? (atm.reduce((s, c) => s + c.iv * c.oi, 0) / atmOiSum) * 100
+      : atm.length
+        ? (atm.reduce((s, c) => s + c.iv, 0) / atm.length) * 100
+        : ticker.baseIV * 100;
+    return { pcr, netDex, atmIv };
+  }, [liveContracts, ticker.spot, ticker.strikeStep, ticker.baseIV]);
+
+  const globalStats: import("@/components/terminal/FloatingStatBar").FloatingStat[] = useMemo(() => [
     { label: "ATM IV",    value: `${atmIv.toFixed(1)}%`,           tone: "primary" },
     { label: "P/C Ratio", value: pcr.toFixed(2),                   tone: pcr > 1 ? "put" : "call" },
     { label: "Net DEX",   value: formatNumber(netDex),             tone: netDex >= 0 ? "call" : "put", sub: "dollar delta" },
     { label: "Total GEX", value: formatNumber(levels.totalGex),    tone: levels.totalGex >= 0 ? "call" : "put", sub: levels.totalGex >= 0 ? "Positive regime" : "Negative regime" },
     { label: "Call Wall", value: String(levels.callWall),          tone: "call",    sub: "resistance" },
     { label: "Put Wall",  value: String(levels.putWall),           tone: "put",     sub: "support" },
-  ];
+  ], [atmIv, pcr, netDex, levels]);
 
   const addTicker = async () => {
     const sym = newTicker.toUpperCase().trim();
@@ -271,7 +272,7 @@ export default function Dashboard() {
       <div className="flex flex-1 transition-all duration-500">
         <Sidebar
           active={section}
-          onSelect={setSection}
+          onSelect={(s) => startTransition(() => setSection(s))}
           collapsed={collapsed}
           onToggle={() => setCollapsed(!collapsed)}
           isAdmin={isAdmin}
