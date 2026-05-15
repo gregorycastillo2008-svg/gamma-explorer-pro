@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 
 interface RawContract {
   strike: number;
@@ -47,6 +47,12 @@ const CONTRACT_SIZE = 100;
 
 export function StrikerDeltaGrid({ chain, symbol }: Props) {
   const [hover, setHover] = useState<{ strike: number; exp: string } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top on mount so the largest strikes (sorted high→low) are visible first
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, []);
 
   // Build matrix: dexValue[strike][expiration]
   const { strikes, expirations, matrix, maxAbs, totalAbs } = useMemo(() => {
@@ -127,7 +133,7 @@ export function StrikerDeltaGrid({ chain, symbol }: Props) {
         </div>
       </div>
 
-      <div className="overflow-auto" style={{ maxHeight: "70vh" }}>
+      <div ref={scrollRef} className="overflow-auto" style={{ maxHeight: "70vh" }}>
         <table className="w-full border-collapse" style={{ fontFamily: "ui-monospace, monospace" }}>
           <thead className="sticky top-0 z-10" style={{ background: "#000" }}>
             <tr>

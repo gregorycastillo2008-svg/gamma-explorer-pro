@@ -1,4 +1,4 @@
-import { Activity, BarChart3, LineChart, Layers, Target, TrendingUp, Wind, Gauge, Shuffle, Sigma, Shield, LogOut, ChevronLeft, ChevronRight, Grid3x3, AlertTriangle, BarChart2, Brain, CandlestickChart, Newspaper, Smile, Percent } from "lucide-react";
+import { Activity, BarChart3, LineChart, Layers, TrendingUp, Wind, Gauge, Shuffle, Sigma, Shield, LogOut, ChevronLeft, ChevronRight, Grid3x3, AlertTriangle, BarChart2, Brain, CandlestickChart, Newspaper, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 
@@ -17,7 +17,6 @@ export const SECTIONS: { id: Section; label: string; icon: any; group: string }[
   { id: "gex-dex", label: "GEX & DEX", icon: BarChart3, group: "MAIN" },
   { id: "greeks", label: "Greek Ladder", icon: Sigma, group: "MAIN" },
   { id: "depth", label: "Depth View", icon: Layers, group: "MAIN" },
-  { id: "levels", label: "Level Scan", icon: Target, group: "MAIN" },
   { id: "hedge",    label: "Hedge Pressure", icon: Gauge,      group: "MAIN" },
   { id: "voldesk",  label: "VolDesk",        icon: BarChart2,  group: "MAIN" },
   { id: "vanna-charm", label: "Vanna & Charm", icon: Wind,    group: "MAIN" },

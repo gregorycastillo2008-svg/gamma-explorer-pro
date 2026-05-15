@@ -1,10 +1,12 @@
 import { useState, useMemo } from "react";
-import { HorizontalGEXChart } from "./HorizontalGEXChart";
-import { GEXDEXHeatmap } from "./GEXDEXHeatmap";
+import { GexNetHorizontalChart } from "./GexNetHorizontalChart";
 import { GexExposureTabs } from "./GexExposureTabs";
+import { GexSurface3D } from "./GexSurface3D";
+import { GexStrikeHeatmap } from "./GexStrikeHeatmap";
+
 import {
-  computeExposures, computeKeyLevels, formatNumber,
-  type DemoTicker, type OptionContract, type ExposurePoint,
+  computeExposures, computeKeyLevels,
+  type DemoTicker, type OptionContract,
 } from "@/lib/gex";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
@@ -13,13 +15,12 @@ import {
 
 interface Props { ticker: DemoTicker; contracts: OptionContract[] }
 
-type Tab = "heatmap" | "strike" | "surface" | "expiries" | "dealer" | "flows" | "scenario";
+type Tab = "heatmap" | "strike" | "surface" | "dealer" | "flows" | "scenario";
 
 const TABS: { id: Tab; label: string; isNew?: boolean }[] = [
   { id: "heatmap",  label: "HEATMAP" },
   { id: "strike",   label: "STRIKE CHART" },
   { id: "surface",  label: "3D SURFACE" },
-  { id: "expiries", label: "EXPIRIES" },
   { id: "dealer",   label: "DEALER FLOW",  isNew: true },
   { id: "flows",    label: "VANNA/CHARM",  isNew: true },
   { id: "scenario", label: "SCENARIO",     isNew: true },
@@ -527,11 +528,118 @@ function ScenarioPanel({ ticker, contracts }: Props) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// GAMMA EXPOSURE PANEL (left panel) — con filtro por días 0D–5D
+// ══════════════════════════════════════════════════════════════════
+const DAY_FILTERS = ["ALL", "0D", "1D", "2D", "3D", "4D", "5D"] as const;
+type DayFilter = typeof DAY_FILTERS[number];
+
+const FBAR = `"Courier New", monospace`;
+
+// Calendar DTE → trading DTE (skips weekends so "1D" = next trading day)
+function calToTradingDTE(calDTE: number): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let count = 0;
+  const d = new Date(today);
+  for (let i = 0; i < calDTE; i++) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+}
+
+function GammaExposurePanel({ ticker, contracts }: Props) {
+  const [dayFilter, setDayFilter] = useState<DayFilter>("ALL");
+
+  // Map each unique calendar DTE → trading DTE once per contracts change
+  const tradingDTEMap = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const c of contracts) {
+      if (!map.has(c.expiry)) map.set(c.expiry, calToTradingDTE(c.expiry));
+    }
+    return map;
+  }, [contracts]);
+
+  const availableDays = useMemo(() => {
+    const s = new Set<number>();
+    for (const tDTE of tradingDTEMap.values()) {
+      if (tDTE >= 0 && tDTE <= 5) s.add(tDTE);
+    }
+    return s;
+  }, [tradingDTEMap]);
+
+  const filtered = useMemo(() => {
+    if (dayFilter === "ALL") return contracts;
+    const day = parseInt(dayFilter);
+    return contracts.filter(c => (tradingDTEMap.get(c.expiry) ?? -1) === day);
+  }, [contracts, dayFilter, tradingDTEMap]);
+
+  const exposures = useMemo(() => computeExposures(ticker.spot, filtered), [ticker.spot, filtered]);
+  const levels    = useMemo(() => computeKeyLevels(exposures), [exposures]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#080810", border: "1px solid #0d0d1a", borderRadius: 4, overflow: "hidden" }}>
+      {/* ── Day filter bar ── */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 3, padding: "5px 8px",
+        borderBottom: "1px solid #0d0d1a", flexShrink: 0, background: "#000",
+      }}>
+        <span style={{ fontFamily: FBAR, fontSize: 7.5, color: "#252535", letterSpacing: "0.18em", textTransform: "uppercase", marginRight: 4 }}>
+          EXP
+        </span>
+        {DAY_FILTERS.map(f => {
+          const day     = f === "ALL" ? -1 : parseInt(f);
+          const avail   = f === "ALL" || availableDays.has(day);
+          const active  = dayFilter === f;
+          return (
+            <button
+              key={f}
+              onClick={() => avail && setDayFilter(f)}
+              style={{
+                fontFamily: FBAR,
+                fontSize: 8.5,
+                letterSpacing: "0.08em",
+                padding: "2px 7px",
+                borderRadius: 3,
+                border: `1px solid ${active ? "#00ff44" : avail ? "#2a4a30" : "#111118"}`,
+                background: active ? "rgba(0,255,68,0.10)" : "transparent",
+                color: active ? "#00ff44" : avail ? "#4d8060" : "#202020",
+                cursor: avail ? "pointer" : "default",
+                fontWeight: active ? 700 : 400,
+                transition: "all 0.12s",
+              }}
+            >
+              {f}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Gamma chart ── */}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <GexNetHorizontalChart
+          exposures={exposures}
+          spot={ticker.spot}
+          gammaFlip={levels.gammaFlip}
+          callWall={levels.callWall}
+          putWall={levels.putWall}
+          contracts={filtered}
+          height="100%"
+          solidColors
+        />
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
 // MAIN WORKSPACE
 // ══════════════════════════════════════════════════════════════════
 export function GexDexWorkspace({ ticker, contracts }: Props) {
   const [tab, setTab] = useState<Tab>("heatmap");
-  const isNewTab = tab === "dealer" || tab === "flows" || tab === "scenario";
+  const isNewTab  = tab === "dealer" || tab === "flows" || tab === "scenario";
+  const isFullTab = tab === "surface";
 
   return (
     <div className="w-full h-full flex flex-col" style={{ background: C.bg, fontFamily: FONT }}>
@@ -573,14 +681,16 @@ export function GexDexWorkspace({ ticker, contracts }: Props) {
             {tab === "flows"    && <VannaCharmPanel   ticker={ticker} contracts={contracts} />}
             {tab === "scenario" && <ScenarioPanel     ticker={ticker} contracts={contracts} />}
           </div>
+        ) : isFullTab ? (
+          <div className="h-full p-2">
+            <GexSurface3D ticker={ticker} contracts={contracts} />
+          </div>
         ) : (
           <div className="h-full grid grid-cols-1 xl:grid-cols-2 gap-2 p-2">
-            <div className="min-h-0"><HorizontalGEXChart ticker={ticker} contracts={contracts} /></div>
+            <div className="min-h-0"><GammaExposurePanel ticker={ticker} contracts={contracts} /></div>
             <div className="min-h-0">
-              {tab === "heatmap"  && <GEXDEXHeatmap     ticker={ticker} contracts={contracts} />}
-              {tab === "strike"   && <GexExposureTabs   ticker={ticker} contracts={contracts} metric="netGex" />}
-              {tab === "surface"  && <GexExposureTabs   ticker={ticker} contracts={contracts} metric="netGex" />}
-              {tab === "expiries" && <GexExposureTabs   ticker={ticker} contracts={contracts} metric="dex" />}
+              {tab === "heatmap" && <GexStrikeHeatmap ticker={ticker} contracts={contracts} />}
+              {tab === "strike"  && <GexExposureTabs  ticker={ticker} contracts={contracts} metric="netGex" />}
             </div>
           </div>
         )}

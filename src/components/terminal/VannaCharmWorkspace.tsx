@@ -203,8 +203,20 @@ function HeatmapPanel({
   const cellMap = new Map(grid.map((g) => [`${g.strike}|${g.expiry}`, g.value]));
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to top (highest strike) whenever data loads
-  useEffect(() => { scrollRef.current?.scrollTo({ top: 0, behavior: "instant" }); }, [strikes]);
+  // Auto-scroll to strike with max total |value| across expiries
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !strikes.length) return;
+    const strikeSum = new Map<number, number>();
+    for (const g of grid) strikeSum.set(g.strike, (strikeSum.get(g.strike) ?? 0) + Math.abs(g.value));
+    let hotStrike = strikes[0], maxSum = -1;
+    for (const [s, sum] of strikeSum) { if (sum > maxSum) { maxSum = sum; hotStrike = s; } }
+    const hotIdx = strikes.indexOf(hotStrike);
+    if (hotIdx >= 0) {
+      const headerH = 32, rowH = 20;
+      el.scrollTo({ top: Math.max(0, headerH + hotIdx * rowH - el.clientHeight / 2 + rowH / 2), behavior: "instant" });
+    }
+  }, [strikes, grid]);
 
   return (
     <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ background: "#000000", border: `1px solid ${BORDER}` }}>
@@ -316,6 +328,19 @@ function StrikeChartPanel({
     | null
   >(null);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Auto-scroll to row with max |value| (rows sorted high→low strike, 20px each)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !rows.length) return;
+    const maxAbs = Math.max(...rows.map((r) => Math.abs(r.value)));
+    const hotIdx = rows.findIndex((r) => Math.abs(r.value) === maxAbs);
+    if (hotIdx >= 0) {
+      const rowH = 20;
+      el.scrollTo({ top: Math.max(0, hotIdx * rowH - el.clientHeight / 2 + rowH / 2), behavior: "instant" });
+    }
+  }, [rows]);
+
   return (
     <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ background: PANEL_BG, border: `1px solid ${BORDER}` }}>
       <div className="px-3 py-2 text-[11px] uppercase tracking-wider" style={{ color: TEXT, borderBottom: `1px solid ${BORDER}` }}>
@@ -328,6 +353,7 @@ function StrikeChartPanel({
         ))}
       </div>
       <div
+        ref={scrollRef}
         className="flex-1 overflow-y-auto px-2 py-2 relative"
         onMouseLeave={() => setTooltip(null)}
       >

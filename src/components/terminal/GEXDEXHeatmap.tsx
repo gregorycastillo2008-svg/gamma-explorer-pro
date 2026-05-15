@@ -375,6 +375,11 @@ function HeatPanel({
   theme: Theme;
   T: { bg: string; panel: string; border: string; text: string; muted: string; cellBorder: string };
 }) {
+  // Auto-scroll to top (highest strike) whenever data changes
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+  }, [rows]);
+
   return (
     <div className="flex flex-col min-h-0" style={{ background: T.panel }}>
       <div className="px-3 py-2 flex items-center justify-between shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
@@ -393,11 +398,11 @@ function HeatPanel({
               <th
                 className="text-left px-2 py-1.5 font-bold uppercase tracking-wider sticky left-0 z-20"
                 style={{
-                  color: T.muted, fontSize: 9, background: T.panel,
-                  borderRight: `1px solid ${T.border}`,
+                  color: "rgba(255,255,255,0.5)", fontSize: 9, background: "rgb(0,48,18)",
+                  borderRight: `1px solid #0f0f0f`,
                 }}
               >
-                Strike
+                STRIKE
               </th>
               {PCT_COLS.map((p, i) => (
                 <th
@@ -449,18 +454,18 @@ function HeatPanel({
                   }}
                 >
                   <td
-                    className="px-2 py-1 sticky left-0 z-10 font-bold tabular-nums"
+                    className="px-2 py-1 sticky left-0 z-10 tabular-nums"
                     style={{
-                      color: isSpot ? C.yellow : isSel ? accent : T.text,
-                      background: isSel
-                        ? "rgba(250,204,21,0.06)"
-                        : isHover ? (theme === "light" ? "#f0f0f0" : "#0a0a0a") : T.panel,
-                      borderRight: `1px solid ${T.border}`,
+                      color: isSpot ? "#000" : "rgba(255,255,255,0.88)",
+                      fontWeight: isSpot ? 700 : 500,
+                      background: isSpot ? "rgb(0,200,70)" : isSel ? "rgb(0,80,30)" : "rgb(0,48,18)",
+                      borderRight: `1px solid #0f0f0f`,
+                      borderBottom: `1px solid #0f0f0f`,
                       fontSize: 11,
+                      fontFamily: `"JetBrains Mono", ui-monospace, monospace`,
                     }}
                   >
-                    {r.strike}
-                    {isSpot && <span className="ml-1" style={{ color: C.yellow, fontSize: 9 }}>◀</span>}
+                    ${r.strike}{isSpot && <span className="ml-1" style={{ fontSize: 9 }}>◀</span>}
                   </td>
                   {cells.map((v, ci) => (
                     <td

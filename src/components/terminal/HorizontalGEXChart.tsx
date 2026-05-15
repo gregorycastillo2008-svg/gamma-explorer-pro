@@ -34,14 +34,13 @@ const C = {
 const FONT  = `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace`;
 const BAR_H = 28; // px per bar row — más gruesas
 
-type Metric = "GEX" | "DEX" | "VEX";
-
 export function HorizontalGEXChart({ ticker, contracts }: Props) {
-  const [metric, setMetric]           = useState<Metric>("GEX");
   const [zoom, setZoom]               = useState<number>(0);
   const [expiryFilter, setExpiryFilter] = useState<string>("all");
   const [selected, setSelected]       = useState<number | null>(null);
   const [hover, setHover]             = useState<number | null>(null);
+  const [barHovered, setBarHovered]   = useState<number | null>(null);
+  const [mouseXY, setMouseXY]         = useState({ x: 0, y: 0 });
   const [expiryOpen, setExpiryOpen]   = useState(false);
   const [detailOpen, setDetailOpen]   = useState(true);
   const scrollRef                     = useRef<HTMLDivElement>(null);
@@ -57,7 +56,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
     return contracts.filter((c) => String(c.expiry) === expiryFilter);
   }, [contracts, expiryFilter]);
 
-  const { rows, callWall, putWall, majorWall, maxPain, volTrigger, gammaFlip, deltaZeroStrike } = useMemo(() => {
+  const { rows, callWall, putWall, majorWall, maxPain, volTrigger, gammaFlip } = useMemo(() => {
     const exposures = computeExposures(ticker.spot, filteredContracts);
     const levels    = computeKeyLevels(exposures);
 
@@ -81,36 +80,21 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
     })();
 
     const rows = sliced.map((e) => {
-      const sides = sideMap.get(e.strike) ?? { callOI: 0, putOI: 0, callVol: 0, putVol: 0 };
-      const value = metric === "GEX" ? e.netGex : metric === "DEX" ? e.dex : e.vex;
+      const sides  = sideMap.get(e.strike) ?? { callOI: 0, putOI: 0, callVol: 0, putVol: 0 };
+      const netOI  = sides.callOI - sides.putOI;  // positive = call-dominated, negative = put-dominated
       return {
-        strike: e.strike, value, shares: value / ticker.spot,
+        strike: e.strike,
+        shares: netOI,
         callOI: sides.callOI, putOI: sides.putOI,
         callVol: sides.callVol, putVol: sides.putVol,
-        netGex: e.netGex, dex: e.dex,
-        callGex: e.callGex, putGex: e.putGex,
         aboveSpot: e.strike >= ticker.spot,
       };
     });
 
-    let cumDex = 0, deltaZeroStrike: number | null = null;
-    const dexSorted = [...rows].sort((a, b) => a.strike - b.strike);
-    for (let i = 0; i < dexSorted.length; i++) {
-      const prev = cumDex;
-      cumDex += dexSorted[i].dex;
-      if (i > 0 && ((prev < 0 && cumDex >= 0) || (prev > 0 && cumDex <= 0))) {
-        deltaZeroStrike = dexSorted[i].strike; break;
-      }
-    }
-    if (deltaZeroStrike === null && dexSorted.length > 0) {
-      deltaZeroStrike = dexSorted.reduce((best, r) =>
-        Math.abs(r.dex) < Math.abs(best.dex) ? r : best).strike;
-    }
-
     return { rows, callWall: levels.callWall, putWall: levels.putWall,
       majorWall: levels.majorWall, maxPain: levels.maxPain,
-      volTrigger: levels.volTrigger, gammaFlip: levels.gammaFlip, deltaZeroStrike };
-  }, [ticker, filteredContracts, metric, zoom]);
+      volTrigger: levels.volTrigger, gammaFlip: levels.gammaFlip };
+  }, [ticker, filteredContracts, zoom]);
 
   // Auto-scroll al spot cuando cargan los datos
   useEffect(() => {
@@ -153,28 +137,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
     return { r, distPct, totalOI, cls };
   }, [selected, rows, ticker.spot, callWall, putWall]);
 
-  const renderTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const r = payload[0].payload;
-    const isPos = r.shares >= 0;
-    const borderColor = r.strike === maxPosStrike ? C.greenMax : r.strike === maxNegStrike ? C.redMax : isPos ? C.green : C.red;
-    return (
-      <div style={{ background: "#000", border: `1px solid ${borderColor}`, color: C.text,
-        fontFamily: FONT, padding: "10px 12px", borderRadius: 4, minWidth: 230,
-        boxShadow: `0 0 28px ${borderColor}44` }}>
-        <div style={{ color: borderColor, fontSize: 11, letterSpacing: "0.15em", marginBottom: 4 }}>
-          {r.strike === maxPosStrike || r.strike === maxNegStrike ? "★ " : ""}
-          STRIKE ${r.strike} · {isPos ? "CALL SIDE" : "PUT SIDE"}
-        </div>
-        <div style={{ height: 1, background: C.border, margin: "6px 0" }} />
-        <Row label={`${metric} (shares/$)`} value={formatNumber(r.shares)} color={isPos ? C.green : C.red} bold />
-        <Row label="Call OI" value={formatNumber(r.callOI, 0)} color={C.green} />
-        <Row label="Put OI"  value={formatNumber(r.putOI, 0)}  color={C.red} />
-        <Row label="Net GEX" value={formatNumber(r.netGex)} color={r.netGex >= 0 ? C.green : C.red} />
-        <Row label="Net DEX" value={formatNumber(r.dex)}    color={r.dex >= 0 ? C.cyan : C.red} />
-      </div>
-    );
-  };
+  const barTipRow = barHovered != null ? rows.find(r => r.strike === barHovered) ?? null : null;
 
   const chartH    = Math.max(320, rows.length * BAR_H + 48);
   const spotStrike = rows.reduce(
@@ -190,18 +153,13 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
         {/* Main row */}
         <div className="flex items-center gap-3 px-4 py-2 flex-wrap">
           <span style={{ color: "#4a5580", fontSize: 10, letterSpacing: "0.2em" }} className="uppercase font-bold">
-            Horizontal GEX · {ticker.symbol}
+            Open Interest · {ticker.symbol}
           </span>
-
-          <div className="flex rounded overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
-            {(["GEX", "DEX", "VEX"] as Metric[]).map((m) => (
-              <button key={m} onClick={() => setMetric(m)}
-                className="px-2.5 py-1 text-[10px] font-bold tracking-wider transition-colors"
-                style={{ background: metric === m ? C.green : "transparent", color: metric === m ? "#000" : C.muted }}>
-                {m}
-              </button>
-            ))}
-          </div>
+          <span style={{
+            fontSize: 8, padding: "2px 7px", borderRadius: 3, fontFamily: FONT,
+            background: `${C.green}18`, color: C.green,
+            border: `1px solid ${C.green}44`, letterSpacing: "0.12em",
+          }}>CALL − PUT OI</span>
 
           {/* EXP compact trigger */}
           <button
@@ -276,6 +234,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
           ref={scrollRef}
           className="relative overflow-y-auto overflow-x-hidden"
           style={{ borderRight: `1px solid ${C.border}` }}
+          onMouseMove={(e) => setMouseXY({ x: e.clientX, y: e.clientY })}
         >
           <div style={{ height: chartH, padding: "6px 6px 8px 0" }}>
             <ResponsiveContainer width="100%" height={chartH}>
@@ -301,7 +260,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
                   stroke={C.muted} fontSize={9} tickLine={false}
                   axisLine={{ stroke: C.border }} tick={{ fontFamily: FONT }}
                   tickFormatter={(v) => formatNumber(v)}
-                  label={{ value: "shares per $ move", position: "insideBottom",
+                  label={{ value: "← Put OI dominant   |   Call OI dominant →", position: "insideBottom",
                     offset: -4, fill: C.muted, fontSize: 9, fontFamily: FONT }} />
 
                 <YAxis type="category" dataKey="strike" stroke={C.muted} fontSize={10}
@@ -323,7 +282,8 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
                   }}
                   width={60} interval={0} />
 
-                <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={renderTooltip} />
+                {/* Row highlight cursor only — tooltip is rendered externally via barHovered */}
+                <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={() => null} />
                 <ReferenceLine x={0} stroke={C.border} strokeWidth={1.5} />
 
                 <ReferenceLine y={spotStrike} stroke={C.yellow} strokeDasharray="6 3" strokeWidth={1.5}
@@ -355,14 +315,11 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
                     label={{ position: "right", value: `⚡ Vol Trigger  $${volTrigger}`,
                       fill: C.cyan, fontSize: 9, fontFamily: FONT, fontWeight: 700 }} />
                 )}
-                {deltaZeroStrike != null && rows.some((r) => r.strike === deltaZeroStrike) && (
-                  <ReferenceLine y={deltaZeroStrike} stroke="rgba(255,255,255,0.7)" strokeDasharray="4 4" strokeWidth={1.5}
-                    label={{ position: "right", value: `◈ Delta Zero  $${deltaZeroStrike}`,
-                      fill: "rgba(255,255,255,0.75)", fontSize: 9, fontFamily: FONT, fontWeight: 700 }} />
-                )}
 
                 <Bar dataKey="shares" barSize={BAR_H - 4} radius={[0, 3, 3, 0]}
                   onClick={(d: any) => setSelected(d?.strike ?? null)}
+                  onMouseEnter={(d: any) => setBarHovered(d?.strike ?? null)}
+                  onMouseLeave={() => setBarHovered(null)}
                   cursor="pointer" isAnimationActive={false}>
                   {rows.map((r, i) => {
                     const isMaxPos  = r.strike === maxPosStrike && r.shares > 0;
@@ -441,10 +398,8 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
                       <DetailRow label="Call OI" value={formatNumber(detail.r.callOI, 0)} color={C.green} />
                       <DetailRow label="Put OI"  value={formatNumber(detail.r.putOI, 0)}  color={C.red} />
                       <Divider />
-                      <DetailRow label="Total Gamma" value={formatNumber(detail.r.netGex)} color={detail.r.netGex >= 0 ? C.green : C.red} bold />
-                      <DetailRow label="Total Delta" value={formatNumber(detail.r.dex)}    color={detail.r.dex >= 0 ? C.cyan : C.red} bold />
-                      <DetailRow label="Call GEX" value={formatNumber(detail.r.callGex)} color={C.green} dim />
-                      <DetailRow label="Put GEX"  value={formatNumber(detail.r.putGex)}  color={C.red} dim />
+                      <DetailRow label="Net OI" value={formatNumber(detail.r.shares, 0)} color={detail.r.shares >= 0 ? C.green : C.red} bold />
+                      <DetailRow label="P/C Ratio" value={(detail.r.putOI / Math.max(detail.r.callOI, 1)).toFixed(2)} color={C.cyan} />
                       <button onClick={() => setSelected(null)}
                         className="mt-1 text-[9px] uppercase tracking-wider py-1 rounded"
                         style={{ color: C.muted, border: `1px solid ${C.border}`, fontFamily: FONT, cursor: "pointer", background: "none" }}>
@@ -459,7 +414,7 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
             <Divider />
 
             <div className="mt-1">
-              <div style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider mb-1.5">Top Gamma Nodes</div>
+              <div style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider mb-1.5">Top OI Nodes</div>
               {maxPosStrike != null && (
                 <button onClick={() => setSelected(maxPosStrike!)}
                   className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
@@ -479,12 +434,11 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
             <div>
               <div style={{ color: C.muted, fontSize: 9 }} className="uppercase tracking-wider mb-1.5">Key Levels</div>
               {[
-                { label: "▲ Major Wall",   strike: majorWall,       color: C.orange },
-                { label: "▲ Call Wall",    strike: callWall,        color: C.green  },
-                { label: "▼ Put Wall",     strike: putWall,         color: C.red    },
-                { label: "★ Max Pain",     strike: maxPain,         color: C.purple },
-                { label: "⚡ Vol Trigger", strike: volTrigger,      color: C.cyan   },
-                { label: "◈ Delta Zero",   strike: deltaZeroStrike, color: "rgba(255,255,255,0.75)" },
+                { label: "▲ Major Wall",   strike: majorWall,  color: C.orange },
+                { label: "▲ Call Wall",    strike: callWall,   color: C.green  },
+                { label: "▼ Put Wall",     strike: putWall,    color: C.red    },
+                { label: "★ Max Pain",     strike: maxPain,    color: C.purple },
+                { label: "⚡ Vol Trigger", strike: volTrigger, color: C.cyan   },
               ].filter(l => l.strike != null).map(({ label, strike, color }) => (
                 <button key={label} onClick={() => setSelected(strike!)}
                   className="w-full flex justify-between items-center px-2.5 py-1.5 rounded mb-1 text-[11px]"
@@ -502,6 +456,37 @@ export function HorizontalGEXChart({ ticker, contracts }: Props) {
           </div>
         </div>
       </div>
+
+      {/* ── Custom bar tooltip — position:fixed, only shows when cursor is on a bar ── */}
+      {barTipRow && (() => {
+        const r = barTipRow;
+        const isPos = r.shares >= 0;
+        const borderColor = r.strike === maxPosStrike ? C.greenMax : r.strike === maxNegStrike ? C.redMax : isPos ? C.green : C.red;
+        const TW = 232;
+        const vpW = window.innerWidth;
+        const left = mouseXY.x + 16 + TW > vpW ? mouseXY.x - TW - 10 : mouseXY.x + 16;
+        const top  = Math.max(8, mouseXY.y - 60);
+        return (
+          <div style={{
+            position: "fixed", left, top, zIndex: 9999,
+            background: "#000", border: `1px solid ${borderColor}`,
+            color: C.text, fontFamily: FONT,
+            padding: "10px 12px", borderRadius: 4, width: TW,
+            boxShadow: `0 0 28px ${borderColor}44`,
+            pointerEvents: "none",
+          }}>
+            <div style={{ color: borderColor, fontSize: 11, letterSpacing: "0.15em", marginBottom: 4 }}>
+              {r.strike === maxPosStrike || r.strike === maxNegStrike ? "★ " : ""}
+              STRIKE ${r.strike} · {isPos ? "CALL SIDE" : "PUT SIDE"}
+            </div>
+            <div style={{ height: 1, background: C.border, margin: "6px 0" }} />
+            <Row label="NET OI (Call − Put)" value={formatNumber(r.shares, 0)} color={isPos ? C.green : C.red} bold />
+            <Row label="Call OI" value={formatNumber(r.callOI, 0)} color={C.green} />
+            <Row label="Put OI"  value={formatNumber(r.putOI, 0)}  color={C.red} />
+            <Row label="P/C Ratio" value={(r.putOI / Math.max(r.callOI, 1)).toFixed(2)} color={C.cyan} />
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Panel, StatBlock } from "./Panel";
 import { ExposureChart } from "@/components/ExposureChart";
 import { GexScatter3D } from "./GexScatter3D";
 import { GexNetHorizontalChart } from "./GexNetHorizontalChart";
+import { GexStrikeHeatmap } from "./GexStrikeHeatmap";
 import { GexDexBars } from "./GexDexBars";
 import { GexExposureTabs, HeatmapGridView, StrikeChartView, SurfaceView } from "./GexExposureTabs";
 import { TerminalTabs } from "./TerminalTabs";
@@ -491,21 +492,27 @@ function OpenInterestPanel({ ticker, exposures, contracts }: Ctx) {
 }
 
 // ─────── CHART — GEX Net + TradingView side by side ───────
-export function ChartView({ ticker, exposures, levels }: Ctx) {
+export function ChartView({ ticker, exposures, levels, contracts }: Ctx) {
+  const [gammaOpen, setGammaOpen] = useState(true);
   return (
     <div className="h-full w-full flex gap-2 overflow-hidden" style={{ background: "#000", padding: "10px" }}>
-      {/* Left 50%: GEX Net horizontal bars */}
-      <div style={{ flex: "1 1 0", minWidth: 0, height: "100%", overflowY: "auto" }}>
+      {/* Left panel: GEX Net horizontal bars — collapsible */}
+      <div style={{
+        flex: gammaOpen ? "1 1 0" : "0 0 30px",
+        minWidth: gammaOpen ? 0 : 30,
+        height: "100%", overflow: "hidden",
+        transition: "flex 0.22s ease, min-width 0.22s ease",
+      }}>
         <GexNetHorizontalChart
           exposures={exposures}
           spot={ticker.spot}
           gammaFlip={levels.gammaFlip}
-          callWall={levels.callWall}
-          putWall={levels.putWall}
-          height={560}
+          contracts={contracts}
+          collapsed={!gammaOpen}
+          onCollapseToggle={() => setGammaOpen(p => !p)}
         />
       </div>
-      {/* Right 50%: TradingView real-time chart with GEX levels */}
+      {/* Right panel: TradingView real-time chart with GEX levels */}
       <div style={{ flex: "1 1 0", minWidth: 0, height: "100%", overflow: "hidden" }}>
         <TradingViewGexChart ticker={ticker} exposures={exposures} levels={levels} embedded />
       </div>
@@ -683,39 +690,6 @@ export function GreeksView({ ticker, exposures, contracts }: Ctx) {
   return (
     <div className="h-full overflow-y-auto p-1">
       <GreekLadder symbol={ticker.symbol} />
-
-      {/* Legacy aggregate ladder (dealer exposure) */}
-      <div className="mt-4">
-        <Panel title="Dealer Exposure per Strike" subtitle="Aggregated GEX/DEX/VEX/Vanna/Charm" noPad>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs font-mono">
-              <thead className="bg-secondary/40 sticky top-0">
-                <tr className="text-left text-muted-foreground">
-                  <Th>Strike</Th><Th r>Call OI</Th><Th r>Put OI</Th>
-                  <Th r>GEX</Th><Th r>DEX</Th><Th r>VEX</Th><Th r>Vanna</Th><Th r>Charm</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {exposures.map((p) => {
-                  const isSpot = Math.abs(p.strike - ticker.spot) < ticker.strikeStep / 2;
-                  return (
-                    <tr key={p.strike} className={`border-b border-border/30 ${isSpot ? "bg-primary/10" : "hover:bg-secondary/30"}`}>
-                      <Td bold>{p.strike}{isSpot && <span className="ml-1 text-[10px] text-primary">●</span>}</Td>
-                      <Td r>{formatNumber(p.callOI, 0)}</Td>
-                      <Td r>{formatNumber(p.putOI, 0)}</Td>
-                      <Td r tone={p.netGex >= 0 ? "call" : "put"}>{formatNumber(p.netGex)}</Td>
-                      <Td r>{formatNumber(p.dex)}</Td>
-                      <Td r>{formatNumber(p.vex)}</Td>
-                      <Td r>{formatNumber(p.vanna)}</Td>
-                      <Td r>{formatNumber(p.charm)}</Td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-      </div>
     </div>
   );
 }

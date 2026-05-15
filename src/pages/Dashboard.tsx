@@ -21,10 +21,7 @@ import {
   OiAnalyticsView, HeatmapView, RiskView, AnomalyView,
   VolatilityRegimeIndicatorView, ExpectedMoveCalculatorView, SentimentView,
 } from "@/components/terminal/views";
-import { GexDexExposure } from "@/components/terminal/GexDexExposure";
-import { HorizontalGEXChart } from "@/components/terminal/HorizontalGEXChart";
 import { GexDexWorkspace } from "@/components/terminal/GexDexWorkspace";
-import { DepthAltaris } from "@/components/terminal/DepthAltaris";
 import { DepthMultiPanel } from "@/components/terminal/DepthMultiPanel";
 import { VannaCharmWorkspace } from "@/components/terminal/VannaCharmWorkspace";
 import { OiAnalyticsWorkspace } from "@/components/terminal/OiAnalyticsWorkspace";

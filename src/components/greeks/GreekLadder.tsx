@@ -5,11 +5,8 @@ import { classifyGreekIntensity, formatGreekValue } from "@/lib/greeks/greekClas
 import { GreekTooltip, type GreekType } from "./GreekTooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeftRight, RefreshCw, Activity } from "lucide-react";
-import { type DealerStrikeRow } from "./DealerExposureBars";
 import { GexGreekSurface3D } from "./GexGreekSurface3D";
-import type { SurfacePoint } from "./GreeksSurface3D";
 import { StrikerDeltaGrid } from "./StrikerDeltaGrid";
-import { DeltaStrikerPanel } from "./DeltaStrikerPanel";
 
 interface RawContract {
   ticker: string;
@@ -87,7 +84,7 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
-  const [activeTab, setActiveTab] = useState<"ladder" | "delta" | "striker">("ladder");
+  const [activeTab, setActiveTab] = useState<"ladder" | "delta">("ladder");
   const fetchSeq = useRef(0);
 
   useEffect(() => {
@@ -168,59 +165,6 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
     return { gMax: maxBy("gamma"), vMax: maxBy("vega"), tMax: maxBy("theta") };
   }, [rows]);
 
-  const dealerRows: DealerStrikeRow[] = useMemo(() => {
-    if (!chain || !chain.contracts.length) return [];
-    const spot = chain.spot;
-    const dteN = chain.selectedExpiration ? daysBetween(chain.selectedExpiration) : 7;
-    const byStrike = new Map<number, DealerStrikeRow>();
-    chain.contracts.forEach((c) => {
-      const ivUse = c.iv > 0 ? c.iv : 0.25;
-      const calc = calculateAllGreeks({ spot, strike: c.strike, dte: dteN, iv: ivUse, rate: 0.045, isCall: c.side === "call" });
-      const g = !c.gamma ? calc.gamma : c.gamma;
-      const d = !c.delta ? calc.delta : c.delta;
-      const cur = byStrike.get(c.strike) ?? { strike: c.strike, callOI: 0, putOI: 0, callGamma: 0, putGamma: 0, callDelta: 0, putDelta: 0 };
-      if (c.side === "call") { cur.callOI = c.oi; cur.callGamma = g; cur.callDelta = d; }
-      else { cur.putOI = c.oi; cur.putGamma = g; cur.putDelta = d; }
-      byStrike.set(c.strike, cur);
-    });
-    const arr = Array.from(byStrike.values()).sort((a, b) => Math.abs(a.strike - spot) - Math.abs(b.strike - spot)).slice(0, 25);
-    return arr.sort((a, b) => b.strike - a.strike);
-  }, [chain]);
-
-  // Delta Exposure surface: |delta| × OI × 100 per (strike, DTE) node
-  // Using absolute values so Z is always positive → creates terrain spikes at high-OI strikes.
-  // Falls back to Black-Scholes delta when real greek is missing.
-  const dexSurfacePoints: SurfacePoint[] = useMemo(() => {
-    if (!chain) return [];
-    const spot = chain.spot;
-    const m = new Map<string, number>();
-    for (const c of chain.contracts) {
-      if (!c.oi || c.oi <= 0) continue;
-      const dte = Math.max(0, Math.round(daysBetween(c.expiration)));
-      let delta = c.delta;
-      if (!delta && c.iv > 0) {
-        try {
-          const bs = calculateAllGreeks({
-            spot, strike: c.strike, dte: Math.max(dte, 1),
-            iv: c.iv, rate: 0.05, isCall: c.side === "call",
-          });
-          delta = bs.delta;
-        } catch { delta = 0; }
-      }
-      // Last resort: use OI as weight (always available) so surface is never empty
-      const weight = delta ? Math.abs(delta) : 0.5;
-      // |delta| × OI × 100 — absolute exposure per (strike, DTE) node
-      const dex = weight * c.oi * 100;
-      const key = `${c.strike}|${dte}`;
-      m.set(key, (m.get(key) ?? 0) + dex);
-    }
-    const pts: SurfacePoint[] = [];
-    m.forEach((value, key) => {
-      const [ks, ds] = key.split("|");
-      pts.push({ strike: +ks, dte: +ds, value });
-    });
-    return pts;
-  }, [chain]);
 
   const dte = chain?.selectedExpiration ? Math.round(daysBetween(chain.selectedExpiration)) : 0;
   const totalCallOI = chain?.contracts.filter((c) => c.side === "call").reduce((s, c) => s + c.oi, 0) ?? 0;
@@ -309,8 +253,8 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
         className="flex items-center gap-1 px-3 pt-2"
         style={{ borderBottom: "1px solid #1f1f1f", background: "#000" }}
       >
-        {(["ladder", "delta", "striker"] as const).map((id) => {
-          const labels = { ladder: "GREEK LADDER", delta: "DELTA EXPOSURE", striker: "STRIKER DELTA" };
+        {(["ladder", "delta"] as const).map((id) => {
+          const labels = { ladder: "GREEK LADDER", delta: "DELTA EXPOSURE" };
           const active = activeTab === id;
           return (
             <button
@@ -451,22 +395,24 @@ export function GreekLadder({ symbol: initialSymbol = "QQQ" }: Props) {
 
       {/* ═════ DELTA EXPOSURE TAB ═════ */}
       {activeTab === "delta" && (
-        <div style={{ isolation: "isolate", overflow: "hidden", background: "#000", padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ isolation: "isolate", overflow: "hidden", background: "#000", display: "flex", flexDirection: "row", gap: 0, minHeight: 0 }}>
           {!chain ? (
-            <div className="p-8 text-center text-[11px] text-muted-foreground" style={{ fontFamily: MONO }}>
+            <div className="p-8 text-center text-[11px] text-muted-foreground w-full" style={{ fontFamily: MONO }}>
               {loading ? "Loading greek surface data…" : "No data available"}
             </div>
           ) : (
             <>
-              <GexGreekSurface3D chain={chain} symbol={symbol} />
+              {/* Strikes — left 50% */}
+              <div style={{ flex: "0 0 50%", minWidth: 0, overflowY: "auto", borderRight: "1px solid #1a1a1a" }}>
+                <StrikerDeltaGrid chain={chain} symbol={symbol} />
+              </div>
+              {/* 3D Surface — right 50% */}
+              <div style={{ flex: "0 0 50%", minWidth: 0, padding: "12px" }}>
+                <GexGreekSurface3D chain={chain} symbol={symbol} />
+              </div>
             </>
           )}
         </div>
-      )}
-
-      {/* ═════ STRIKER DELTA TAB ═════ */}
-      {activeTab === "striker" && chain && (
-        <StrikerDeltaGrid chain={chain} symbol={symbol} />
       )}
 
       {/* ═════ FOOTER INSIGHTS ═════ */}
