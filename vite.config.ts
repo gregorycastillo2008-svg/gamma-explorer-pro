@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   base: process.env.VITE_BASE_URL ?? "/",
   server: {
     host: "::",
@@ -27,20 +27,9 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
   build: {
-    minify: "terser",
+    minify: "esbuild",
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
-    terserOptions: {
-      compress: {
-        drop_console: mode === "production",
-        dead_code: true,
-        unused: true,
-      },
-      mangle: true,
-      format: {
-        comments: false,
-      },
-    },
     rollupOptions: {
       output: {
         manualChunks(id) {
