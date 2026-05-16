@@ -23,7 +23,6 @@ import { VegaThetaAnalyzer } from "./VegaThetaAnalyzer";
 import { PCSkewByStrike } from "./PCSkewByStrike";
 import { GammaRegimePanel } from "./GammaRegimePanel";
 import { HedgePressurePanel } from "./HedgePressurePanel";
-import { StdDevAnomaliesPanel } from "./StdDevAnomaliesPanel";
 import { LogReturnAnomalyPanel } from "./LogReturnAnomalyPanel";
 import { CallPutOIChart } from "./CallPutOIChart";
 
@@ -2860,9 +2859,6 @@ export function AnomalyView({ ticker, exposures, contracts }: Ctx) {
     <div className="h-full overflow-y-auto overflow-x-hidden pr-2 space-y-3">
       {/* Log Return Anomaly Detector — Yahoo Finance 5m real data, rolling ±2σ */}
       <LogReturnAnomalyPanel />
-
-      {/* Z-Score Anomalies (Hedge Pressure / GEX / OI-Volume) */}
-      <StdDevAnomaliesPanel ticker={ticker} exposures={exposures} contracts={contracts} />
 
       {/* Header strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
