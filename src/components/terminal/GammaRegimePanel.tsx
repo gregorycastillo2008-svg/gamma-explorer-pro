@@ -3,9 +3,16 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
   CartesianGrid, Tooltip as RTooltip, ReferenceLine, Cell, AreaChart, Area,
 } from "recharts";
+import Plotly from "plotly.js/dist/plotly";
 import type { ExposurePoint, KeyLevels, DemoTicker, OptionContract } from "@/lib/gex";
 import { formatNumber, bsGreeks } from "@/lib/gex";
-import { Activity, ArrowDown, ArrowUp, Minus, TrendingUp, TrendingDown, Zap, Target, Info } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, TrendingUp, TrendingDown } from "lucide-react";
+
+function randn(): number {
+  const u = 1 - Math.random();
+  const v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
 
 /* ── Design tokens ──────────────────────────────────────────────── */
 const C = {
@@ -198,6 +205,316 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
     return { score, label: score > 70 ? "ROCK SOLID" : score > 40 ? "MODERATE" : "FRAGILE" };
   }, [exposures, spot]);
 
+  /* ── Monte Carlo ──────────────────────────────────────────────── */
+  const mcRef = useRef<HTMLDivElement>(null);
+
+  const mcData = useMemo(() => {
+    const N_PATHS = 250;
+    const N_DAYS  = 90;
+    const dt      = 1 / 252;
+    const volMult: Record<Regime, number> = { LONG: 0.72, SOFT_LONG: 0.85, SHORT: 1.40, FLIP: 1.25, TRANSITION: 1.10 };
+    const sigma   = (atmIv / 100) * volMult[info.key];
+
+    const paths: number[][] = [];
+    for (let p = 0; p < N_PATHS; p++) {
+      const path = [spot];
+      for (let d = 1; d <= N_DAYS; d++) {
+        const prev = path[d - 1];
+        path.push(prev * Math.exp((-0.5 * sigma * sigma) * dt + sigma * Math.sqrt(dt) * randn()));
+      }
+      paths.push(path);
+    }
+
+    const days = Array.from({ length: N_DAYS + 1 }, (_, i) => i);
+    const p5: number[] = [], p25: number[] = [], p50: number[] = [], p75: number[] = [], p95: number[] = [];
+
+    for (let d = 0; d <= N_DAYS; d++) {
+      const vals = paths.map(ph => ph[d]).sort((a, b) => a - b);
+      const pct  = (q: number) => {
+        const idx = (q / 100) * (N_PATHS - 1);
+        const lo  = Math.floor(idx), hi = Math.ceil(idx);
+        return vals[lo] + (vals[hi] - vals[lo]) * (idx - lo);
+      };
+      p5.push(pct(5));
+      p25.push(pct(25));
+      p50.push(pct(50));
+      p75.push(pct(75));
+      p95.push(pct(95));
+    }
+
+    return { days, p5, p25, p50, p75, p95 };
+  }, [spot, atmIv, info.key]);
+
+  useEffect(() => {
+    const div = mcRef.current;
+    if (!div) return;
+    const { days, p5, p25, p50, p75, p95 } = mcData;
+    const isGreen   = info.key === "LONG" || info.key === "SOFT_LONG";
+    const isRed     = info.key === "SHORT";
+    const bandOuter = isGreen ? "rgba(0,230,118,0.07)"  : isRed ? "rgba(255,51,85,0.07)"  : "rgba(255,149,0,0.07)";
+    const bandInner = isGreen ? "rgba(0,230,118,0.16)"  : isRed ? "rgba(255,51,85,0.16)"  : "rgba(255,149,0,0.16)";
+
+    const traces: any[] = [
+      { x: days, y: p5,  mode: "lines", line: { color: "transparent", width: 0 }, showlegend: false, hoverinfo: "skip" },
+      { x: days, y: p95, mode: "lines", line: { color: rc.hex, width: 0.4, dash: "dot" },
+        fill: "tonexty", fillcolor: bandOuter, showlegend: false, hoverinfo: "skip" },
+      { x: days, y: p25, mode: "lines", line: { color: "transparent", width: 0 }, showlegend: false, hoverinfo: "skip" },
+      { x: days, y: p75, mode: "lines", line: { color: rc.hex, width: 0.4 },
+        fill: "tonexty", fillcolor: bandInner, showlegend: false, hoverinfo: "skip" },
+      { x: days, y: p50, mode: "lines", line: { color: rc.hex, width: 2 },
+        name: "Median", hovertemplate: "Day %{x}<br>$%{y:.2f}<extra></extra>" },
+      { x: [0, 90], y: [spot, spot], mode: "lines",
+        line: { color: "#374151", width: 1, dash: "dot" }, showlegend: false, hoverinfo: "skip" },
+    ];
+
+    const layout: any = {
+      autosize: true,
+      paper_bgcolor: C.bg1,
+      plot_bgcolor:  C.bg1,
+      font: { family: C.font, size: 9, color: C.dim },
+      margin: { l: 54, r: 14, t: 10, b: 32 },
+      xaxis: {
+        title: { text: "Days Forward", font: { size: 9, color: C.dim } },
+        showgrid: true, gridcolor: C.border, gridwidth: 1,
+        zeroline: false, tickfont: { size: 9, color: C.dim }, tickcolor: "transparent",
+        linecolor: C.border,
+      },
+      yaxis: {
+        showgrid: true, gridcolor: C.border, gridwidth: 1,
+        zeroline: false, tickfont: { size: 9, color: C.dim }, tickcolor: "transparent",
+        tickprefix: "$", tickformat: ".0f",
+        linecolor: C.border,
+      },
+      showlegend: false,
+      hoverlabel: { bgcolor: C.bg3, bordercolor: rc.hex, font: { family: C.font, size: 11, color: C.white } },
+    };
+
+    try {
+      (Plotly as any).react(div, traces, layout, {
+        displayModeBar: false, responsive: true, scrollZoom: false,
+      });
+    } catch (err) {
+      console.error("[MonteCarlo] Plotly render error:", err);
+      return;
+    }
+
+    const ro = new ResizeObserver(() => {
+      try { (Plotly as any).Plots.resize(div); } catch (_) {}
+    });
+    ro.observe(div);
+    return () => { ro.disconnect(); try { (Plotly as any).purge(div); } catch (_) {} };
+  }, [mcData, rc.hex, info.key, spot]);
+
+  /* ── Phase-space attractor ────────────────────────────────────── */
+  const attRef = useRef<HTMLDivElement>(null);
+
+  const attractorData = useMemo(() => {
+    const near = exposures.filter(p => Math.abs(p.strike - spot) <= spot * 0.08);
+    if (!near.length) return null;
+
+    const totalAbs = near.reduce((s, p) => s + Math.abs(p.netGex), 0) || 1;
+
+    const centroid = near.reduce((s, p) => s + p.strike * Math.abs(p.netGex), 0) / totalAbs;
+    const pca1 = Math.max(-3, Math.min(3, ((centroid - spot) / spot) * 100));
+
+    const posGex = near.filter(p => p.netGex > 0).reduce((s, p) => s + p.netGex, 0);
+    const negGex = Math.abs(near.filter(p => p.netGex < 0).reduce((s, p) => s + p.netGex, 0));
+    const pca2 = Math.max(-2.5, Math.min(2.5, Math.log((posGex + 1e6) / (negGex + 1e6)) * 1.4));
+
+    const probs = near.map(p => Math.abs(p.netGex) / totalAbs);
+    const ent   = -probs.reduce((s, p) => p > 1e-10 ? s + p * Math.log(p) : s, 0);
+    const chaos = Math.min(0.005, (ent / Math.max(Math.log(near.length), 1)) * 0.005);
+    const threshold = chaos * 0.82;
+
+    const statusText  = chaos < threshold * 0.5 ? "STABLE FLOW" : chaos < threshold ? "TRANSITIONING" : "CHAOTIC REGIME";
+    const statusColor = chaos < threshold * 0.5 ? C.call : chaos < threshold ? C.gold : C.put;
+
+    const seed = Math.abs(Math.sin(pca1 * 7.3 + pca2 * 13.1) * 43758.5);
+    const rng  = (n: number) => { const x = Math.sin(n * 71.3 + seed) * 43758.5; return x - Math.floor(x); };
+
+    const regimeName = REGIME_CFG[info.key].label;
+    const N = 240;
+    const xs: number[] = [], ys: number[] = [], zs: number[] = [];
+    const colorVals: number[] = [];
+    const hoverText: string[] = [];
+
+    for (let i = 0; i < N; i++) {
+      const t     = i / N;
+      const decay = Math.pow(1 - t, 1.1);
+      // Three overlapping harmonics for scribbly, tangled look
+      const p1 = t * Math.PI * 13.6;
+      const p2 = t * Math.PI * 8.3;
+      const p3 = t * Math.PI * 4.7;
+      const x = pca1
+        + decay * (Math.cos(p1) * 3.8 + Math.cos(p2 * 1.4 + 0.9) * 1.7 + Math.cos(p3 * 2.3 + 2.1) * 1.0)
+        + (rng(i * 3)     - 0.5) * 0.9 * decay;
+      const y = pca2
+        + decay * (Math.sin(p2) * 2.4 + Math.sin(p1 * 0.7 + 1.3) * 1.3 + Math.sin(p3 * 1.8 + 0.5) * 0.8)
+        + (rng(i * 5 + 1) - 0.5) * 0.7 * decay;
+      const z = Math.max(0, chaos * (1 + decay * 1.6
+        + Math.sin(p1 * 1.7 + p2 * 0.4) * decay * 0.5
+        + Math.cos(p3 * 1.2) * decay * 0.35));
+
+      xs.push(x); ys.push(y); zs.push(z);
+      colorVals.push(z);
+
+      const age = N - 1 - i;
+      const ageLabel = age === 0 ? "CURRENT" : `T-${age}`;
+      // Classify each trajectory point's local regime quadrant
+      const ptKey: Regime = x > 0 && y > 0 ? "LONG"
+        : x > 0 && y < 0 ? "SOFT_LONG"
+        : y < 0            ? "SHORT"
+        : "TRANSITION";
+      hoverText.push(
+        `<b>${ageLabel}</b><br>` +
+        `STATE: ${x.toFixed(3)}<br>` +
+        `MOMENTUM: ${y.toFixed(3)}<br>` +
+        `CHAOS: ${z.toExponential(3)}<br>` +
+        `REGIME: ${REGIME_CFG[ptKey].label}`,
+      );
+    }
+    // Append current-state endpoint
+    xs.push(pca1); ys.push(pca2); zs.push(chaos * 0.22);
+    colorVals.push(chaos * 0.22);
+    hoverText.push(
+      `<b>CURRENT STATE</b><br>` +
+      `STATE: ${pca1.toFixed(3)}<br>` +
+      `MOMENTUM: ${pca2.toFixed(3)}<br>` +
+      `CHAOS: ${(chaos * 0.22).toExponential(3)}<br>` +
+      `REGIME: ${regimeName}`,
+    );
+
+    return { xs, ys, zs, colorVals, hoverText, pca1, pca2, chaos, threshold, statusText, statusColor, regimeName };
+  }, [exposures, spot, info.key]);
+
+  useEffect(() => {
+    const div = attRef.current;
+    if (!div || !attractorData) return;
+    const { xs, ys, zs, colorVals, hoverText, pca1, pca2, chaos, threshold, statusText, statusColor, regimeName } = attractorData;
+
+    const axStyle = {
+      gridcolor: "#0c1c2c", zerolinecolor: "#0c1c2c",
+      tickfont: { size: 8, color: C.muted, family: C.font },
+      backgroundcolor: C.bg0, showbackground: true,
+      showgrid: true, showspikes: false, linecolor: "#0a1428",
+    };
+
+    // Heatmap colorscale: teal (stable / low chaos) → green → gold → orange → red (chaotic)
+    const heatScale = [
+      [0.00, "#00b8d4"],
+      [0.25, "#00e676"],
+      [0.50, "#ffcc00"],
+      [0.75, "#ff9500"],
+      [1.00, "#ff3355"],
+    ];
+    const cmax = Math.max(...colorVals, 1e-10);
+
+    const traces: any[] = [
+      // Trajectory — heatmap-colored, hover-enabled
+      {
+        type: "scatter3d", mode: "lines",
+        x: xs, y: ys, z: zs,
+        line: {
+          color: colorVals, width: 5,
+          colorscale: heatScale,
+          cmin: 0, cmax,
+          showscale: true,
+          colorbar: {
+            thickness: 8, len: 0.5,
+            x: 1.01, y: 0.5,
+            title: "CHAOS",
+            tickfont: { size: 7, color: C.dim, family: C.font },
+            tickformat: ".2e",
+            bgcolor: "rgba(0,0,0,0)",
+            bordercolor: C.border,
+          },
+        },
+        text: hoverText,
+        hovertemplate: "%{text}<extra></extra>",
+        showlegend: false,
+      },
+      // Current state: glowing sphere
+      {
+        type: "scatter3d", mode: "markers",
+        x: [pca1], y: [pca2], z: [chaos * 0.22],
+        marker: { size: 10, color: C.call, opacity: 1, line: { color: "#ffffff", width: 1.5 } },
+        text: [
+          `<b>CURRENT STATE</b><br>` +
+          `STATE: ${pca1.toFixed(3)}<br>` +
+          `MOMENTUM: ${pca2.toFixed(3)}<br>` +
+          `CHAOS: ${(chaos * 0.22).toExponential(3)}<br>` +
+          `REGIME: ${regimeName}`,
+        ],
+        hovertemplate: "%{text}<extra></extra>",
+        showlegend: false,
+      },
+      // Chaos threshold plane
+      {
+        type: "surface",
+        x: [Math.min(...xs) - 0.5, Math.max(...xs) + 0.5],
+        y: [Math.min(...ys) - 0.5, Math.max(...ys) + 0.5],
+        z: [[threshold, threshold], [threshold, threshold]],
+        colorscale: [[0, "rgba(255,51,85,0.08)"], [1, "rgba(255,51,85,0.08)"]],
+        showscale: false, opacity: 0.92, hoverinfo: "skip",
+        lighting: { ambient: 1, diffuse: 0, specular: 0, roughness: 1, fresnel: 0 },
+        contours: { x: { highlight: false }, y: { highlight: false }, z: { highlight: false } },
+      },
+    ];
+
+    const layout: any = {
+      autosize: true,
+      paper_bgcolor: C.bg1, plot_bgcolor: C.bg1,
+      font: { family: C.font, size: 8, color: C.dim },
+      margin: { l: 0, r: 50, t: 32, b: 0 },
+      scene: {
+        xaxis: { ...axStyle, title: { text: "STATE (PCA1)",    font: { size: 8, color: C.muted } } },
+        yaxis: { ...axStyle, title: { text: "MOMENTUM (PCA2)", font: { size: 8, color: C.muted } } },
+        zaxis: { ...axStyle, title: { text: "CHAOS (Entropy)", font: { size: 8, color: C.muted } }, tickformat: ".2e" },
+        bgcolor: C.bg0,
+        camera: { eye: { x: 1.9, y: -2.1, z: 1.3 }, up: { x: 0, y: 0, z: 1 }, center: { x: 0, y: 0, z: -0.1 } },
+        aspectmode: "manual",
+        aspectratio: { x: 1.7, y: 1.0, z: 0.65 },
+        dragmode: "turntable",
+      },
+      hoverlabel: {
+        bgcolor: C.bg3, bordercolor: statusColor,
+        font: { family: C.font, size: 11, color: C.white },
+        align: "left",
+      },
+      annotations: [
+        {
+          text: `STATUS: <b>${statusText}</b>`,
+          x: 0.01, y: 0.99, xref: "paper", yref: "paper",
+          xanchor: "left", yanchor: "top", showarrow: false,
+          font: { family: C.font, size: 10, color: statusColor },
+          bgcolor: "rgba(0,0,0,0.72)", borderpad: 5,
+        },
+        {
+          text: `Threshold: ${threshold.toExponential(3)}`,
+          x: 0.5, y: 1.0, xref: "paper", yref: "paper",
+          xanchor: "center", yanchor: "top", showarrow: false,
+          font: { family: C.font, size: 8, color: C.muted },
+        },
+      ],
+      showlegend: false,
+    };
+
+    try {
+      (Plotly as any).react(div, traces, layout, {
+        displayModeBar: false, responsive: true, scrollZoom: true,
+      });
+    } catch (err) {
+      console.error("[Attractor] Plotly render error:", err);
+      return;
+    }
+
+    const ro = new ResizeObserver(() => {
+      try { (Plotly as any).Plots.resize(div); } catch (_) {}
+    });
+    ro.observe(div);
+    return () => { ro.disconnect(); try { (Plotly as any).purge(div); } catch (_) {} };
+  }, [attractorData]);
+
   /* ── Render ──────────────────────────────────────────────────── */
   return (
     <div
@@ -206,48 +523,47 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
     >
       <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
 
-        {/* ══ SECTION 1 — REGIME HERO ══════════════════════════════ */}
+        {/* ══ SECTION 1 — REGIME HERO + MONTE CARLO ══════════════ */}
         <div style={{
           background: C.bg1,
           border: `1px solid ${rc.border}`,
           borderRadius: 6,
           overflow: "hidden",
-          boxShadow: `inset 0 0 80px ${rc.glow}, 0 0 0 1px ${rc.border}`,
+          boxShadow: `inset 0 0 60px ${rc.glow}, 0 0 0 1px ${rc.border}`,
         }}>
-          {/* colored left accent bar */}
           <div style={{ height: 2, background: rc.hex, boxShadow: `0 0 16px ${rc.hex}` }} />
 
-          <div style={{ padding: "16px 20px" }}>
-            {/* top row */}
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 9, letterSpacing: "0.3em", color: C.text, marginBottom: 6, textTransform: "uppercase" }}>
-                  ◈ GAMMA REGIME · {ticker.symbol}
-                </div>
-                <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-0.02em", color: rc.hex, textShadow: `0 0 32px ${rc.hex}60`, lineHeight: 1 }}>
-                  {rc.label}
-                </div>
-                <div style={{ fontSize: 10, color: C.label, marginTop: 5, letterSpacing: "0.08em" }}>
-                  {info.subtitle}
-                </div>
-                <div style={{ fontSize: 11, color: C.bright, marginTop: 10, lineHeight: 1.6, maxWidth: 520, opacity: 0.85 }}>
-                  {info.desc}
-                </div>
+          {/* compact regime header */}
+          <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 8, letterSpacing: "0.3em", color: C.text, textTransform: "uppercase", marginBottom: 3 }}>
+                ◈ GAMMA REGIME · {ticker.symbol}
               </div>
-              <GpiArc value={gpi} hex={rc.hex} />
+              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.01em", color: rc.hex, textShadow: `0 0 24px ${rc.hex}60`, lineHeight: 1 }}>
+                {rc.label}
+              </div>
+              <div style={{ fontSize: 9, color: C.label, marginTop: 3, letterSpacing: "0.06em" }}>{info.subtitle}</div>
             </div>
+            <div style={{ display: "flex", gap: 14, flexShrink: 0, fontFamily: C.font, fontSize: 10 }}>
+              <span style={{ color: C.dim }}>GPI <span style={{ color: rc.hex, fontWeight: 700 }}>{gpi.toFixed(1)}</span></span>
+              <span style={{ color: C.dim }}>STR <span style={{ color: regimeStrength > 70 ? C.call : regimeStrength > 40 ? C.gold : C.put, fontWeight: 700 }}>{regimeStrength}</span></span>
+              <span style={{ color: C.dim }}>GEX <span style={{ color: netGex >= 0 ? C.call : C.put, fontWeight: 700 }}>{netGex >= 0 ? "+" : ""}{(netGex / 1e9).toFixed(2)}B</span></span>
+              {flipDistance != null && (
+                <span style={{ color: C.dim }}>FLIP <span style={{ color: flipDistance >= 0 ? C.call : C.put, fontWeight: 700 }}>{flipDistance >= 0 ? "+" : ""}${flipDistance.toFixed(1)}</span></span>
+              )}
+              <span style={{ color: C.dim }}>IV <span style={{ color: C.cyan, fontWeight: 700 }}>{atmIv.toFixed(1)}%</span></span>
+            </div>
+            <div style={{ background: `${rc.hex}15`, border: `1px solid ${rc.hex}33`, borderRadius: 4, padding: "3px 9px", fontSize: 8, letterSpacing: "0.2em", color: rc.hex, flexShrink: 0 }}>
+              σ × {{ LONG: "0.72", SOFT_LONG: "0.85", SHORT: "1.40", FLIP: "1.25", TRANSITION: "1.10" }[info.key]}
+            </div>
+          </div>
 
-            {/* metric strip */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px,1fr))", gap: 8, marginTop: 16 }}>
-              <MetricPill label="GPI Score"        value={gpi.toFixed(1)}                      sub="/100"        color={rc.hex} />
-              <MetricPill label="Net GEX"          value={`${netGex >= 0 ? "+" : ""}${(netGex / 1e9).toFixed(2)}B`} sub="dollars" color={netGex >= 0 ? C.call : C.put} />
-              <MetricPill label="Flip Distance"    value={flipDistance == null ? "N/A" : `${flipDistance >= 0 ? "+" : ""}$${flipDistance.toFixed(2)}`} sub={flip ? `flip $${flip.toFixed(0)}` : "no flip"} color={flipDistance == null ? C.dim : flipDistance >= 0 ? C.call : C.put} />
-              <MetricPill label="ATM IV"           value={`${atmIv.toFixed(1)}%`}              sub="implied vol"  color={C.cyan} />
-              <MetricPill label="Net DEX"          value={`${(netDex / 1e9).toFixed(2)}B`}     sub="delta expos." color={netDex >= 0 ? C.call : C.put} />
-              <MetricPill label="P/C Ratio"        value={pcRatio.toFixed(2)}                  sub={pcRatio > 1.2 ? "bearish skew" : pcRatio < 0.8 ? "bullish skew" : "neutral"} color={pcRatio > 1.2 ? C.put : pcRatio < 0.8 ? C.call : C.gold} />
-              <MetricPill label="Regime Strength"  value={`${regimeStrength}/100`}             sub={regimeStrength > 70 ? "stable" : regimeStrength > 40 ? "moderate" : "fragile"} color={regimeStrength > 70 ? C.call : regimeStrength > 40 ? C.gold : C.put} />
-              <MetricPill label="Stability"        value={stability.label}                      sub={`score ${stability.score}`} color={stability.score > 70 ? C.call : stability.score > 40 ? C.gold : C.put} />
+          {/* Monte Carlo fan chart */}
+          <div style={{ padding: "6px 4px 2px" }}>
+            <div style={{ fontSize: 8, letterSpacing: "0.22em", color: C.dim, textTransform: "uppercase", padding: "0 12px 4px" }}>
+              MONTE CARLO · 250 PATHS · 90 DAYS · REGIME-ADJUSTED σ
             </div>
+            <div ref={mcRef} style={{ height: 280, minHeight: 0 }} />
           </div>
         </div>
 
@@ -311,6 +627,16 @@ export function GammaRegimePanel({ ticker, exposures, levels, contracts }: Props
             </ResponsiveContainer>
           </div>
         </SectionCard>
+
+        {/* ══ ATTRACTOR — Phase-space trajectory ════════════════════ */}
+        {attractorData && (
+          <SectionCard
+            title="GAMMA PHASE-SPACE ATTRACTOR"
+            subtitle="State · Momentum · Chaos · 3D trajectory · drag to rotate"
+          >
+            <div ref={attRef} style={{ height: 500, minHeight: 0 }} />
+          </SectionCard>
+        )}
 
         {/* ══ SECTION 3 — 2-col: GPI timeline + Strike Magnetism ═══ */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
