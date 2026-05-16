@@ -17,16 +17,18 @@ interface Props {
 
 const MONO = "JetBrains Mono, ui-monospace, monospace";
 
-const CS_SABANA: [number, string][] = [
-  [0.00, "#0d1b3e"],
-  [0.12, "#1040a0"],
-  [0.25, "#1e7fd4"],
-  [0.38, "#5bb8f5"],
-  [0.50, "#c8a05a"],
-  [0.62, "#e86820"],
-  [0.74, "#e02010"],
-  [0.88, "#cc0000"],
-  [1.00, "#660000"],
+// Professional navy → cyan → emerald → amber → red (matches IvSurface3DReal)
+const CS_ELEGANT: [number, string][] = [
+  [0.00, "#0a0e2a"],
+  [0.10, "#0d2470"],
+  [0.22, "#0c57c0"],
+  [0.35, "#0899d4"],
+  [0.48, "#06c49e"],
+  [0.60, "#26d448"],
+  [0.72, "#e8cc10"],
+  [0.83, "#f07010"],
+  [0.92, "#e83030"],
+  [1.00, "#a00030"],
 ];
 
 function fmtM(v: number): string {
@@ -103,92 +105,101 @@ export function GexDexSurfaceAlt({
     const div = divRef.current;
     if (!div || !zMatrix.length || !strikeAxis.length) return;
 
-    const nS       = strikeAxis.length;
-    const nD       = dteAxis.length;
-    const label    = metric === "gex" ? "Net GEX ($M)" : metric === "dex" ? "Net DEX ($M)" : "Net GEX+DEX ($M)";
+    const nS    = strikeAxis.length;
+    const nD    = dteAxis.length;
+    const label = metric === "gex" ? "Net GEX ($M)" : metric === "dex" ? "Net DEX ($M)" : "GEX+DEX ($M)";
+
+    // Convert strike axis → MONEYNESS (%) for the elegant vol-surface look
+    const moneynessAxis = strikeAxis.map(s => +((s / spot - 1) * 100).toFixed(1));
+    const toMon = (s: number) => +((s / spot - 1) * 100).toFixed(1);
+
+    const flat = zMatrix.flat();
+    const absMax = Math.max(Math.abs(Math.min(...flat)), Math.abs(Math.max(...flat)), 0.001);
 
     const surface: any = {
       type:        "surface",
-      x:           strikeAxis,
+      x:           moneynessAxis,
       y:           dteAxis,
       z:           zMatrix,
-      colorscale:  CS_SABANA,
+      colorscale:  CS_ELEGANT,
       showscale:   true,
       connectgaps: true,
       opacity:     1.0,
       lighting: {
-        ambient:   0.85, diffuse: 0.95, specular: 0.05, roughness: 1.0, fresnel: 0.0,
+        ambient: 0.65, diffuse: 0.92, specular: 0.22, roughness: 0.38, fresnel: 0.28,
       },
-      lightposition: { x: 0, y: 0, z: 3000 },
+      lightposition: { x: 800, y: -600, z: 1600 },
       contours: {
-        z: { show: true, usecolormap: false, color: "rgba(255,255,255,0.18)", width: 2, project: { z: false } },
-        x: { show: false }, y: { show: false },
+        x: { show: true, color: "rgba(255,255,255,0.06)", width: 1, usecolormap: false },
+        y: { show: true, color: "rgba(255,255,255,0.06)", width: 1, usecolormap: false },
+        z: { show: true, color: "rgba(255,255,255,0.10)", width: 1, usecolormap: false,
+             start: -absMax, end: absMax, size: absMax / 5 },
       },
-      hovertemplate: `<b>Strike</b> $%{x:.0f}<br><b>DTE</b> %{y}d<br><b>${label}</b> %{z:.3f}M<extra></extra>`,
+      hovertemplate: `<b>Moneyness</b> %{x:.1f}%<br><b>DTE</b> %{y}d<br><b>${label}</b> %{z:.3f}M<extra></extra>`,
       colorbar: {
-        title:     { text: label, font: { color: "#ffdd00", size: 9, family: MONO }, side: "right" as const },
-        tickfont:  { color: "#4b5563", size: 8, family: MONO },
+        title:     { text: label, font: { color: "#8894a8", size: 9, family: MONO }, side: "right" as const },
+        tickfont:  { color: "#8894a8", size: 8, family: MONO },
         tickformat: ".1f", ticksuffix: "M",
-        len: 0.75, thickness: 10, x: 0.97,
-        bgcolor: "rgba(0,0,0,0)", bordercolor: "#1a1a1a",
+        len: 0.65, thickness: 14, x: 0.96,
+        bgcolor: "rgba(0,0,0,0)", bordercolor: "#2a3a54", borderwidth: 1,
       },
     };
 
+    // Reference plane at z=0
     const zeroPlane: any = {
       type:       "surface",
-      x:          [strikeAxis[0], strikeAxis[nS - 1]],
-      y:          [dteAxis[0],    dteAxis[nD - 1]],
+      x:          [moneynessAxis[0], moneynessAxis[nS - 1]],
+      y:          [dteAxis[0],       dteAxis[nD - 1]],
       z:          [[0, 0], [0, 0]],
+      colorscale: [[0, "rgba(80,130,255,0.13)"], [1, "rgba(80,130,255,0.13)"]],
       showscale:  false,
-      opacity:    0.06,
-      colorscale: [[0, "#ffffff"], [1, "#ffffff"]],
+      opacity:    0.18,
       hoverinfo:  "skip",
-      lighting:   { ambient: 1, diffuse: 0, specular: 0 },
+      lighting:   { ambient: 1, diffuse: 0, specular: 0, roughness: 1, fresnel: 0 },
       contours:   { z: { show: false }, x: { show: false }, y: { show: false } },
     };
 
-    // Reference lines
+    // Reference lines in MONEYNESS space
     const refLines: any[] = [];
     const refs = [
-      ...(callWall  ? [{ strike: callWall,  color: "#ffaa00", lbl: "CALL WALL" }] : []),
-      ...(putWall   ? [{ strike: putWall,   color: "#3399ff", lbl: "PUT WALL"  }] : []),
-      ...(gammaFlip != null ? [{ strike: gammaFlip, color: "#a855f7", lbl: "γ FLIP" }] : []),
-      { strike: spot, color: "#22c55e", lbl: "SPOT" },
+      ...(callWall  ? [{ mon: toMon(callWall),  color: "#ffaa00", lbl: "CALL WALL" }] : []),
+      ...(putWall   ? [{ mon: toMon(putWall),   color: "#3399ff", lbl: "PUT WALL"  }] : []),
+      ...(gammaFlip != null ? [{ mon: toMon(gammaFlip), color: "#a855f7", lbl: "γ FLIP" }] : []),
+      { mon: 0, color: "#22c55e", lbl: "SPOT 100%" },
     ];
-    const absMax = Math.max(Math.abs(Math.min(...zMatrix.flat())), Math.abs(Math.max(...zMatrix.flat())), 0.001);
-    for (const { strike, color, lbl } of refs) {
-      if (strike < strikeAxis[0] || strike > strikeAxis[strikeAxis.length - 1]) continue;
+    for (const { mon, color, lbl } of refs) {
+      if (mon < moneynessAxis[0] || mon > moneynessAxis[nS - 1]) continue;
       refLines.push({
         type: "scatter3d", mode: "lines+text",
-        x: [strike, strike], y: [dteAxis[0], dteAxis[nD - 1]], z: [-absMax * 0.05, absMax * 0.85],
-        line: { color, width: 3 },
+        x: [mon, mon], y: [dteAxis[0], dteAxis[nD - 1]], z: [-absMax * 0.05, absMax * 0.85],
+        line: { color, width: 3, dash: "dot" },
         text: ["", lbl], textfont: { color, size: 8, family: MONO },
         textposition: "top center", showlegend: false, hoverinfo: "skip",
       });
     }
 
     const axStyle = {
-      gridcolor: "#141414", zerolinecolor: "#222222",
-      tickfont: { size: 8, color: "#4b5563", family: MONO },
-      backgroundcolor: "#060606", showbackground: true, showspikes: false, linecolor: "#1f1f1f",
+      color: "#2a3a58", gridcolor: "#111d30", linecolor: "#0e1828",
+      tickfont: { size: 8, color: "#4a5a78", family: MONO },
+      backgroundcolor: "#060a14", showbackground: true, showgrid: true, showspikes: false,
     };
 
     const layout: any = {
       autosize: true,
-      paper_bgcolor: "#000000", plot_bgcolor: "#000000",
+      paper_bgcolor: "#06080f", plot_bgcolor: "#06080f",
       margin: { l: 0, r: 24, b: 0, t: 0 },
-      font: { color: "#4b5563", family: MONO, size: 9 },
+      font: { color: "#7a8aaa", family: MONO, size: 9 },
       scene: {
-        xaxis: { ...axStyle, title: { text: "Strike ($)", font: { size: 9, color: "#374151" } }, tickprefix: "$" },
-        yaxis: { ...axStyle, title: { text: "DTE (days)", font: { size: 9, color: "#374151" } } },
-        zaxis: { ...axStyle, title: { text: label, font: { size: 9, color: "#ffdd00" } }, ticksuffix: "M" },
-        bgcolor: "#000000",
-        camera: { eye: eyeRef.current, up: { x: 0, y: 0, z: 1 }, center: { x: 0, y: 0, z: -0.1 } },
-        dragmode: "turntable", aspectmode: "manual", aspectratio: { x: 2.0, y: 1.0, z: 0.65 },
+        xaxis: { ...axStyle, title: { text: "MONEYNESS (%)", font: { size: 9, color: "#6a7a9a" } }, ticksuffix: "%" },
+        yaxis: { ...axStyle, title: { text: "DTE (days)",    font: { size: 9, color: "#6a7a9a" } } },
+        zaxis: { ...axStyle, title: { text: label,           font: { size: 9, color: "#6a7a9a" } }, ticksuffix: "M" },
+        bgcolor: "#06080f",
+        camera: { eye: eyeRef.current, up: { x: 0, y: 0, z: 1 }, center: { x: 0, y: 0, z: -0.05 } },
+        dragmode: "turntable", aspectmode: "manual", aspectratio: { x: 1.6, y: 0.80, z: 0.52 },
       },
       hoverlabel: {
-        bgcolor: "#0d0d0d", bordercolor: "#ffdd00",
-        font: { color: "#e0e0e0", family: MONO, size: 11 }, namelength: -1,
+        bgcolor: "#0b1322", bordercolor: "#1e3050",
+        font: { color: "#d8e6ff", family: MONO, size: 11 }, namelength: -1,
       },
       showlegend: false,
       uirevision: metric,
@@ -288,8 +299,8 @@ export function GexDexSurfaceAlt({
                     background: "#050505", fontFamily: MONO, fontSize: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <div style={{ width: 40, height: 4, borderRadius: 2,
-            background: "linear-gradient(90deg, #0d1b3e, #5bb8f5, #c8a05a, #e02010, #660000)" }} />
-          <span style={{ color: "#1f2937" }}>LOW → HIGH</span>
+            background: "linear-gradient(90deg, #0a0e2a, #0c57c0, #06c49e, #e8cc10, #e83030, #a00030)" }} />
+          <span style={{ color: "#4a5a78" }}>LOW → HIGH</span>
         </div>
         <span style={{ color: "#1a1a1a" }}>·</span>
         <span style={{ color: "#1f2937" }}>DRAG · SCROLL · ROTATE</span>
