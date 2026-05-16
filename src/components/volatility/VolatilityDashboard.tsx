@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { DemoTicker, OptionContract, computeExposures } from "@/lib/gex";
+import { DemoTicker, OptionContract } from "@/lib/gex";
 import { buildVolatilityDataset } from "@/lib/mockVolatilityData";
 import { TopMetricsBar } from "./TopMetricsBar";
 import { IvSurface3DReal } from "@/components/terminal/IvSurface3DReal";
@@ -7,8 +7,6 @@ import { IVSkewChart } from "./IVSkewChart";
 import { PutCallSkewPanel } from "./PutCallSkewPanel";
 import { RealizedVolatilityChart } from "./RealizedVolatilityChart";
 import { VolatilityTable } from "./VolatilityTable";
-import { RealVolatilityDashboard } from "./RealVolatilityDashboard";
-import { VolatilityImbalanceDetector } from "./VolatilityImbalanceDetector";
 import { MonteCarloSimulation } from "./MonteCarloSimulation";
 
 interface Props {
@@ -21,8 +19,6 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
     () => buildVolatilityDataset(ticker.symbol, ticker.spot, ticker.baseIV, 7, contracts),
     [ticker.symbol, ticker.spot, ticker.baseIV, contracts],
   );
-  const exposures = useMemo(() => computeExposures(ticker.spot, contracts), [ticker.spot, contracts]);
-
   // Build cellMap for IvSurface3DReal from real contracts
   const { strikes, expiries, cellMap, ivMin, ivMax } = useMemo(() => {
     const strikeSet = new Set<number>();
@@ -84,12 +80,6 @@ export function VolatilityDashboard({ ticker, contracts }: Props) {
       <Panel className="h-[400px]">
         <RealizedVolatilityChart data={data} />
       </Panel>
-
-      {/* Real Volatility Dashboard — GARCH + Yang-Zhang + Parkinson + VRP */}
-      <RealVolatilityDashboard defaultTicker={ticker.symbol} impliedVol={ticker.baseIV} />
-
-      {/* Volatility Imbalance Detector — Skew · Term Structure · OI Bias · Wing · VEX · GEX Pin */}
-      <VolatilityImbalanceDetector ticker={ticker} contracts={contracts} exposures={exposures} />
 
     </div>
   );
