@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { GexNetHorizontalChart } from "./GexNetHorizontalChart";
 
 import { GexDexSurface3D } from "./GexDexSurface3D";
+import { GexDexSurfaceAlt } from "./GexDexSurfaceAlt";
 import { GexStrikeHeatmap } from "./GexStrikeHeatmap";
 
 import {
@@ -685,7 +686,7 @@ export function GexDexWorkspace({ ticker, contracts }: Props) {
           </div>
         ) : isFullTab ? (
           <div className="h-full p-2 grid grid-cols-2 gap-2">
-            <GexDexSurface3D
+            <GexDexSurfaceAlt
               contracts={contracts}
               spot={ticker.spot}
               symbol={ticker.symbol}
@@ -713,9 +714,9 @@ export function GexDexWorkspace({ ticker, contracts }: Props) {
             </div>
             {/* Extra gap to push surfaces down */}
             <div style={{ height: 60, flexShrink: 0 }} />
-            {/* Bottom row: GEX + DEX 3D surfaces */}
+            {/* Bottom row: sabana style (left) + diverging style (right) */}
             <div className="grid grid-cols-2 gap-2" style={{ height: 520, flexShrink: 0 }}>
-              <GexDexSurface3D
+              <GexDexSurfaceAlt
                 contracts={contracts}
                 spot={ticker.spot}
                 symbol={ticker.symbol}

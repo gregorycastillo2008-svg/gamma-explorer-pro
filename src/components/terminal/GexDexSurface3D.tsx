@@ -3,7 +3,7 @@ import Plotly from "plotly.js/dist/plotly";
 import { calculateAllGreeks } from "@/lib/greeks/greekCalculations";
 import type { OptionContract } from "@/lib/gex";
 
-type Metric = "gex" | "dex";
+type Metric = "gex" | "dex" | "gexdex";
 
 interface Props {
   contracts:     OptionContract[];
@@ -58,18 +58,16 @@ export function GexDexSurface3D({
       const dte   = Math.max(c.expiry, 0.5);
       const ivUse = c.iv > 0 ? c.iv : 0.20;
 
+      const g = calculateAllGreeks({ spot, strike: c.strike, dte, iv: ivUse, rate: 0.045, isCall: c.type === "call" });
+      const gamma = (c.gamma != null && c.gamma !== 0) ? c.gamma : g.gamma;
+      const delta = (c.delta != null && c.delta !== 0) ? c.delta : g.delta;
+      const gexVal = sign * gamma * c.oi * spot * spot * 0.01;
+      const dexVal = sign * delta * c.oi * spot;
+
       let val: number;
-      if (metric === "gex") {
-        const gamma = (c.gamma != null && c.gamma !== 0)
-          ? c.gamma
-          : calculateAllGreeks({ spot, strike: c.strike, dte, iv: ivUse, rate: 0.045, isCall: c.type === "call" }).gamma;
-        val = sign * gamma * c.oi * spot * spot * 0.01;
-      } else {
-        const delta = (c.delta != null && c.delta !== 0)
-          ? c.delta
-          : calculateAllGreeks({ spot, strike: c.strike, dte, iv: ivUse, rate: 0.045, isCall: c.type === "call" }).delta;
-        val = sign * delta * c.oi * spot;
-      }
+      if (metric === "gex")    val = gexVal;
+      else if (metric === "dex") val = dexVal;
+      else                     val = gexVal + dexVal;
 
       const key = `${c.strike}|${c.expiry}`;
       map.set(key, (map.get(key) ?? 0) + val);
@@ -113,7 +111,7 @@ export function GexDexSurface3D({
     if (!div || !zMatrix.length || !strikeAxis.length || !dteAxis.length) return;
 
     const absMax = Math.max(Math.abs(zMin), Math.abs(zMax), 0.001);
-    const label  = metric === "gex" ? "Net GEX ($M)" : "Net DEX ($M)";
+    const label  = metric === "gex" ? "Net GEX ($M)" : metric === "dex" ? "Net DEX ($M)" : "Net GEX+DEX ($M)";
     const accent = "#ffdd00";
     const cs     = CS_SHARED;
 
@@ -295,9 +293,9 @@ export function GexDexSurface3D({
           </div>
         )}
 
-        {/* Right: GEX | DEX toggle */}
+        {/* Right: GEX | DEX | GEX+DEX toggle */}
         <div style={{ display: "flex", gap: 3 }}>
-          {(["gex", "dex"] as Metric[]).map(m => (
+          {(["gex", "dex", "gexdex"] as Metric[]).map(m => (
             <button
               key={m}
               onClick={() => setMetric(m)}
@@ -312,7 +310,7 @@ export function GexDexSurface3D({
                 transition: "all 0.12s",
               }}
             >
-              {m.toUpperCase()}
+              {m === "gexdex" ? "GEX+DEX" : m.toUpperCase()}
             </button>
           ))}
         </div>
