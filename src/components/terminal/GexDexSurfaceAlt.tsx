@@ -4,8 +4,6 @@ import { calculateAllGreeks } from "@/lib/greeks/greekCalculations";
 import type { OptionContract } from "@/lib/gex";
 
 type Metric = "gex" | "dex" | "gexdex";
-type ViewPreset = "iso" | "top" | "side";
-type CmapKey = "sabana" | "rdbu" | "plasma" | "viridis";
 
 interface Props {
   contracts:      OptionContract[];
@@ -17,7 +15,7 @@ interface Props {
   defaultMetric?: Metric;
 }
 
-const MONO = "'Courier New', monospace";
+const MONO = "JetBrains Mono, ui-monospace, monospace";
 
 const CS_SABANA: [number, string][] = [
   [0.00, "#0d1b3e"],
@@ -31,47 +29,25 @@ const CS_SABANA: [number, string][] = [
   [1.00, "#660000"],
 ];
 
-const CMAPS: Record<CmapKey, string | [number, string][]> = {
-  sabana: CS_SABANA,
-  rdbu:   "RdBu",
-  plasma: "Plasma",
-  viridis:"Viridis",
-};
-
-const VIEW_EYES: Record<ViewPreset, { x: number; y: number; z: number }> = {
-  iso:  { x: 1.5,  y: -1.7, z: 1.0 },
-  top:  { x: 0,    y: 0,    z: 2.5 },
-  side: { x: 2.2,  y: 0,    z: 0.3 },
-};
-
-const METRIC_CFG: Record<Metric, { color: string; bg: string; border: string; label: string }> = {
-  gex:    { color: "#34d399", bg: "#021a0f", border: "#064e3b", label: "GEX"     },
-  dex:    { color: "#60a5fa", bg: "#0c1a3a", border: "#1d4ed8", label: "DEX"     },
-  gexdex: { color: "#a78bfa", bg: "#1a0c3a", border: "#6d28d9", label: "GEX+DEX" },
-};
-
-function fmtVal(v: number): string {
-  const s = v >= 0 ? "+" : "";
+function fmtM(v: number): string {
   const a = Math.abs(v);
-  if (a >= 1e9) return `${s}${(v / 1e9).toFixed(1)}B`;
-  if (a >= 1e6) return `${s}${(v / 1e6).toFixed(1)}M`;
-  if (a >= 1e3) return `${s}${(v / 1e3).toFixed(0)}K`;
-  return `${s}${v.toFixed(0)}`;
+  if (a >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+  if (a >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+  if (a >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
+  return v.toFixed(0);
 }
 
 export function GexDexSurfaceAlt({
   contracts, spot, symbol, callWall, putWall, gammaFlip, defaultMetric,
 }: Props) {
-  const divRef  = useRef<HTMLDivElement>(null);
-  const eyeRef  = useRef<{ x: number; y: number; z: number }>(VIEW_EYES.iso);
+  const divRef = useRef<HTMLDivElement>(null);
+  const eyeRef = useRef({ x: 1.55, y: -2.0, z: 1.4 });
   const [metric, setMetric] = useState<Metric>(defaultMetric ?? "gex");
-  const [view,   setView]   = useState<ViewPreset>("iso");
-  const [cmap,   setCmap]   = useState<CmapKey>("sabana");
 
   // ── Build all three matrices in one pass ────────────────────────
   const { strikeAxis, dteAxis, gexMatrix, dexMatrix, expCount } = useMemo(() => {
-    const gexMap = new Map<string, number>();
-    const dexMap = new Map<string, number>();
+    const gexMap    = new Map<string, number>();
+    const dexMap    = new Map<string, number>();
     const strikeSet = new Set<number>();
     const dteSet    = new Set<number>();
 
@@ -88,24 +64,19 @@ export function GexDexSurfaceAlt({
 
       const gamma = (c.gamma != null && c.gamma !== 0) ? c.gamma : g.gamma;
       const delta = (c.delta != null && c.delta !== 0) ? c.delta : g.delta;
+      const key   = `${c.strike}|${c.expiry}`;
 
-      const key = `${c.strike}|${c.expiry}`;
       gexMap.set(key, (gexMap.get(key) ?? 0) + sign * gamma * c.oi * spot * spot * 0.01);
       dexMap.set(key, (dexMap.get(key) ?? 0) + sign * delta * c.oi * spot);
     }
 
     const strikes = Array.from(strikeSet).sort((a, b) => a - b);
     const dtes    = Array.from(dteSet).sort((a, b) => a - b);
-    if (!strikes.length || !dtes.length) {
+    if (!strikes.length || !dtes.length)
       return { strikeAxis: [], dteAxis: [], gexMatrix: [], dexMatrix: [], expCount: 0 };
-    }
 
-    const gexMatrix = dtes.map(dte =>
-      strikes.map(strike => (gexMap.get(`${strike}|${dte}`) ?? 0) / 1e6)
-    );
-    const dexMatrix = dtes.map(dte =>
-      strikes.map(strike => (dexMap.get(`${strike}|${dte}`) ?? 0) / 1e6)
-    );
+    const gexMatrix = dtes.map(dte => strikes.map(s => (gexMap.get(`${s}|${dte}`) ?? 0) / 1e6));
+    const dexMatrix = dtes.map(dte => strikes.map(s => (dexMap.get(`${s}|${dte}`) ?? 0) / 1e6));
 
     return { strikeAxis: strikes, dteAxis: dtes, gexMatrix, dexMatrix, expCount: dtes.length };
   }, [contracts, spot]);
@@ -117,81 +88,56 @@ export function GexDexSurfaceAlt({
     ? dexMatrix
     : gexMatrix.map((row, i) => row.map((v, j) => v + dexMatrix[i][j]));
 
-  // ── Stats derived from selected matrix ──────────────────────────
-  const { netTotal, callDom, putDom, flipLevel } = useMemo(() => {
-    if (!zMatrix.length || !strikeAxis.length)
-      return { netTotal: 0, callDom: 0, putDom: 0, flipLevel: null as number | null };
-
+  // ── Stats ───────────────────────────────────────────────────────
+  const { netTotal, callDom, putDom } = useMemo(() => {
     let net = 0, pos = 0, neg = 0;
-    const strikeSum = new Map<number, number>();
-
-    zMatrix.forEach((row, _di) => {
-      row.forEach((v, si) => {
-        net += v;
-        if (v > 0) pos += v; else neg += v;
-        const k = strikeAxis[si];
-        strikeSum.set(k, (strikeSum.get(k) ?? 0) + v);
-      });
-    });
-
-    let flipStrike: number | null = null;
-    let minAbs = Infinity;
-    strikeSum.forEach((sum, strike) => {
-      if (Math.abs(sum) < minAbs) { minAbs = Math.abs(sum); flipStrike = strike; }
-    });
-
-    return { netTotal: net, callDom: pos, putDom: neg, flipLevel: flipStrike };
-  }, [zMatrix, strikeAxis]);
+    zMatrix.forEach(row => row.forEach(v => {
+      net += v;
+      if (v > 0) pos += v; else neg += v;
+    }));
+    return { netTotal: net, callDom: pos, putDom: neg };
+  }, [zMatrix]);
 
   // ── Plotly render ───────────────────────────────────────────────
   useEffect(() => {
     const div = divRef.current;
     if (!div || !zMatrix.length || !strikeAxis.length) return;
 
-    const cs        = CMAPS[cmap];
-    const cfg       = METRIC_CFG[metric];
-    const modeName  = cfg.label;
-    const nS        = strikeAxis.length;
-    const nD        = dteAxis.length;
+    const nS       = strikeAxis.length;
+    const nD       = dteAxis.length;
+    const label    = metric === "gex" ? "Net GEX ($M)" : metric === "dex" ? "Net DEX ($M)" : "Net GEX+DEX ($M)";
 
     const surface: any = {
       type:        "surface",
       x:           strikeAxis,
       y:           dteAxis,
       z:           zMatrix,
-      colorscale:  cs,
+      colorscale:  CS_SABANA,
       showscale:   true,
+      connectgaps: true,
       opacity:     1.0,
       lighting: {
-        ambient:   0.85,
-        diffuse:   0.95,
-        specular:  0.05,
-        roughness: 1.0,
-        fresnel:   0.0,
+        ambient:   0.85, diffuse: 0.95, specular: 0.05, roughness: 1.0, fresnel: 0.0,
       },
       lightposition: { x: 0, y: 0, z: 3000 },
       contours: {
-        z: { show: true, usecolormap: false, color: "rgba(255,255,255,0.22)", width: 2, project: { z: false } },
-        x: { show: false },
-        y: { show: false },
+        z: { show: true, usecolormap: false, color: "rgba(255,255,255,0.18)", width: 2, project: { z: false } },
+        x: { show: false }, y: { show: false },
       },
-      hovertemplate: `Strike: <b>$%{x:.0f}</b><br>DTE: %{y}d<br>${modeName}: %{z:.2f}M<extra></extra>`,
+      hovertemplate: `<b>Strike</b> $%{x:.0f}<br><b>DTE</b> %{y}d<br><b>${label}</b> %{z:.3f}M<extra></extra>`,
       colorbar: {
-        len: 0.70, thickness: 9, x: 1.01,
-        tickfont:   { color: "#374151", size: 9, family: MONO },
-        ticksuffix: "M",
-        title: {
-          text: `${modeName} ($M)`,
-          font: { color: cfg.color, size: 10, family: MONO },
-          side: "right",
-        },
+        title:     { text: label, font: { color: "#ffdd00", size: 9, family: MONO }, side: "right" as const },
+        tickfont:  { color: "#4b5563", size: 8, family: MONO },
+        tickformat: ".1f", ticksuffix: "M",
+        len: 0.75, thickness: 10, x: 0.97,
+        bgcolor: "rgba(0,0,0,0)", bordercolor: "#1a1a1a",
       },
     };
 
     const zeroPlane: any = {
       type:       "surface",
       x:          [strikeAxis[0], strikeAxis[nS - 1]],
-      y:          [dteAxis[0], dteAxis[nD - 1]],
+      y:          [dteAxis[0],    dteAxis[nD - 1]],
       z:          [[0, 0], [0, 0]],
       showscale:  false,
       opacity:    0.06,
@@ -201,158 +147,132 @@ export function GexDexSurfaceAlt({
       contours:   { z: { show: false }, x: { show: false }, y: { show: false } },
     };
 
-    const layout: any = {
-      paper_bgcolor: "#04050d",
-      plot_bgcolor:  "#04050d",
-      margin: { l: 0, r: 60, t: 8, b: 0 },
-      scene: {
-        camera:   { eye: eyeRef.current, up: { x: 0, y: 0, z: 1 } },
-        bgcolor:  "#04050d",
-        aspectmode:  "manual",
-        aspectratio: { x: 2.0, y: 1.0, z: 0.65 },
-        xaxis: {
-          title:           { text: "Strike", font: { color: "#4b5563", size: 10 } },
-          gridcolor:       "#0d1117",
-          zerolinecolor:   "#141824",
-          tickfont:        { color: "#374151", size: 9 },
-          showbackground:  true,
-          backgroundcolor: "#070910",
-          tickprefix:      "$",
-        },
-        yaxis: {
-          title:           { text: "DTE (days)", font: { color: "#4b5563", size: 10 } },
-          gridcolor:       "#0d1117",
-          zerolinecolor:   "#141824",
-          tickfont:        { color: "#374151", size: 9 },
-          showbackground:  true,
-          backgroundcolor: "#070910",
-        },
-        zaxis: {
-          title:           { text: `${modeName} ($M)`, font: { color: cfg.color, size: 10 } },
-          gridcolor:       "#0d1117",
-          zerolinecolor:   "#141824",
-          tickfont:        { color: "#374151", size: 9 },
-          showbackground:  true,
-          backgroundcolor: "#070910",
-          ticksuffix:      "M",
-        },
-      },
-      showlegend:  false,
-      uirevision:  `${metric}-${cmap}`,
+    // Reference lines
+    const refLines: any[] = [];
+    const refs = [
+      ...(callWall  ? [{ strike: callWall,  color: "#ffaa00", lbl: "CALL WALL" }] : []),
+      ...(putWall   ? [{ strike: putWall,   color: "#3399ff", lbl: "PUT WALL"  }] : []),
+      ...(gammaFlip != null ? [{ strike: gammaFlip, color: "#a855f7", lbl: "γ FLIP" }] : []),
+      { strike: spot, color: "#22c55e", lbl: "SPOT" },
+    ];
+    const absMax = Math.max(Math.abs(Math.min(...zMatrix.flat())), Math.abs(Math.max(...zMatrix.flat())), 0.001);
+    for (const { strike, color, lbl } of refs) {
+      if (strike < strikeAxis[0] || strike > strikeAxis[strikeAxis.length - 1]) continue;
+      refLines.push({
+        type: "scatter3d", mode: "lines+text",
+        x: [strike, strike], y: [dteAxis[0], dteAxis[nD - 1]], z: [-absMax * 0.05, absMax * 0.85],
+        line: { color, width: 3 },
+        text: ["", lbl], textfont: { color, size: 8, family: MONO },
+        textposition: "top center", showlegend: false, hoverinfo: "skip",
+      });
+    }
+
+    const axStyle = {
+      gridcolor: "#141414", zerolinecolor: "#222222",
+      tickfont: { size: 8, color: "#4b5563", family: MONO },
+      backgroundcolor: "#060606", showbackground: true, showspikes: false, linecolor: "#1f1f1f",
     };
 
-    (Plotly as any).react(div, [surface, zeroPlane], layout, {
-      displayModeBar:         true,
+    const layout: any = {
+      autosize: true,
+      paper_bgcolor: "#000000", plot_bgcolor: "#000000",
+      margin: { l: 0, r: 24, b: 0, t: 0 },
+      font: { color: "#4b5563", family: MONO, size: 9 },
+      scene: {
+        xaxis: { ...axStyle, title: { text: "Strike ($)", font: { size: 9, color: "#374151" } }, tickprefix: "$" },
+        yaxis: { ...axStyle, title: { text: "DTE (days)", font: { size: 9, color: "#374151" } } },
+        zaxis: { ...axStyle, title: { text: label, font: { size: 9, color: "#ffdd00" } }, ticksuffix: "M" },
+        bgcolor: "#000000",
+        camera: { eye: eyeRef.current, up: { x: 0, y: 0, z: 1 }, center: { x: 0, y: 0, z: -0.1 } },
+        dragmode: "turntable", aspectmode: "manual", aspectratio: { x: 2.0, y: 1.0, z: 0.65 },
+      },
+      hoverlabel: {
+        bgcolor: "#0d0d0d", bordercolor: "#ffdd00",
+        font: { color: "#e0e0e0", family: MONO, size: 11 }, namelength: -1,
+      },
+      showlegend: false,
+      uirevision: metric,
+    };
+
+    (Plotly as any).react(div, [surface, zeroPlane, ...refLines], layout, {
+      displayModeBar: true,
       modeBarButtonsToRemove: ["toImage", "sendDataToCloud", "editInChartStudio"],
-      displaylogo:            false,
-      responsive:             true,
-      scrollZoom:             true,
+      displaylogo: false, responsive: true, scrollZoom: true,
     });
 
-    const onRelayout = (e: any) => {
-      if (e?.["scene.camera.eye"]) eyeRef.current = e["scene.camera.eye"];
-    };
+    const onRelayout = (e: any) => { if (e?.["scene.camera.eye"]) eyeRef.current = e["scene.camera.eye"]; };
     (div as any).on?.("plotly_relayout", onRelayout);
 
     const ro = new ResizeObserver(() => (Plotly as any).Plots.resize(div));
     ro.observe(div);
-    return () => {
-      ro.disconnect();
-      try { (Plotly as any).purge(div); } catch (_) {}
-    };
-  }, [strikeAxis, dteAxis, zMatrix, metric, cmap]);
+    return () => { ro.disconnect(); try { (Plotly as any).purge(div); } catch (_) {} };
+  }, [strikeAxis, dteAxis, zMatrix, metric, spot, callWall, putWall, gammaFlip]);
 
-  // Handle view preset clicks
-  const handleView = (v: ViewPreset) => {
-    setView(v);
-    eyeRef.current = VIEW_EYES[v];
-    const div = divRef.current;
-    if (div) (Plotly as any).relayout(div, { "scene.camera.eye": VIEW_EYES[v] });
-  };
-
-  const nS  = strikeAxis.length;
-  const cfg = METRIC_CFG[metric];
-
-  // ── Button style helper ─────────────────────────────────────────
-  const btnBase: React.CSSProperties = {
-    fontFamily: MONO, fontSize: 9, padding: "2px 8px",
-    borderRadius: 4, cursor: "pointer", transition: "all 0.15s",
-  };
+  const nS    = strikeAxis.length;
+  const nD    = expCount;
+  const isPos = netTotal >= 0;
+  const accent = "#ffdd00";
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column",
-                  background: "#04050d", border: "1px solid #141824", borderRadius: 6, overflow: "hidden" }}>
+                  background: "#000", border: "1px solid #111", borderRadius: 6, overflow: "hidden" }}>
 
-      {/* ── Header ────────────────────────────────────────────────── */}
-      <div style={{ padding: "10px 14px 0", display: "flex", alignItems: "center",
-                    justifyContent: "space-between", flexWrap: "wrap", gap: 6, flexShrink: 0 }}>
-        {/* Left: title */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: "#34d399", letterSpacing: "1.5px" }}>
-            GEX·DEX
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div style={{ flexShrink: 0, background: "#080808", borderBottom: "1px solid #111",
+                    padding: "7px 12px", display: "flex", alignItems: "center",
+                    justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        {/* Left: title + badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: "#374151",
+                         letterSpacing: "0.16em", textTransform: "uppercase" }}>
+            ∑ GEX/DEX 3D · {symbol}
           </span>
-          <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 4,
-                         background: "#020d07", color: "#34d399", border: "1px solid #064e3b", fontFamily: MONO }}>
-            3D SURFACE
-          </span>
-          <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 4,
-                         background: "#0d1117", color: "#4b5563", border: "1px solid #1a1f2e", fontFamily: MONO }}>
-            ∂²C/∂S²
-          </span>
-          <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 4,
-                         background: "#0d1117", color: "#374151", border: "1px solid #1a1f2e", fontFamily: MONO }}>
-            {symbol} · ${spot}
-          </span>
+          {nS > 0 && (
+            <span style={{ fontFamily: MONO, fontSize: 8, padding: "1px 6px", borderRadius: 2,
+                           background: accent + "11", border: `1px solid ${accent}33`,
+                           color: accent, letterSpacing: "0.1em" }}>
+              {nS}S × {nD}T
+            </span>
+          )}
         </div>
 
-        {/* Right: controls */}
-        <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
-          {/* View presets */}
-          <span style={{ fontFamily: MONO, fontSize: 8, color: "#374151" }}>VIEW</span>
-          {(["iso", "top", "side"] as ViewPreset[]).map(v => (
-            <button key={v} onClick={() => handleView(v)} style={{
-              ...btnBase,
-              background:   view === v ? "#021a0f" : "#0d1117",
-              color:        view === v ? "#34d399" : "#4b5563",
-              border:       `1px solid ${view === v ? "#064e3b" : "#1a1f2e"}`,
-            }}>
-              {v.toUpperCase()}
-            </button>
-          ))}
+        {/* Center: stats */}
+        {nS > 0 && (
+          <div style={{ display: "flex", gap: 14, fontFamily: MONO, fontSize: 9 }}>
+            <span style={{ color: "#374151" }}>NET&nbsp;
+              <span style={{ color: isPos ? "#ffdd00" : "#00ccff", fontWeight: 700 }}>
+                {isPos ? "+" : ""}{fmtM(netTotal)}
+              </span>
+            </span>
+            <span style={{ color: "#374151" }}>CALL&nbsp;
+              <span style={{ color: "#cc8800", fontWeight: 600 }}>{fmtM(callDom)}</span>
+            </span>
+            <span style={{ color: "#374151" }}>PUT&nbsp;
+              <span style={{ color: "#2266cc", fontWeight: 600 }}>{fmtM(putDom)}</span>
+            </span>
+          </div>
+        )}
 
-          <div style={{ width: 1, height: 14, background: "#141824", margin: "0 2px" }} />
-
-          {/* Metric toggle */}
-          <span style={{ fontFamily: MONO, fontSize: 8, color: "#374151" }}>MODE</span>
-          {(Object.entries(METRIC_CFG) as [Metric, typeof METRIC_CFG[Metric]][]).map(([m, c]) => (
+        {/* Right: GEX | DEX | GEX+DEX toggle */}
+        <div style={{ display: "flex", gap: 3 }}>
+          {(["gex", "dex", "gexdex"] as Metric[]).map(m => (
             <button key={m} onClick={() => setMetric(m)} style={{
-              ...btnBase,
-              background: metric === m ? c.bg     : "#0d1117",
-              color:      metric === m ? c.color  : "#4b5563",
-              border:     `1px solid ${metric === m ? c.border : "#1a1f2e"}`,
+              fontFamily: MONO, fontSize: 9, padding: "2px 10px",
+              borderRadius: 3, letterSpacing: "0.12em",
+              textTransform: "uppercase" as const, cursor: "pointer",
+              background: metric === m ? "#ffdd0022" : "transparent",
+              color:      metric === m ? "#ffdd00"   : "#2a2a2a",
+              border:     metric === m ? "1px solid #ffdd0066" : "1px solid #1a1a1a",
               fontWeight: metric === m ? 700 : 400,
+              transition: "all 0.12s",
             }}>
-              {c.label}
+              {m === "gexdex" ? "GEX+DEX" : m.toUpperCase()}
             </button>
           ))}
-
-          <div style={{ width: 1, height: 14, background: "#141824", margin: "0 2px" }} />
-
-          {/* Colormap */}
-          <select value={cmap} onChange={e => setCmap(e.target.value as CmapKey)} style={{
-            fontFamily: MONO, fontSize: 9, padding: "2px 5px",
-            background: "#0d1117", color: "#6b7280",
-            border: "1px solid #1a1f2e", borderRadius: 4, cursor: "pointer",
-          }}>
-            <option value="sabana">CMAP · sábana</option>
-            <option value="rdbu">CMAP · RdBu</option>
-            <option value="plasma">CMAP · Plasma</option>
-            <option value="viridis">CMAP · Viridis</option>
-          </select>
         </div>
       </div>
 
-      {/* ── Chart ─────────────────────────────────────────────────── */}
+      {/* ── Surface ────────────────────────────────────────────── */}
       {nS === 0 ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
                       fontFamily: MONO, fontSize: 11, color: "#1f2937" }}>
@@ -361,6 +281,22 @@ export function GexDexSurfaceAlt({
       ) : (
         <div ref={divRef} style={{ flex: 1, minHeight: 0 }} />
       )}
+
+      {/* ── Footer ─────────────────────────────────────────────── */}
+      <div style={{ flexShrink: 0, padding: "4px 12px", borderTop: "1px solid #0d0d0d",
+                    display: "flex", alignItems: "center", gap: 16,
+                    background: "#050505", fontFamily: MONO, fontSize: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2,
+            background: "linear-gradient(90deg, #0d1b3e, #5bb8f5, #c8a05a, #e02010, #660000)" }} />
+          <span style={{ color: "#1f2937" }}>LOW → HIGH</span>
+        </div>
+        <span style={{ color: "#1a1a1a" }}>·</span>
+        <span style={{ color: "#1f2937" }}>DRAG · SCROLL · ROTATE</span>
+        {callWall  && <span style={{ color: "#374151" }}>CALL WALL <span style={{ color: "#ffaa00" }}>${callWall}</span></span>}
+        {putWall   && <span style={{ color: "#374151" }}>PUT WALL  <span style={{ color: "#3399ff" }}>${putWall}</span></span>}
+        {gammaFlip != null && <span style={{ color: "#374151" }}>γ FLIP <span style={{ color: "#a855f7" }}>${gammaFlip}</span></span>}
+      </div>
     </div>
   );
 }
