@@ -6,12 +6,13 @@ import type { OptionContract } from "@/lib/gex";
 type Metric = "gex" | "dex";
 
 interface Props {
-  contracts:  OptionContract[];
-  spot:       number;
-  symbol:     string;
-  callWall?:  number;
-  putWall?:   number;
-  gammaFlip?: number | null;
+  contracts:     OptionContract[];
+  spot:          number;
+  symbol:        string;
+  callWall?:     number;
+  putWall?:      number;
+  gammaFlip?:    number | null;
+  defaultMetric?: Metric;
 }
 
 const MONO = "JetBrains Mono, ui-monospace, monospace";
@@ -44,10 +45,10 @@ function fmtM(v: number): string {
 }
 
 export function GexDexSurface3D({
-  contracts, spot, symbol, callWall, putWall, gammaFlip,
+  contracts, spot, symbol, callWall, putWall, gammaFlip, defaultMetric,
 }: Props) {
   const divRef  = useRef<HTMLDivElement>(null);
-  const [metric, setMetric] = useState<Metric>("gex");
+  const [metric, setMetric] = useState<Metric>(defaultMetric ?? "gex");
 
   // ── Build Strike × DTE → value matrix ────────────────────────────
   const { strikeAxis, dteAxis, zMatrix, zMin, zMax, netTotal, callDom, putDom } = useMemo(() => {

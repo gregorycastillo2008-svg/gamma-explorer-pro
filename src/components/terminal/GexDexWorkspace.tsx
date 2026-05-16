@@ -685,7 +685,7 @@ export function GexDexWorkspace({ ticker, contracts }: Props) {
             {tab === "scenario" && <ScenarioPanel     ticker={ticker} contracts={contracts} />}
           </div>
         ) : isFullTab ? (
-          <div className="h-full p-2">
+          <div className="h-full p-2 grid grid-cols-2 gap-2">
             <GexDexSurface3D
               contracts={contracts}
               spot={ticker.spot}
@@ -693,6 +693,16 @@ export function GexDexWorkspace({ ticker, contracts }: Props) {
               callWall={surfaceLevels.callWall}
               putWall={surfaceLevels.putWall}
               gammaFlip={surfaceLevels.gammaFlip}
+              defaultMetric="gex"
+            />
+            <GexDexSurface3D
+              contracts={contracts}
+              spot={ticker.spot}
+              symbol={ticker.symbol}
+              callWall={surfaceLevels.callWall}
+              putWall={surfaceLevels.putWall}
+              gammaFlip={surfaceLevels.gammaFlip}
+              defaultMetric="dex"
             />
           </div>
         ) : (
