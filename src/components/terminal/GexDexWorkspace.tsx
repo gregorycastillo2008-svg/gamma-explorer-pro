@@ -707,12 +707,12 @@ export function GexDexWorkspace({ ticker, contracts }: Props) {
         ) : (
           <div className="h-full overflow-y-auto p-2" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {/* Top row: gamma chart + heatmap */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2" style={{ height: 640, flexShrink: 0 }}>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2" style={{ height: 860, flexShrink: 0 }}>
               <GammaExposurePanel ticker={ticker} contracts={contracts} />
               <GexStrikeHeatmap ticker={ticker} contracts={contracts} />
             </div>
             {/* Extra gap to push surfaces down */}
-            <div style={{ height: 40, flexShrink: 0 }} />
+            <div style={{ height: 60, flexShrink: 0 }} />
             {/* Bottom row: GEX + DEX 3D surfaces */}
             <div className="grid grid-cols-2 gap-2" style={{ height: 520, flexShrink: 0 }}>
               <GexDexSurface3D
