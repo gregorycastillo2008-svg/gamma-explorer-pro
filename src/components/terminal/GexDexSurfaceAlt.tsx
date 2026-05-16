@@ -352,30 +352,6 @@ export function GexDexSurfaceAlt({
         </div>
       </div>
 
-      {/* ── Stats row ─────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 6, padding: "8px 14px 4px", flexWrap: "wrap", flexShrink: 0 }}>
-        {[
-          { label: `NET ${cfg.label}`, val: fmtVal(netTotal), color: cfg.color },
-          { label: "CALL",        val: fmtVal(callDom),  color: "#6ee7b7" },
-          { label: "PUT",         val: fmtVal(putDom),   color: "#fca5a5" },
-          { label: "FLIP LEVEL",  val: flipLevel != null ? `$${flipLevel}` : "–", color: "#fbbf24" },
-          { label: "EXPIRIES",    val: String(expCount),  color: "#93c5fd" },
-          ...(callWall  ? [{ label: "CALL WALL", val: `$${callWall}`,  color: "#fbbf24" }] : []),
-          ...(putWall   ? [{ label: "PUT WALL",  val: `$${putWall}`,   color: "#93c5fd" }] : []),
-          ...(gammaFlip != null ? [{ label: "γ FLIP", val: `$${gammaFlip}`, color: "#a78bfa" }] : []),
-        ].map(s => (
-          <div key={s.label} style={{ background: "#0a0c14", border: "1px solid #141824",
-                                       borderRadius: 6, padding: "5px 10px", textAlign: "center", minWidth: 78 }}>
-            <div style={{ fontFamily: MONO, fontSize: 8, color: "#374151", letterSpacing: "0.8px", marginBottom: 2 }}>
-              {s.label}
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 600, color: s.color }}>
-              {s.val}
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* ── Chart ─────────────────────────────────────────────────── */}
       {nS === 0 ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
