@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { GexNetHorizontalChart } from "./GexNetHorizontalChart";
 import { GexExposureTabs } from "./GexExposureTabs";
-import { GexSurface3D } from "./GexSurface3D";
+import { GexDexSurface3D } from "./GexDexSurface3D";
 import { GexStrikeHeatmap } from "./GexStrikeHeatmap";
 
 import {
@@ -641,6 +641,9 @@ export function GexDexWorkspace({ ticker, contracts }: Props) {
   const isNewTab  = tab === "dealer" || tab === "flows" || tab === "scenario";
   const isFullTab = tab === "surface";
 
+  const surfaceExposures = useMemo(() => computeExposures(ticker.spot, contracts), [ticker.spot, contracts]);
+  const surfaceLevels    = useMemo(() => computeKeyLevels(surfaceExposures), [surfaceExposures]);
+
   return (
     <div className="w-full h-full flex flex-col" style={{ background: C.bg, fontFamily: FONT }}>
       {/* Tabs bar */}
@@ -683,7 +686,14 @@ export function GexDexWorkspace({ ticker, contracts }: Props) {
           </div>
         ) : isFullTab ? (
           <div className="h-full p-2">
-            <GexSurface3D ticker={ticker} contracts={contracts} />
+            <GexDexSurface3D
+              contracts={contracts}
+              spot={ticker.spot}
+              symbol={ticker.symbol}
+              callWall={surfaceLevels.callWall}
+              putWall={surfaceLevels.putWall}
+              gammaFlip={surfaceLevels.gammaFlip}
+            />
           </div>
         ) : (
           <div className="h-full grid grid-cols-1 xl:grid-cols-2 gap-2 p-2">
