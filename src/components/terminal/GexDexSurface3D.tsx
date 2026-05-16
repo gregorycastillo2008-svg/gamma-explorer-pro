@@ -17,8 +17,8 @@ interface Props {
 
 const MONO = "JetBrains Mono, ui-monospace, monospace";
 
-// ── Diverging colorscale: cyan → dark → amber → yellow ─────────────
-const CS_GEX: [number, string][] = [
+// ── Shared diverging colorscale: cyan → dark → amber → yellow ───────
+const CS_SHARED: [number, string][] = [
   [0.00, "#00d8ff"],
   [0.15, "#0055bb"],
   [0.30, "#001a44"],
@@ -26,14 +26,6 @@ const CS_GEX: [number, string][] = [
   [0.70, "#4a1200"],
   [0.85, "#cc5500"],
   [1.00, "#ffdd00"],
-];
-
-const CS_DEX: [number, string][] = [
-  [0.00, "#00ccff"],
-  [0.20, "#0040aa"],
-  [0.50, "#080808"],
-  [0.80, "#bb4400"],
-  [1.00, "#ffcc00"],
 ];
 
 function fmtM(v: number): string {
@@ -122,8 +114,8 @@ export function GexDexSurface3D({
 
     const absMax = Math.max(Math.abs(zMin), Math.abs(zMax), 0.001);
     const label  = metric === "gex" ? "Net GEX ($M)" : "Net DEX ($M)";
-    const accent = metric === "gex" ? "#ffdd00" : "#00ccff";
-    const cs     = metric === "gex" ? CS_GEX : CS_DEX;
+    const accent = "#ffdd00";
+    const cs     = CS_SHARED;
 
     const surface = {
       type:       "surface" as const,
@@ -261,7 +253,7 @@ export function GexDexSurface3D({
   const nS     = strikeAxis.length;
   const nD     = dteAxis.length;
   const isPos  = netTotal >= 0;
-  const accent = metric === "gex" ? "#ffdd00" : "#00ccff";
+  const accent = "#ffdd00";
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column",
@@ -313,11 +305,9 @@ export function GexDexSurface3D({
                 fontFamily: MONO, fontSize: 9, padding: "2px 10px",
                 borderRadius: 3, letterSpacing: "0.12em",
                 textTransform: "uppercase" as const, cursor: "pointer",
-                background: metric === m ? (m === "gex" ? "#ffdd0022" : "#00ccff22") : "transparent",
-                color:      metric === m ? (m === "gex" ? "#ffdd00"   : "#00ccff")   : "#2a2a2a",
-                border:     metric === m
-                  ? `1px solid ${m === "gex" ? "#ffdd0066" : "#00ccff66"}`
-                  : "1px solid #1a1a1a",
+                background: metric === m ? "#ffdd0022" : "transparent",
+                color:      metric === m ? "#ffdd00"   : "#2a2a2a",
+                border:     metric === m ? "1px solid #ffdd0066" : "1px solid #1a1a1a",
                 fontWeight: metric === m ? 700 : 400,
                 transition: "all 0.12s",
               }}
@@ -344,7 +334,7 @@ export function GexDexSurface3D({
                     background: "#050505", fontFamily: MONO, fontSize: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <div style={{ width: 40, height: 4, borderRadius: 2,
-            background: "linear-gradient(90deg, #00ccff, #0a0a0a, #ffdd00)" }} />
+            background: "linear-gradient(90deg, #00d8ff, #0a0a0a, #ffdd00)" }} />
           <span style={{ color: "#1f2937" }}>PUT ← 0 → CALL</span>
         </div>
         <span style={{ color: "#1a1a1a" }}>·</span>

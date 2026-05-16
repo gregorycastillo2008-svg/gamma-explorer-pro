@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { GexNetHorizontalChart } from "./GexNetHorizontalChart";
-import { GexExposureTabs } from "./GexExposureTabs";
+
 import { GexDexSurface3D } from "./GexDexSurface3D";
 import { GexStrikeHeatmap } from "./GexStrikeHeatmap";
 
@@ -15,11 +15,10 @@ import {
 
 interface Props { ticker: DemoTicker; contracts: OptionContract[] }
 
-type Tab = "heatmap" | "strike" | "surface" | "dealer" | "flows" | "scenario";
+type Tab = "heatmap" | "surface" | "dealer" | "flows" | "scenario";
 
 const TABS: { id: Tab; label: string; isNew?: boolean }[] = [
   { id: "heatmap",  label: "HEATMAP" },
-  { id: "strike",   label: "STRIKE CHART" },
   { id: "surface",  label: "3D SURFACE" },
   { id: "dealer",   label: "DEALER FLOW",  isNew: true },
   { id: "flows",    label: "VANNA/CHARM",  isNew: true },
@@ -706,11 +705,32 @@ export function GexDexWorkspace({ ticker, contracts }: Props) {
             />
           </div>
         ) : (
-          <div className="h-full grid grid-cols-1 xl:grid-cols-2 gap-2 p-2">
-            <div className="min-h-0"><GammaExposurePanel ticker={ticker} contracts={contracts} /></div>
-            <div className="min-h-0">
-              {tab === "heatmap" && <GexStrikeHeatmap ticker={ticker} contracts={contracts} />}
-              {tab === "strike"  && <GexExposureTabs  ticker={ticker} contracts={contracts} metric="netGex" />}
+          <div className="h-full flex flex-col gap-2 p-2">
+            {/* Top row: gamma chart + heatmap */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2" style={{ flex: "0 0 50%", minHeight: 0 }}>
+              <div className="min-h-0"><GammaExposurePanel ticker={ticker} contracts={contracts} /></div>
+              <div className="min-h-0"><GexStrikeHeatmap ticker={ticker} contracts={contracts} /></div>
+            </div>
+            {/* Bottom row: GEX + DEX 3D surfaces */}
+            <div className="grid grid-cols-2 gap-2" style={{ flex: 1, minHeight: 0 }}>
+              <GexDexSurface3D
+                contracts={contracts}
+                spot={ticker.spot}
+                symbol={ticker.symbol}
+                callWall={surfaceLevels.callWall}
+                putWall={surfaceLevels.putWall}
+                gammaFlip={surfaceLevels.gammaFlip}
+                defaultMetric="gex"
+              />
+              <GexDexSurface3D
+                contracts={contracts}
+                spot={ticker.spot}
+                symbol={ticker.symbol}
+                callWall={surfaceLevels.callWall}
+                putWall={surfaceLevels.putWall}
+                gammaFlip={surfaceLevels.gammaFlip}
+                defaultMetric="dex"
+              />
             </div>
           </div>
         )}
